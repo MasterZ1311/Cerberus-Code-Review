@@ -61,3 +61,7 @@ tmp/
 
 # Subagent teamwork scratch artifacts
 .agents/
+
+# Internal documentation & submission reports
+internal_docs/
+
