@@ -4,6 +4,7 @@ Integrates with IBM watsonx Orchestrate / watsonx.ai foundation models via IBM C
 """
 
 import logging
+import os
 import time
 from typing import Optional
 import httpx
@@ -16,22 +17,39 @@ logger = logging.getLogger("cerberus.providers.watsonx")
 class WatsonxProvider(BaseLLMProvider):
     def __init__(self):
         super().__init__()
-        self.api_key = settings.WATSONX_API_KEY
-        self.project_id = settings.WATSONX_PROJECT_ID
-        self.endpoint = settings.WATSONX_URL
-        self.model_id = settings.WATSONX_MODEL_ID
+        self.api_key: Optional[str] = settings.WATSONX_API_KEY
+        self.project_id: Optional[str] = settings.WATSONX_PROJECT_ID
+        self.endpoint: str = settings.WATSONX_URL
+        self.model_id: str = settings.WATSONX_MODEL_ID
         self._iam_token: Optional[str] = None
         self._token_expires_at: float = 0.0
 
+    @property
+    def effective_api_key(self) -> Optional[str]:
+        return self.api_key or settings.WATSONX_API_KEY or os.getenv("WATSONX_API_KEY")
+
+    @property
+    def effective_project_id(self) -> Optional[str]:
+        return self.project_id or settings.WATSONX_PROJECT_ID or os.getenv("WATSONX_PROJECT_ID")
+
+    @property
+    def effective_endpoint(self) -> str:
+        return self.endpoint or settings.WATSONX_URL or os.getenv("WATSONX_URL") or "https://us-south.ml.cloud.ibm.com"
+
+    @property
+    def effective_model_id(self) -> str:
+        return self.model_id or settings.WATSONX_MODEL_ID or os.getenv("WATSONX_MODEL_ID") or "ibm/granite-3-8b-instruct"
+
     async def is_available(self) -> bool:
-        return bool(self.api_key and self.project_id)
+        return bool(self.effective_api_key and self.effective_project_id)
 
     async def _get_iam_token(self) -> Optional[str]:
         """
         Exchanges IBM Cloud API key for IAM OAuth bearer token and caches it.
         Refreshes when within 60 seconds of expiry.
         """
-        if not self.api_key:
+        api_key = self.effective_api_key
+        if not api_key:
             return None
 
         # Return cached token if valid for at least another 60 seconds
@@ -41,10 +59,13 @@ class WatsonxProvider(BaseLLMProvider):
         try:
             client = await self.get_client()
             url = "https://iam.cloud.ibm.com/identity/token"
-            headers = {"Content-Type": "application/x-www-form-urlencoded"}
+            headers = {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Accept": "application/json",
+            }
             data = {
                 "grant_type": "urn:ibm:params:oauth:grant-type:apikey",
-                "apikey": self.api_key,
+                "apikey": api_key,
             }
             res = await client.post(url, data=data, headers=headers, timeout=15.0)
             if res.status_code == 200:
@@ -74,20 +95,20 @@ class WatsonxProvider(BaseLLMProvider):
             headers = {
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
+                "Accept": "application/json",
             }
             payload = {
-                "model_id": self.model_id,
-                "project_id": self.project_id,
+                "model_id": self.effective_model_id,
+                "project_id": self.effective_project_id,
                 "input": f"{system_prompt}\n\n{user_prompt}",
                 "parameters": {
                     "decoding_method": "greedy",
-                    "max_new_tokens": 1024,
-                    "temperature": 0.1,
+                    "max_new_tokens": 2048,
                     "repetition_penalty": 1.05,
                 },
             }
             client = await self.get_client()
-            endpoint_base = self.endpoint.rstrip("/")
+            endpoint_base = self.effective_endpoint.rstrip("/")
             url = f"{endpoint_base}/ml/v1/text/generation?version=2023-05-29"
             res = await client.post(url, json=payload, headers=headers, timeout=20.0)
             if res.status_code == 200:
