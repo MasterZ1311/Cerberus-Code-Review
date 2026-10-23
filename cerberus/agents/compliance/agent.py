@@ -4,9 +4,16 @@ Evaluates source code against HIPAA, GDPR, SOC 2, PCI-DSS, and CCPA regulatory f
 """
 
 import asyncio
+import logging
 import time
 from typing import Any, Dict, List, Optional
 
+from cerberus.agents.ai_helper import (
+    build_findings_from_llm,
+    compute_composite_score,
+    merge_findings,
+    parse_llm_json,
+)
 from cerberus.agents.base import BaseAgent
 from cerberus.agents.compliance.ccpa_evaluator import CCPARegulatoryEvaluator
 from cerberus.agents.compliance.gdpr_evaluator import GDPRRegulatoryEvaluator
@@ -22,6 +29,10 @@ from cerberus.agents.compliance.models import (
 from cerberus.agents.compliance.pcidss_evaluator import PCIDSSRegulatoryEvaluator
 from cerberus.agents.compliance.soc2_evaluator import SOC2RegulatoryEvaluator
 from cerberus.models.schemas import AgentResult, Finding, SeverityEnum
+from cerberus.providers import get_llm_provider
+from cerberus.providers.base import BaseLLMProvider
+
+logger = logging.getLogger("cerberus.agents.compliance")
 
 
 class ComprehensiveComplianceAgent(BaseAgent):
@@ -31,8 +42,11 @@ class ComprehensiveComplianceAgent(BaseAgent):
     """
 
     name: str = "compliance"
-    version: str = "2.0.0"
+    version: str = "2.1.0"
     purpose: str = "Audit code against HIPAA, GDPR, SOC 2, PCI-DSS, and CCPA regulatory mandates"
+
+    def __init__(self, provider: Optional[BaseLLMProvider] = None):
+        self.provider = provider
 
     def get_capabilities(self) -> List[str]:
         return [
@@ -156,7 +170,7 @@ class ComprehensiveComplianceAgent(BaseAgent):
         """Analyze code asynchronously across all regulatory compliance frameworks."""
         start_time = time.perf_counter()
 
-        # Safely offload regex and AST evaluation to threadpool
+        # 1. Safely offload regex and AST evaluation to threadpool
         report: ComplianceReport = await asyncio.to_thread(
             self._evaluate_synchronously,
             code,
@@ -167,12 +181,69 @@ class ComprehensiveComplianceAgent(BaseAgent):
         for fs in report.frameworks.values():
             all_findings.extend(fs.findings)
 
+        final_score = report.overall_compliance_score
+
+        # 2. Check if LLM provider is available for deeper regulatory audit
+        provider = self.provider or get_llm_provider()
+        if provider and await provider.is_available():
+            try:
+                bounded_code = code[:12000]
+                if len(code) > 12000:
+                    bounded_code += "\n# ... [Remaining code truncated for LLM context window]"
+
+                system_prompt = (
+                    "[ROLE]: Enterprise Regulatory Compliance Auditor utilizing IBM Granite foundation models.\n"
+                    "[TASK]: Audit the source code against regulatory mandates: HIPAA (ePHI logging, cleartext transmission), "
+                    "GDPR (PII exposure, data minimization, consent/erasure), SOC 2 (secrets in code, audit logging, RBAC), "
+                    "PCI-DSS (cardholder PANs, CVV storage), and CCPA.\n"
+                    "[CONSTRAINTS]: Return strictly a valid JSON object matching the requested schema. No conversational filler.\n"
+                    "[FORMAT]:\n"
+                    "{\n"
+                    '  "score": 85.0,\n'
+                    '  "findings": [\n'
+                    "    {\n"
+                    '      "severity": "critical|high|medium|low|info",\n'
+                    '      "category": "hipaa|gdpr|soc2|pcidss|ccpa",\n'
+                    '      "title": "Short title citing standard",\n'
+                    '      "message": "Detailed description of compliance violation",\n'
+                    '      "line": 1,\n'
+                    '      "code_snippet": "offending code",\n'
+                    '      "explanation": "Regulatory framework violation explanation and risk",\n'
+                    '      "recommendation": "Remediation guidance",\n'
+                    '      "suggestion": "Compliant code replacement"\n'
+                    "    }\n"
+                    "  ]\n"
+                    "}"
+                )
+
+                user_prompt = (
+                    f"Audit this {language} code against regulatory frameworks (HIPAA, GDPR, SOC 2, PCI-DSS, CCPA):\n"
+                    f"```{language}\n"
+                    f"{bounded_code}\n"
+                    f"```"
+                )
+
+                raw_response = await provider.generate_response(system_prompt, user_prompt)
+                llm_data = parse_llm_json(raw_response)
+
+                if llm_data and isinstance(llm_data, dict):
+                    raw_findings = llm_data.get("findings", [])
+                    ai_findings = build_findings_from_llm(raw_findings, self.name, code)
+                    all_findings = merge_findings(all_findings, ai_findings)
+                    final_score = compute_composite_score(
+                        all_findings,
+                        llm_score=llm_data.get("score"),
+                        heuristic_score=report.overall_compliance_score,
+                    )
+            except Exception as e:
+                logger.warning(f"ComplianceAgent LLM analysis failed; falling back to heuristic engine: {e}")
+
         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
 
         return AgentResult(
             name=self.name,
             status="completed",
-            score=report.overall_compliance_score,
+            score=round(final_score, 1),
             execution_time_ms=elapsed_ms,
             findings=all_findings
         )
