@@ -168,10 +168,24 @@ def list_agents():
 @app.command()
 def health():
     """Check system health, cache status, and active configuration."""
+    provider_info = settings.LLM_PROVIDER
+    if settings.LLM_PROVIDER == "watsonx":
+        configured = bool(settings.WATSONX_API_KEY and settings.WATSONX_PROJECT_ID)
+        status_tag = "[green]Ready (Credentials Active)[/green]" if configured else "[yellow]Awaiting Credentials in .env[/yellow]"
+        provider_info = f"watsonx (IBM Granite) - {status_tag}"
+    elif settings.LLM_PROVIDER == "openai":
+        configured = bool(settings.OPENAI_API_KEY and len(settings.OPENAI_API_KEY) > 10)
+        status_tag = "[green]Ready (API Key Active)[/green]" if configured else "[yellow]Awaiting OPENAI_API_KEY in .env[/yellow]"
+        provider_info = f"openai ({settings.OPENAI_MODEL}) - {status_tag}"
+    elif settings.LLM_PROVIDER == "ollama":
+        provider_info = f"ollama ({settings.OLLAMA_MODEL}) @ {settings.OLLAMA_BASE_URL}"
+    elif settings.LLM_PROVIDER == "heuristic":
+        provider_info = "heuristic (Zero-Config Offline AST Engine)"
+
     console.print(Panel(
         f"[bold]Status:[/bold] [green]HEALTHY[/green]\n"
         f"[bold]Version:[/bold] {__version__}\n"
-        f"[bold]LLM Provider:[/bold] {settings.LLM_PROVIDER}\n"
+        f"[bold]LLM Provider:[/bold] {provider_info}\n"
         f"[bold]Active Agents:[/bold] {', '.join(settings.enabled_agents_list)}\n"
         f"[bold]Cache Enabled:[/bold] {settings.CACHE_ENABLED} (TTL: {settings.CACHE_TTL_SECONDS}s)\n"
         f"[bold]Web Dashboard:[/bold] http://{settings.HOST}:{settings.PORT}/",

@@ -25,9 +25,11 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown — close all provider clients
     from cerberus.agents.orchestrator import orchestrator
+    from cerberus.providers import close_all_providers
     for agent in orchestrator.registry.values():
-        if hasattr(agent, "provider") and hasattr(agent.provider, "close"):
+        if hasattr(agent, "provider") and hasattr(agent.provider, "close") and agent.provider:
             await agent.provider.close()
+    await close_all_providers()
     await cache_manager.close()
 
 
