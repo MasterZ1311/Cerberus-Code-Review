@@ -1,9 +1,14 @@
 """
 Validate OpenAPI 3.1 YAML extracted from API_SPECIFICATIONS.md.
 """
-import yaml
+import sys
 from pathlib import Path
-from scripts.verify_python_blocks import ROOT
+
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+import yaml
 
 def extract_yaml_blocks(doc_path):
     text = doc_path.read_text(encoding="utf-8")

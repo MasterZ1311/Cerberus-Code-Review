@@ -10,7 +10,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path(r"e:\My Development\IBM Agentic AI - PT1\MultiAgentCodeReview")
+ROOT = Path(__file__).resolve().parent.parent
 DOCS = [
     "PHASE_1_DETAILED_IMPLEMENTATION.md",
     "AGENT_SPECIFICATIONS.md",

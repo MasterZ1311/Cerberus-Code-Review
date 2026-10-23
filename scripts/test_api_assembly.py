@@ -6,7 +6,12 @@ import re
 import sys
 import types
 from pathlib import Path
-from scripts.verify_python_blocks import extract_python_blocks, ROOT
+
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from scripts.verify_python_blocks import extract_python_blocks
 import cerberus.models.database as c_db
 
 def assemble_full_api():
@@ -75,4 +80,4 @@ def assemble_full_api():
     return app, schema
 
 if __name__ == "__main__":
-    test_full_api_assembly()
+    assemble_full_api()
