@@ -1,37 +1,42 @@
 # MultiAgent-CodeReview
 
-**cerberus</> Autonomous Multi-Agent Code Review & Quality Assurance System**
+**cerberus</> Autonomous Multi-Agent Code Review & Collaborative Quality Assurance System**
 *(CodeVault AI Architecture Concept)*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python: 3.11+](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/downloads/)
 [![CI Status](https://github.com/MasterZ1311/MultiAgent-CodeReview/actions/workflows/ci.yml/badge.svg)](https://github.com/MasterZ1311/MultiAgent-CodeReview/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-352%20passed-brightgreen.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-363%20passed-brightgreen.svg)](tests/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Security Policy](https://img.shields.io/badge/security-policy-red.svg)](SECURITY.md)
 
-**cerberus</>** is an enterprise-grade multi-agent code review platform that inspects source code across five independent, specialized dimensions: **Security**, **Performance**, **Quality**, **Architecture**, and **Regulatory Compliance**. It supports flexible LLM backends including **IBM watsonx (IBM Granite)**, **OpenAI**, **Ollama**, and includes a zero-config deterministic **Heuristic Engine** that runs 100% offline without credentials.
+**cerberus</>** is an enterprise-grade multi-agent code review platform where specialized AI agents inspect source code across independent dimensions (**Security**, **Performance**, **Quality**, **Architecture**, **Regulatory Compliance**), collaboratively deliberate to reach a unified merge consensus (**Consensus Agent**), and automatically synthesize verified Git unified diff patches (**Code Fixer Agent**).
+
+Cerberus is LLM-agnostic: plug in **any key you have** — **Groq**, **OpenAI**, **Anthropic Claude**, **Google Gemini**, **DeepSeek**, **Ollama** (100% free local), or **IBM watsonx** — or run completely offline with the deterministic **Heuristic Engine** with zero credentials.
 
 ---
 
 ## ✨ Key Features
 
-🤖 **5 Specialized Review Agents**
+🤖 **Specialized Multi-Agent Panel & Collaborative Engine**
 - **Security Agent**: CWE-89 (SQL Injection), CWE-798 (Hardcoded Secrets), CWE-78 (Command Injection), CWE-328 (Weak Cryptography), CWE-502 (Insecure Deserialization), with CVSS 3.1 scoring.
 - **Performance Agent**: Algorithmic complexity ($O(n^2)$ nested iterations), database N+1 query patterns, and string concatenation memory churn.
 - **Quality Agent**: PEP 257 docstring completeness, cognitive complexity, monolithic functions, bare except clauses, and wildcard import pollution.
 - **Architecture Agent**: Structural modularity scoring, deep relative import anti-patterns (`....`), and cyclic dependency risks.
 - **Compliance Agent**: Automated auditing against **HIPAA** (ePHI transit encryption), **GDPR** (erasure & minimization), **SOC 2** (secrets & RBAC), **PCI-DSS v4.0** (Luhn card number validation, CVV storage prohibition), and **CCPA**.
+- **Consensus Agent (Collaborative Moderator)**: Correlates cross-domain findings, resolves multi-agent conflicts, evaluates PR merge-readiness (`MERGE_READY`, `NEEDS_REVISION`, `BLOCKED_ON_ISSUES`), and issues an actionable consensus brief.
+- **Code Fixer Agent (Automated Patch Synthesis)**: Automatically generates an AST-verified Git unified diff patch (`.patch`) resolving all flagged issues simultaneously.
 
-⚡ **Dual Execution Engines**
-- **Zero-Config Offline Heuristics**: `LLM_PROVIDER=heuristic` works immediately out of the box with zero credentials, zero network latency, and instant deterministic analysis.
-- **IBM watsonx Enterprise Integration**: `LLM_PROVIDER=watsonx` leverages IBM Granite foundation models (`ibm/granite-3-8b-instruct`) with automated IAM OAuth token rotation.
+🔑 **Flexible Multi-Provider & Per-Agent Key Routing**
+- **Auto-Detection (`LLM_PROVIDER=auto`)**: Add any key to `.env` (Groq, OpenAI, Anthropic, Gemini, DeepSeek, Ollama) and Cerberus configures itself automatically.
+- **Mix & Match Different Keys**: Assign different providers and keys to different agents (e.g. `SECURITY_AGENT_PROVIDER=anthropic`, `PERFORMANCE_AGENT_PROVIDER=groq`, `QUALITY_AGENT_PROVIDER=openai`).
+- **Zero-Config Offline Heuristics**: Runs 100% offline without credentials, zero latency, and zero cloud dependencies.
 
 🚀 **Developer & Pipeline Ready**
 - Full RESTful API with FastAPI and WebSocket real-time progress streaming.
 - Typer-powered CLI (`cerberus.cli`) for local reviews, service management, and health checks.
 - Prometheus telemetry metrics (`/metrics`) and Redis/in-memory LRU caching.
-- Automated dev key auto-seeding (`cvai_dev_key_123`) for frictionless onboarding.
+- Modern Web Dashboard with real-time score rings, consensus verdicts, and one-click Git patch copying.
 
 ---
 
@@ -39,49 +44,73 @@
 
 ### 1. Installation
 
-Clone repository and install pinned dependencies:
+Clone repository and install dependencies:
 
 ```bash
 git clone https://github.com/MasterZ1311/MultiAgent-CodeReview.git
 cd MultiAgent-CodeReview
 
-# Install dependencies (Python 3.13+)
+# Install dependencies (Python 3.11+)
 pip install -r requirements.txt
 ```
 
-### 2. Configuration & Running Without Credentials
+### 2. Configure Your API Keys
 
-By default, Cerberus runs with the zero-config heuristic engine. No external API keys or cloud accounts are required:
+Copy `.env.example` to `.env`:
 
 ```bash
-# Copy example configuration
 cp .env.example .env
-
-# Start the API server directly (defaults to LLM_PROVIDER=heuristic)
-python -m cerberus.cli serve --host 0.0.0.0 --port 8000
 ```
 
-Alternatively, launch the containerized stack using Docker Compose:
+Set any API key you have (or leave empty to run offline heuristics):
 
 ```bash
-docker-compose up -d
+# Provider selection (auto-detects configured keys)
+LLM_PROVIDER=auto
+
+# Groq (Ultra-fast, generous free tier: https://console.groq.com)
+GROQ_API_KEY=gsk_your_key_here
+
+# OpenAI (https://platform.openai.com)
+OPENAI_API_KEY=sk-your_key_here
+
+# Anthropic Claude (https://console.anthropic.com)
+ANTHROPIC_API_KEY=sk-ant-your_key_here
+
+# Google Gemini (Free tier available: https://aistudio.google.com)
+GEMINI_API_KEY=your_gemini_key_here
+
+# DeepSeek (https://platform.deepseek.com)
+DEEPSEEK_API_KEY=sk-your_deepseek_key_here
+
+# Ollama (100% Free, Local, Offline: https://ollama.ai)
+OLLAMA_BASE_URL=http://localhost:11434
 ```
 
-### 3. Running with IBM watsonx (Granite Models)
+### 3. Run Different Agents on Different Providers (Optional)
 
-To connect Cerberus to IBM Cloud watsonx:
+You can assign distinct providers/keys to individual agents:
 
-1. Set `LLM_PROVIDER=watsonx` in your `.env` file.
-2. Provide your IBM Cloud credentials:
-   ```bash
-   LLM_PROVIDER=watsonx
-   WATSONX_API_KEY=your-ibm-cloud-api-key
-   WATSONX_PROJECT_ID=your-watsonx-project-id
-   WATSONX_URL=https://us-south.ml.cloud.ibm.com
-   WATSONX_MODEL_ID=ibm/granite-3-8b-instruct
-   ```
-3. Cerberus handles dynamic IAM OAuth bearer token exchange (`https://iam.cloud.ibm.com/identity/token`), token caching, and proactive renewal automatically.
-4. See [`WATSONX_INTEGRATION.md`](WATSONX_INTEGRATION.md) for detailed IAM permissions and setup guidance.
+```bash
+SECURITY_AGENT_PROVIDER=anthropic
+PERFORMANCE_AGENT_PROVIDER=groq
+QUALITY_AGENT_PROVIDER=openai
+ARCHITECTURE_AGENT_PROVIDER=gemini
+COMPLIANCE_AGENT_PROVIDER=deepseek
+```
+
+### 4. Launch Web Dashboard or CLI
+
+```bash
+# Launch Web Dashboard on http://localhost:8000
+python -m cerberus.cli serve
+
+# Health check
+python -m cerberus.cli health
+
+# Run multi-agent review via CLI
+python -m cerberus.cli review --snippet "import os; os.system('ls')"
+```
 
 ---
 

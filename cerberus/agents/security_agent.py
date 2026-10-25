@@ -56,7 +56,7 @@ class SecurityAgent(BaseAgent):
         final_score = h_score
 
         # 2. Check if LLM foundation model provider is configured & available
-        provider = self.provider or get_llm_provider()
+        provider = self.provider or get_llm_provider(agent_name=self.name)
         if provider and await provider.is_available():
             try:
                 bounded_code = code[:12000]

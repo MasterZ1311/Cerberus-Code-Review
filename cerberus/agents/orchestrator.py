@@ -11,7 +11,9 @@ from typing import Any, Dict, List, Optional
 
 from cerberus.agents.architecture_agent import ArchitectureAgent
 from cerberus.agents.base import BaseAgent
+from cerberus.agents.code_fixer_agent import CodeFixerAgent
 from cerberus.agents.compliance_agent import ComplianceAgent
+from cerberus.agents.consensus_agent import ConsensusAgent
 from cerberus.agents.performance_agent import PerformanceAgent
 from cerberus.agents.quality_agent import QualityAgent
 from cerberus.agents.security_agent import SecurityAgent
@@ -46,6 +48,8 @@ class ReviewOrchestrator:
             "quality": QualityAgent(),
             "architecture": ArchitectureAgent(),
             "compliance": ComplianceAgent(),
+            "consensus": ConsensusAgent(),
+            "code_fixer": CodeFixerAgent(),
         }
 
     def list_agents(self) -> List[Dict[str, Any]]:
@@ -57,7 +61,7 @@ class ReviewOrchestrator:
                 "version": agent.version,
                 "purpose": agent.purpose,
                 "capabilities": agent.get_capabilities(),
-                "status": "active" if agent_id in settings.enabled_agents_list else "disabled",
+                "status": "active" if (agent_id in settings.enabled_agents_list or (settings.COLLABORATIVE_MODE and agent_id in ("consensus", "code_fixer"))) else "disabled",
             }
             for agent_id, agent in self.registry.items()
         ]
@@ -188,10 +192,54 @@ class ReviewOrchestrator:
         total_elapsed_ms = int((time.perf_counter() - start_time) * 1000)
         completed_iso = datetime.now(timezone.utc).isoformat()
 
+        # 5. Multi-Agent Collaborative Consensus & Patch Generation
+        collaborative_consensus = None
+        unified_patch = None
+        consensus_summary = None
+
+        if getattr(settings, "COLLABORATIVE_MODE", True) and ("consensus" in self.registry):
+            try:
+                consensus_agent = self.registry["consensus"]
+                consensus_res = await consensus_agent.analyze(
+                    code=request.code,
+                    language=request.language or "python",
+                    context={"findings": all_findings, "agent_scores": scores}
+                )
+                if consensus_res.findings:
+                    cf = consensus_res.findings[0]
+                    consensus_summary = cf.message
+                    collaborative_consensus = {
+                        "status": "completed",
+                        "summary": cf.message,
+                        "pr_action": cf.title.replace("Multi-Agent Consensus: ", "").upper(),
+                        "verdict": cf.explanation,
+                    }
+                    if "consensus" in active_agents:
+                        agents_payload.append(consensus_res.model_dump())
+            except Exception as e:
+                logger.warning(f"Collaborative consensus step failed: {e}")
+
+        if getattr(settings, "AUTO_GENERATE_FIXES", True) and ("code_fixer" in self.registry) and all_findings:
+            try:
+                fixer_agent = self.registry["code_fixer"]
+                fixer_res = await fixer_agent.analyze(
+                    code=request.code,
+                    language=request.language or "python",
+                    context={"findings": all_findings, "filename": request.filename or "snippet.py"}
+                )
+                if fixer_res.findings and fixer_res.findings[0].suggestion:
+                    unified_patch = fixer_res.findings[0].suggestion
+                if "code_fixer" in active_agents:
+                    agents_payload.append(fixer_res.model_dump())
+            except Exception as e:
+                logger.warning(f"Collaborative code fixer step failed: {e}")
+
         results_data = {
             "overall_score": overall_score,
             "severity_summary": summary,
             "agents": agents_payload,
+            "collaborative_consensus": collaborative_consensus,
+            "unified_patch": unified_patch,
         }
 
         response = CodeReviewResponse(
@@ -215,6 +263,9 @@ class ReviewOrchestrator:
                 "self": f"/api/v1/review/{review_id}",
                 "results": f"/api/v1/review/{review_id}/results",
             },
+            summary=consensus_summary,
+            collaborative_consensus=collaborative_consensus,
+            unified_patch=unified_patch,
         )
 
         # 5. Save to Cache only if all agents completed successfully (prevent cache poisoning)

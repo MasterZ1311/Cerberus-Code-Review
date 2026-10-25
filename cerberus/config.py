@@ -49,16 +49,50 @@ class Settings(BaseSettings):
     CACHE_TTL_SECONDS: int = 604800  # 7 days
     CACHE_MAX_ITEMS: int = 1000
 
-    # LLM Provider Configuration
-    LLM_PROVIDER: str = "heuristic"  # Options: watsonx, openai, ollama, heuristic
+    # LLM Provider Configuration (Supports multi-provider, auto-detection, and per-agent routing)
+    LLM_PROVIDER: str = "auto"  # Options: auto, openai, anthropic, gemini, groq, deepseek, openrouter, ollama, heuristic, watsonx
+
+    # Provider Credentials & Model Settings
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_MODEL: str = "gpt-4o"
+    OPENAI_BASE_URL: Optional[str] = None
+
+    ANTHROPIC_API_KEY: Optional[str] = None
+    ANTHROPIC_MODEL: str = "claude-3-5-sonnet-20241022"
+
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: str = "gemini-1.5-flash"
+
+    GROQ_API_KEY: Optional[str] = None
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+
+    DEEPSEEK_API_KEY: Optional[str] = None
+    DEEPSEEK_MODEL: str = "deepseek-chat"
+
+    OPENROUTER_API_KEY: Optional[str] = None
+    OPENROUTER_MODEL: str = "auto"
+
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
+    OLLAMA_MODEL: str = "codellama"
+
+    # Optional / Legacy IBM watsonx (optional backwards compatibility)
     WATSONX_API_KEY: Optional[str] = None
     WATSONX_PROJECT_ID: Optional[str] = None
     WATSONX_URL: str = "https://us-south.ml.cloud.ibm.com"
     WATSONX_MODEL_ID: str = "ibm/granite-3-8b-instruct"
-    OPENAI_API_KEY: Optional[str] = None
-    OPENAI_MODEL: str = "gpt-4o"
-    OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_MODEL: str = "codellama"
+
+    # Per-Agent Provider Overrides (assign different providers/keys to different agents)
+    SECURITY_AGENT_PROVIDER: Optional[str] = None
+    PERFORMANCE_AGENT_PROVIDER: Optional[str] = None
+    QUALITY_AGENT_PROVIDER: Optional[str] = None
+    ARCHITECTURE_AGENT_PROVIDER: Optional[str] = None
+    COMPLIANCE_AGENT_PROVIDER: Optional[str] = None
+    FIXER_AGENT_PROVIDER: Optional[str] = None
+    CONSENSUS_AGENT_PROVIDER: Optional[str] = None
+
+    # Multi-Agent Collaboration Settings
+    COLLABORATIVE_MODE: bool = True
+    AUTO_GENERATE_FIXES: bool = True
 
     # Active Agents
     ENABLED_AGENTS: str = "security,performance,quality,architecture,compliance"

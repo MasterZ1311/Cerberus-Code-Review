@@ -429,6 +429,40 @@
       display: none;
     }
 
+    .consensus-card {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      border-radius: 10px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .consensus-card.merge_ready { border-color: rgba(16, 185, 129, 0.5); background: rgba(6, 78, 59, 0.2); }
+    .consensus-card.needs_revision { border-color: rgba(245, 158, 11, 0.5); background: rgba(120, 53, 15, 0.2); }
+    .consensus-card.blocked_on_issues { border-color: rgba(239, 68, 68, 0.5); background: rgba(127, 29, 29, 0.2); }
+
+    .patch-card {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      border-radius: 10px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .patch-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      background: #020617;
+      padding: 0.75rem;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      overflow-x: auto;
+      color: #34d399;
+      max-height: 200px;
+    }
+
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
@@ -624,9 +658,45 @@
       const container = document.getElementById('findings-list');
       container.innerHTML = '';
 
+      // 1. Collaborative Consensus Section
+      if (data.collaborative_consensus) {
+        const cc = data.collaborative_consensus;
+        const action = (cc.pr_action || 'MERGE_READY').toLowerCase();
+        const actionDisplay = (cc.pr_action || 'MERGE_READY').replace(/_/g, ' ');
+        const consensusEl = document.createElement('div');
+        consensusEl.className = `consensus-card ${action}`;
+        consensusEl.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 800; font-size: 0.95rem; color: #fff;">🤝 Multi-Agent Collaborative Consensus</span>
+            <span class="badge-pill" style="background: rgba(255,255,255,0.15); color: #fff;">${actionDisplay}</span>
+          </div>
+          <div style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.4;">${cc.summary || cc.consensus_summary || ''}</div>
+          ${cc.priority_action_plan && cc.priority_action_plan.length ? `
+            <div style="margin-top: 0.25rem; font-size: 0.75rem; color: #94a3b8;">
+              <strong>Action Plan:</strong> ${cc.priority_action_plan.join(' • ')}
+            </div>
+          ` : ''}
+        `;
+        container.appendChild(consensusEl);
+      }
+
+      // 2. Automated Git Unified Diff Patch
+      if (data.unified_patch) {
+        const patchEl = document.createElement('div');
+        patchEl.className = 'patch-card';
+        patchEl.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 800; font-size: 0.95rem; color: #34d399;">🛠️ Multi-Agent Automated Patch (Git Unified Diff)</span>
+            <button class="btn-preset" onclick="navigator.clipboard.writeText(lastReviewData.unified_patch); this.innerText = '✔ Copied!'; setTimeout(() => this.innerText = 'Copy Patch', 2000);">Copy Patch</button>
+          </div>
+          <div class="patch-code">${data.unified_patch.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+        `;
+        container.appendChild(patchEl);
+      }
+
       const allFindings = [...(data.critical_issues || []), ...(data.warnings || []), ...(data.suggestions || [])];
 
-      if (allFindings.length === 0) {
+      if (allFindings.length === 0 && !data.collaborative_consensus && !data.unified_patch) {
         container.innerHTML = '<div style="text-align: center; padding: 3rem; color: #10b981; font-weight: 700;">✅ Excellent! All agents passed with zero findings.</div>';
         return;
       }

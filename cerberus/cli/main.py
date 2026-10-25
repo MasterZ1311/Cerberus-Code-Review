@@ -4,7 +4,9 @@ Supports on-demand code reviews, server launch, agent inspection, and API key ge
 """
 
 import asyncio
+import os
 from pathlib import Path
+import sys
 from typing import Optional
 import typer
 import uvicorn
@@ -16,6 +18,36 @@ from cerberus.agents.orchestrator import orchestrator
 from cerberus.config import settings
 from cerberus.core.security import generate_api_key
 from cerberus.models.schemas import CodeReviewRequest, ReviewConfig
+
+# Reconfigure stdout/stderr to utf-8 safely
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
+
+def _safe_text(val: Optional[str]) -> str:
+    """Normalize special unicode symbols that crash legacy Windows charmap encoders."""
+    if not val:
+        return ""
+    text = str(val)
+    replacements = {
+        "\u2011": "-",
+        "\u2013": "-",
+        "\u2014": "--",
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u201c": '"',
+        "\u201d": '"',
+        "\u2026": "...",
+        "\u00a0": " ",
+        "•": "-",
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return text
 
 app = typer.Typer(
     name="cerberus",
@@ -71,7 +103,7 @@ def review(
     console.print(Panel(
         f"[bold]Overall Quality Score:[/bold] [{score_color}]{response.overall_score} / 100[/{score_color}]\n"
         f"[bold]Latency:[/bold] {response.processing_time_ms}ms "
-        f"{'⚡ [bold green](Cache Hit)[/bold green]' if response.cache_hit else ''}\n"
+        f"{'[bold green][Cache Hit][/bold green]' if response.cache_hit else ''}\n"
         f"[bold]Critical:[/bold] [red]{summary.get('critical', 0)}[/red] | "
         f"[bold]High:[/bold] [yellow]{summary.get('high', 0)}[/yellow] | "
         f"[bold]Medium:[/bold] {summary.get('medium', 0)} | "
@@ -83,7 +115,7 @@ def review(
     all_findings = response.critical_issues + response.warnings + response.suggestions
 
     if not all_findings:
-        console.print("[bold green]✔ Zero vulnerabilities or quality issues detected![/bold green]")
+        console.print("[bold green][OK] Zero vulnerabilities or quality issues detected![/bold green]")
     else:
         table = Table(title="Synthesized Agent Findings", show_header=True, header_style="bold magenta")
         table.add_column("Sev", width=10)
@@ -93,20 +125,46 @@ def review(
 
         for f in all_findings:
             sev_color = "red" if f.severity.value in ("critical", "high") else ("yellow" if f.severity.value == "medium" else "blue")
-            details = f"[bold]{f.title}[/bold]\n[dim]{f.message}[/dim]"
-            if f.suggestion:
-                details += f"\n[green]Suggested Fix:[/green] {f.suggestion}"
+            safe_title = _safe_text(f.title)
+            safe_msg = _safe_text(f.message)
+            safe_fix = _safe_text(f.suggestion)
+            details = f"[bold]{safe_title}[/bold]\n[dim]{safe_msg}[/dim]"
+            if safe_fix:
+                details += f"\n[green]Suggested Fix:[/green] {safe_fix}"
             table.add_row(
                 f"[{sev_color}]{f.severity.value.upper()}[/{sev_color}]",
                 str(f.line or "-"),
-                f.category,
+                _safe_text(f.category),
                 details
             )
 
         console.print(table)
 
+    # Multi-Agent Collaborative Consensus
+    if response.collaborative_consensus:
+        cc = response.collaborative_consensus
+        pr_action = cc.get("pr_action", "MERGE_READY")
+        action_color = "green" if pr_action == "MERGE_READY" else ("yellow" if pr_action == "NEEDS_REVISION" else "red")
+        safe_summary = _safe_text(cc.get('summary'))
+        safe_plan = [_safe_text(p) for p in cc.get('priority_action_plan', [])]
+        console.print(Panel(
+            f"[bold]Consensus Verdict:[/bold] [{action_color}]{pr_action.replace('_', ' ')}[/{action_color}]\n"
+            f"[bold]Summary:[/bold] {safe_summary}\n"
+            + (f"[dim]Plan: {', '.join(safe_plan)}[/dim]" if safe_plan else ""),
+            title="[bold cyan][COLLABORATIVE CONSENSUS] Multi-Agent Alignment[/bold cyan]",
+            border_style=action_color
+        ))
+
+    # Multi-Agent Automated Unified Patch
+    if response.unified_patch:
+        console.print(Panel(
+            f"[green]{_safe_text(response.unified_patch)}[/green]",
+            title="[bold green][AUTOMATED PATCH] Multi-Agent Consolidated Fix (Git Unified Diff)[/bold green]",
+            border_style="green"
+        ))
+
     if blocking and response.should_block:
-        console.print(f"[bold red]⛔ Blocking Commit/Push:[/bold red] {response.block_reason}")
+        console.print(f"[bold red][BLOCKED] Blocking Commit/Push:[/bold red] {response.block_reason}")
         raise typer.Exit(code=1)
 
 
@@ -157,7 +215,7 @@ def list_agents():
 
     for a in agents_data:
         status_col = "[green]ACTIVE[/green]" if a["status"] == "active" else "[dim]DISABLED[/dim]"
-        caps = "\n• " + "\n• ".join(a["capabilities"][:4])
+        caps = "\n- " + "\n- ".join(a["capabilities"][:4])
         if len(a["capabilities"]) > 4:
             caps += f"\n[dim]+ {len(a['capabilities']) - 4} more[/dim]"
         table.add_row(f"[bold]{a['id']}[/bold]", status_col, a["purpose"], caps)
@@ -168,24 +226,32 @@ def list_agents():
 @app.command()
 def health():
     """Check system health, cache status, and active configuration."""
-    provider_info = settings.LLM_PROVIDER
-    if settings.LLM_PROVIDER == "watsonx":
-        configured = bool(settings.WATSONX_API_KEY and settings.WATSONX_PROJECT_ID)
-        status_tag = "[green]Ready (Credentials Active)[/green]" if configured else "[yellow]Awaiting Credentials in .env[/yellow]"
-        provider_info = f"watsonx (IBM Granite) - {status_tag}"
-    elif settings.LLM_PROVIDER == "openai":
-        configured = bool(settings.OPENAI_API_KEY and len(settings.OPENAI_API_KEY) > 10)
-        status_tag = "[green]Ready (API Key Active)[/green]" if configured else "[yellow]Awaiting OPENAI_API_KEY in .env[/yellow]"
-        provider_info = f"openai ({settings.OPENAI_MODEL}) - {status_tag}"
-    elif settings.LLM_PROVIDER == "ollama":
-        provider_info = f"ollama ({settings.OLLAMA_MODEL}) @ {settings.OLLAMA_BASE_URL}"
-    elif settings.LLM_PROVIDER == "heuristic":
-        provider_info = "heuristic (Zero-Config Offline AST Engine)"
+    from cerberus.providers import resolve_auto_provider
+    active_prov = resolve_auto_provider() if settings.LLM_PROVIDER in ("auto", "detect", "") else settings.LLM_PROVIDER
+
+    configured_keys = []
+    if settings.GROQ_API_KEY:
+        configured_keys.append("Groq")
+    if settings.OPENAI_API_KEY:
+        configured_keys.append("OpenAI")
+    if settings.ANTHROPIC_API_KEY:
+        configured_keys.append("Anthropic")
+    if settings.GEMINI_API_KEY:
+        configured_keys.append("Gemini")
+    if settings.DEEPSEEK_API_KEY:
+        configured_keys.append("DeepSeek")
+    if getattr(settings, "WATSONX_API_KEY", None):
+        configured_keys.append("Watsonx (Legacy)")
+
+    keys_status = f"[green]{', '.join(configured_keys)}[/green]" if configured_keys else "[dim]None (Running Heuristic Engine)[/dim]"
+    prov_display = f"{active_prov.upper()} (Active)" if active_prov != "heuristic" else "Heuristic (Offline AST Engine)"
 
     console.print(Panel(
         f"[bold]Status:[/bold] [green]HEALTHY[/green]\n"
         f"[bold]Version:[/bold] {__version__}\n"
-        f"[bold]LLM Provider:[/bold] {provider_info}\n"
+        f"[bold]Active LLM Provider:[/bold] {prov_display}\n"
+        f"[bold]Detected API Keys:[/bold] {keys_status}\n"
+        f"[bold]Multi-Agent Collaboration:[/bold] [green]Active[/green] (Consensus + Code Fixer)\n"
         f"[bold]Active Agents:[/bold] {', '.join(settings.enabled_agents_list)}\n"
         f"[bold]Cache Enabled:[/bold] {settings.CACHE_ENABLED} (TTL: {settings.CACHE_TTL_SECONDS}s)\n"
         f"[bold]Web Dashboard:[/bold] http://{settings.HOST}:{settings.PORT}/",

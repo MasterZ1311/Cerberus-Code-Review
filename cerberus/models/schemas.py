@@ -103,6 +103,9 @@ class CodeReviewResponse(BaseModel):
     agents_scheduled: List[str] = Field(default_factory=list)
     webhook_url: Optional[str] = None
     _links: Optional[Dict[str, str]] = None
+    summary: Optional[str] = None
+    collaborative_consensus: Optional[Dict[str, Any]] = None
+    unified_patch: Optional[str] = None
 
 
 class BatchReviewRequest(BaseModel):
