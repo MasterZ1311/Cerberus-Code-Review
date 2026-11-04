@@ -1,6 +1,6 @@
 """
 Code Quality Agent: Specializes in Clean Code, Maintainability, and Cognitive Complexity.
-Combines deterministic AST heuristics with IBM Granite foundation model reasoning.
+Combines deterministic AST heuristics with configurable LLM provider reasoning.
 """
 
 import logging
@@ -62,7 +62,7 @@ class QualityAgent(BaseAgent):
                     bounded_code += "\n# ... [Remaining code truncated for LLM context window]"
 
                 system_prompt = (
-                    "[ROLE]: Clean Code and Software Quality Specialist utilizing IBM Granite foundation models.\n"
+                    "[ROLE]: Clean Code and Software Quality Specialist and code review expert.\n"
                     "[TASK]: Evaluate the source code for maintainability, readability, cognitive/cyclomatic complexity, "
                     "PEP 257 docstring completeness, dangerous bare exceptions, wildcard imports, monolithic functions, "
                     "and clean code standards.\n"

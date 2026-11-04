@@ -3,12 +3,25 @@ Code Review Endpoints: Single, Batch, Status, Results, Feedback, and WebSocket.
 """
 
 import asyncio
+import base64
 import json
 import logging
+from pathlib import Path
 import uuid
 from collections import OrderedDict
 from typing import Dict, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from cerberus.agents.orchestrator import orchestrator
 from cerberus.api.dependencies import validate_token_against_db, verify_api_key
 from cerberus.config import settings
@@ -21,6 +34,9 @@ from cerberus.models.schemas import (
     CodeReviewResponse,
     FeedbackRequest,
     FeedbackResponse,
+    ReviewConfig,
+    ZipBase64ReviewRequest,
+    ZipReviewResponse,
 )
 
 logger = logging.getLogger("cerberus.api.review")
@@ -29,6 +45,7 @@ router = APIRouter(prefix="/api/v1/review", tags=["Review"])
 # Bounded in-memory store for quick lookups and active WebSocket broadcasts
 REVIEWS_STORE_MAX_ITEMS = getattr(settings, "CACHE_MAX_ITEMS", 1000)
 reviews_store: OrderedDict[str, CodeReviewResponse] = OrderedDict()
+zip_reviews_store: OrderedDict[str, ZipReviewResponse] = OrderedDict()
 ws_connections: Dict[str, List[WebSocket]] = {}
 
 
@@ -40,6 +57,16 @@ def _store_review(review_id: str, response: CodeReviewResponse) -> None:
         while len(reviews_store) >= REVIEWS_STORE_MAX_ITEMS and reviews_store:
             reviews_store.popitem(last=False)
     reviews_store[review_id] = response
+
+
+def _store_zip_review(review_id: str, response: ZipReviewResponse) -> None:
+    """Store project zip review in bounded OrderedDict with LRU eviction."""
+    if review_id in zip_reviews_store:
+        zip_reviews_store.move_to_end(review_id)
+    else:
+        while len(zip_reviews_store) >= REVIEWS_STORE_MAX_ITEMS and zip_reviews_store:
+            zip_reviews_store.popitem(last=False)
+    zip_reviews_store[review_id] = response
 
 
 @router.post("", response_model=CodeReviewResponse, status_code=status.HTTP_200_OK)
@@ -143,6 +170,96 @@ async def batch_review(
         total_files=len(results),
         reviews=results
     )
+
+
+@router.post("/zip", response_model=ZipReviewResponse, status_code=status.HTTP_200_OK)
+@router.post("/upload-zip", response_model=ZipReviewResponse, status_code=status.HTTP_200_OK)
+async def upload_zip_review(
+    file: UploadFile = File(..., description="ZIP archive containing source code"),
+    project_name: Optional[str] = Form(None, description="Optional project name"),
+    agents: Optional[str] = Form(None, description="Comma-separated agents to run"),
+    blocking: bool = Form(False, description="Enable blocking mode"),
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Upload and review an entire project packaged as a .zip file.
+    Extracts all supported source files and runs multi-agent reviews in parallel.
+    """
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        raise HTTPException(status_code=400, detail="Uploaded file must have a .zip extension.")
+
+    try:
+        zip_bytes = await file.read()
+        if not zip_bytes:
+            raise HTTPException(status_code=400, detail="Uploaded ZIP file is empty.")
+
+        agents_list = [a.strip() for a in agents.split(",") if a.strip()] if agents else None
+        cfg = ReviewConfig(blocking_mode=blocking)
+        p_name = project_name or Path(file.filename).stem
+
+        response = await orchestrator.execute_zip_review(
+            zip_source=zip_bytes,
+            project_name=p_name,
+            agents=agents_list,
+            config=cfg
+        )
+
+        _store_zip_review(response.review_id, response)
+        for fr in response.file_reviews:
+            _store_review(fr.review_id, fr.review)
+
+        return response
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        logger.exception(f"Error processing ZIP review: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to process ZIP review: {str(e)}")
+
+
+@router.post("/zip-base64", response_model=ZipReviewResponse, status_code=status.HTTP_200_OK)
+async def review_zip_base64(
+    request: ZipBase64ReviewRequest,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Review a project from base64-encoded ZIP data.
+    Useful for automated CI/CD and direct JSON API integrations.
+    """
+    try:
+        zip_bytes = base64.b64decode(request.zip_base64)
+        if not zip_bytes:
+            raise HTTPException(status_code=400, detail="Decoded ZIP content is empty.")
+
+        cfg = ReviewConfig(blocking_mode=request.blocking or False)
+        response = await orchestrator.execute_zip_review(
+            zip_source=zip_bytes,
+            project_name=request.project_name or "uploaded_project",
+            agents=request.agents,
+            config=cfg
+        )
+
+        _store_zip_review(response.review_id, response)
+        for fr in response.file_reviews:
+            _store_review(fr.review_id, fr.review)
+
+        return response
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        logger.exception(f"Error processing base64 ZIP review: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to process base64 ZIP review: {str(e)}")
+
+
+@router.get("/zip/{zip_review_id}", response_model=ZipReviewResponse)
+async def get_zip_review(
+    zip_review_id: str,
+    api_key: str = Depends(verify_api_key)
+):
+    """Retrieve full synthesized report of an uploaded project ZIP review."""
+    if zip_review_id in zip_reviews_store:
+        zip_reviews_store.move_to_end(zip_review_id)
+        return zip_reviews_store[zip_review_id]
+    raise HTTPException(status_code=404, detail=f"Project review '{zip_review_id}' was not found.")
 
 
 @router.post("/{review_id}/feedback", response_model=FeedbackResponse)

@@ -1,6 +1,6 @@
 """
 Security Agent: Specializes in Threat Modeling, Vulnerability Detection, and OWASP Compliance.
-Combines deterministic AST / regex heuristics with IBM Granite foundation model reasoning.
+Combines deterministic AST / regex heuristics with configurable LLM provider reasoning.
 """
 
 import logging
@@ -64,7 +64,7 @@ class SecurityAgent(BaseAgent):
                     bounded_code += "\n# ... [Remaining code truncated for LLM context window]"
 
                 system_prompt = (
-                    "[ROLE]: Enterprise Application Security Specialist utilizing IBM Granite foundation models.\n"
+                    "[ROLE]: Enterprise Application Security Specialist and vulnerability analyst.\n"
                     "[TASK]: Deeply analyze the provided source code for security vulnerabilities: injection flaws "
                     "(SQLi, Command Injection, XSS, Path Traversal), hardcoded credentials/secrets/API keys, weak "
                     "cryptography/hashing, insecure deserialization, broken authentication/authorization, and OWASP Top 10.\n"

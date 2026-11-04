@@ -1,27 +1,76 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>cerberus&lt;/&gt; - Enterprise Multi-Agent Code Review</title>
+  <title>cerberus</> - Autonomous Multi-Agent Code Review</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #090d16;
-      --card-bg: rgba(18, 24, 38, 0.7);
-      --card-border: rgba(255, 255, 255, 0.08);
-      --accent-purple: #8b5cf6;
-      --accent-blue: #3b82f6;
-      --accent-cyan: #06b6d4;
-      --accent-green: #10b981;
-      --accent-red: #ef4444;
-      --accent-orange: #f97316;
-      --accent-yellow: #f59e0b;
-      --text-main: #f1f5f9;
-      --text-muted: #94a3b8;
-      --editor-bg: #0b1120;
+      /* Minimalist White / Light Theme */
+      --bg: #ffffff;
+      --bg-subtle: #f8fafc;
+      --card-bg: #ffffff;
+      --card-border: #e2e8f0;
+      --border-hover: #09090b;
+      --text-main: #09090b;
+      --text-muted: #64748b;
+      --text-faint: #94a3b8;
+      
+      --btn-primary-bg: #09090b;
+      --btn-primary-text: #ffffff;
+      --btn-secondary-bg: #f8fafc;
+      --btn-secondary-border: #e2e8f0;
+      --btn-secondary-text: #09090b;
+
+      --badge-border: #e2e8f0;
+      --badge-bg: #f8fafc;
+      --badge-text: #09090b;
+
+      /* VS Code Dark+ Color Palette (Consistent across themes for authentic code feel) */
+      --vsc-bg: #1e1e1e;
+      --vsc-fg: #d4d4d4;
+      --vsc-gutter-bg: #1e1e1e;
+      --vsc-gutter-fg: #858585;
+      --vsc-border: #2d2d2d;
+      --vsc-header: #252526;
+      --vsc-tab: #1e1e1e;
+      --vsc-keyword: #569cd6;      /* Blue */
+      --vsc-control: #c586c0;      /* Purple/Magenta */
+      --vsc-string: #ce9178;       /* Coral Orange */
+      --vsc-comment: #6a9955;      /* Forest Green */
+      --vsc-function: #dcdcaa;     /* Soft Yellow */
+      --vsc-number: #b5cea8;       /* Light Sage */
+      --vsc-type: #4ec9b0;         /* Teal */
+      --vsc-variable: #9cdcfe;     /* Light Sky */
+      --vsc-diff-add-bg: rgba(16, 185, 129, 0.15);
+      --vsc-diff-add-fg: #4ade80;
+      --vsc-diff-del-bg: rgba(239, 68, 68, 0.15);
+      --vsc-diff-del-fg: #f87171;
+    }
+
+    [data-theme="dark"] {
+      /* Minimalist Black / Dark Theme */
+      --bg: #09090b;
+      --bg-subtle: #121215;
+      --card-bg: #09090b;
+      --card-border: #27272a;
+      --border-hover: #ffffff;
+      --text-main: #fafafa;
+      --text-muted: #a1a1aa;
+      --text-faint: #52525b;
+
+      --btn-primary-bg: #ffffff;
+      --btn-primary-text: #09090b;
+      --btn-secondary-bg: #18181b;
+      --btn-secondary-border: #27272a;
+      --btn-secondary-text: #fafafa;
+
+      --badge-border: #27272a;
+      --badge-bg: #18181b;
+      --badge-text: #fafafa;
     }
 
     * {
@@ -32,28 +81,27 @@
 
     body {
       background-color: var(--bg);
-      background-image: 
-        radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.12) 0px, transparent 50%),
-        radial-gradient(at 100% 0%, rgba(6, 182, 212, 0.10) 0px, transparent 50%),
-        radial-gradient(at 50% 100%, rgba(59, 130, 246, 0.08) 0px, transparent 50%);
       color: var(--text-main);
-      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-family: 'Geist', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      transition: background-color 0.2s, color 0.2s;
+      -webkit-font-smoothing: antialiased;
     }
 
+    /* Minimalist Header */
     header {
       border-bottom: 1px solid var(--card-border);
-      background: rgba(9, 13, 22, 0.85);
-      backdrop-filter: blur(16px);
-      padding: 1rem 2rem;
+      background: var(--bg);
+      padding: 0.85rem 2rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
       position: sticky;
       top: 0;
       z-index: 50;
+      transition: border-color 0.2s, background-color 0.2s;
     }
 
     .brand {
@@ -63,221 +111,393 @@
     }
 
     .logo-badge {
-      background: linear-gradient(135deg, #8b5cf6, #3b82f6);
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
+      background: var(--text-main);
+      color: var(--bg);
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Geist Mono', monospace;
       font-weight: 700;
-      font-size: 1.1rem;
-      box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+      font-size: 0.95rem;
     }
 
     .brand-title {
-      font-size: 1.25rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      background: linear-gradient(to right, #fff, #cbd5e1);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text-main);
     }
 
     .brand-subtitle {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       color: var(--text-muted);
       letter-spacing: 0.05em;
       text-transform: uppercase;
+      font-weight: 500;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
     }
 
     .status-pill {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      background: rgba(16, 185, 129, 0.1);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      padding: 0.35rem 0.85rem;
+      gap: 0.45rem;
+      background: var(--bg-subtle);
+      border: 1px solid var(--card-border);
+      padding: 0.3rem 0.75rem;
       border-radius: 9999px;
-      font-size: 0.8rem;
-      color: #34d399;
-      font-weight: 600;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
     }
 
     .status-dot {
-      width: 8px;
-      height: 8px;
+      width: 7px;
+      height: 7px;
       background-color: #10b981;
       border-radius: 50%;
-      box-shadow: 0 0 8px #10b981;
-      animation: pulse 2s infinite;
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
+    .theme-toggle-btn {
+      background: var(--bg-subtle);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      width: 34px;
+      height: 34px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: all 0.15s;
+    }
+    .theme-toggle-btn:hover {
+      border-color: var(--text-main);
     }
 
+    /* Main Grid Layout */
     main {
       flex: 1;
       max-width: 1600px;
       width: 100%;
       margin: 0 auto;
-      padding: 2rem;
+      padding: 1.5rem 2rem;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 2rem;
+      gap: 1.5rem;
     }
 
     @media (max-width: 1024px) {
       main {
         grid-template-columns: 1fr;
+        padding: 1rem;
+      }
+      header {
+        padding: 0.75rem 1rem;
       }
     }
 
+    /* Minimalist Flat Panels */
     .panel {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
-      border-radius: 16px;
-      padding: 1.5rem;
-      backdrop-filter: blur(12px);
+      border-radius: 8px;
+      padding: 1.25rem;
       display: flex;
       flex-direction: column;
-      gap: 1.25rem;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      gap: 1rem;
+      transition: border-color 0.2s;
     }
 
     .panel-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
     }
 
     .panel-title {
-      font-size: 1.1rem;
+      font-size: 0.95rem;
       font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-main);
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.4rem;
     }
 
+    /* Mode Segmented Controls */
+    .mode-tabs {
+      display: flex;
+      background: var(--bg-subtle);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 3px;
+      gap: 4px;
+    }
+
+    .mode-tab {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.45rem 0.8rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      transition: all 0.15s;
+    }
+
+    .mode-tab:hover {
+      color: var(--text-main);
+    }
+
+    .mode-tab.active {
+      background: var(--text-main);
+      color: var(--bg);
+      font-weight: 700;
+    }
+
+    /* Presets Buttons */
     .presets {
       display: flex;
-      gap: 0.5rem;
+      flex-wrap: wrap;
+      gap: 0.35rem;
     }
 
     .btn-preset {
-      background: rgba(255, 255, 255, 0.05);
+      background: var(--bg-subtle);
       border: 1px solid var(--card-border);
       color: var(--text-muted);
-      padding: 0.35rem 0.65rem;
-      border-radius: 6px;
-      font-size: 0.75rem;
+      padding: 0.3rem 0.55rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 500;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.15s;
     }
 
     .btn-preset:hover {
-      background: rgba(139, 92, 246, 0.2);
-      color: #fff;
-      border-color: rgba(139, 92, 246, 0.4);
+      border-color: var(--text-main);
+      color: var(--text-main);
     }
 
+    /* VS Code Styled Editor Wrapper */
     .editor-wrapper {
       position: relative;
       flex: 1;
       min-height: 380px;
       display: flex;
       flex-direction: column;
+      border: 1px solid var(--vsc-border);
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--vsc-bg);
+    }
+
+    .vscode-window-header {
+      background: var(--vsc-header);
+      padding: 0.4rem 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--vsc-border);
+      user-select: none;
+    }
+
+    .vscode-dots {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .vscode-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .vscode-dot.red { background: #ff5f56; }
+    .vscode-dot.yellow { background: #ffbd2e; }
+    .vscode-dot.green { background: #27c93f; }
+
+    .vscode-tab-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: #9cdcfe;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
     }
 
     textarea.code-editor {
       width: 100%;
       flex: 1;
-      min-height: 380px;
-      background: var(--editor-bg);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 10px;
-      padding: 1rem;
-      color: #e2e8f0;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.88rem;
+      min-height: 360px;
+      background: var(--vsc-bg);
+      border: none;
+      padding: 0.85rem 1rem;
+      color: var(--vsc-fg);
+      font-family: 'JetBrains Mono', 'Geist Mono', monospace;
+      font-size: 0.85rem;
       line-height: 1.6;
       resize: vertical;
       outline: none;
-      transition: border-color 0.2s;
+      tab-size: 4;
     }
 
-    textarea.code-editor:focus {
-      border-color: var(--accent-purple);
-      box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+    /* Minimalist ZIP Dropzone */
+    .dropzone {
+      border: 1.5px dashed var(--card-border);
+      background: var(--bg-subtle);
+      border-radius: 6px;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      min-height: 240px;
     }
 
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--text-main);
+      background: var(--card-bg);
+    }
+
+    .drop-icon {
+      font-size: 2.2rem;
+      opacity: 0.8;
+    }
+
+    .drop-title {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .drop-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .selected-zip-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-subtle);
+      border: 1px solid var(--text-main);
+      border-radius: 6px;
+      padding: 0.65rem 0.85rem;
+      gap: 0.75rem;
+    }
+
+    .btn-remove-zip {
+      background: transparent;
+      border: none;
+      color: #ef4444;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 700;
+      padding: 0.2rem 0.4rem;
+    }
+
+    .project-input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 0.55rem 0.75rem;
+      color: var(--text-main);
+      font-size: 0.82rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .project-input:focus {
+      border-color: var(--text-main);
+    }
+
+    /* Agent Checklist */
     .agent-selector {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.75rem;
-      padding: 0.75rem;
-      background: rgba(0, 0, 0, 0.2);
-      border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.04);
+      gap: 0.65rem;
+      padding: 0.65rem 0.85rem;
+      background: var(--bg-subtle);
+      border-radius: 6px;
+      border: 1px solid var(--card-border);
     }
 
     .agent-checkbox {
       display: flex;
       align-items: center;
-      gap: 0.4rem;
-      font-size: 0.8rem;
+      gap: 0.35rem;
+      font-size: 0.76rem;
       font-weight: 600;
+      color: var(--text-main);
       cursor: pointer;
       user-select: none;
     }
 
     .agent-checkbox input {
-      accent-color: var(--accent-purple);
+      accent-color: var(--text-main);
       cursor: pointer;
     }
 
+    /* Primary Stark Button */
     .btn-submit {
-      background: linear-gradient(135deg, #7c3aed, #2563eb);
-      border: none;
-      color: #fff;
-      padding: 0.85rem 1.5rem;
-      border-radius: 10px;
-      font-size: 0.95rem;
+      background: var(--btn-primary-bg);
+      border: 1px solid var(--btn-primary-bg);
+      color: var(--btn-primary-text);
+      padding: 0.75rem 1.25rem;
+      border-radius: 6px;
+      font-size: 0.88rem;
       font-weight: 700;
+      letter-spacing: -0.01em;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
-      transition: transform 0.1s, box-shadow 0.2s;
-      box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
+      transition: opacity 0.15s, transform 0.1s;
     }
 
     .btn-submit:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(124, 58, 237, 0.6);
+      opacity: 0.9;
     }
-
     .btn-submit:active {
-      transform: translateY(0);
+      transform: scale(0.99);
     }
 
-    /* Results Panel */
+    /* Results Overview */
     .overview-grid {
       display: grid;
-      grid-template-columns: 140px 1fr;
+      grid-template-columns: 130px 1fr;
       gap: 1rem;
       align-items: center;
     }
 
     .score-circle {
-      width: 120px;
-      height: 120px;
+      width: 110px;
+      height: 110px;
       border-radius: 50%;
-      background: conic-gradient(var(--accent-green) 0% 85%, rgba(255,255,255,0.05) 85% 100%);
+      background: conic-gradient(var(--text-main) 0% 100%, var(--card-border) 100% 100%);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -286,9 +506,9 @@
     }
 
     .score-inner {
-      width: 95px;
-      height: 95px;
-      background: #0d1322;
+      width: 90px;
+      height: 90px;
+      background: var(--card-bg);
       border-radius: 50%;
       display: flex;
       flex-direction: column;
@@ -297,15 +517,18 @@
     }
 
     .score-num {
-      font-size: 1.75rem;
+      font-size: 1.65rem;
       font-weight: 800;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Geist Mono', monospace;
+      color: var(--text-main);
     }
 
     .score-label {
-      font-size: 0.65rem;
+      font-size: 0.62rem;
       text-transform: uppercase;
       color: var(--text-muted);
+      font-weight: 600;
+      letter-spacing: 0.05em;
     }
 
     .summary-cards {
@@ -315,152 +538,223 @@
     }
 
     .stat-badge {
-      background: rgba(0, 0, 0, 0.3);
+      background: var(--bg-subtle);
       border: 1px solid var(--card-border);
-      border-radius: 8px;
-      padding: 0.5rem;
+      border-radius: 6px;
+      padding: 0.5rem 0.4rem;
       text-align: center;
     }
 
-    .stat-badge.critical { border-color: rgba(239, 68, 68, 0.4); }
-    .stat-badge.high { border-color: rgba(249, 115, 22, 0.4); }
-    .stat-badge.medium { border-color: rgba(245, 158, 11, 0.4); }
-    .stat-badge.low { border-color: rgba(59, 130, 246, 0.4); }
-
     .stat-badge .num {
-      font-size: 1.1rem;
+      font-size: 1.15rem;
       font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Geist Mono', monospace;
+      color: var(--text-main);
     }
 
-    .stat-badge.critical .num { color: var(--accent-red); }
-    .stat-badge.high .num { color: var(--accent-orange); }
-    .stat-badge.medium .num { color: var(--accent-yellow); }
-    .stat-badge.low .num { color: var(--accent-blue); }
+    .stat-badge.critical .num { color: #ef4444; }
+    .stat-badge.high .num { color: #f97316; }
+    .stat-badge.medium .num { color: #eab308; }
+    .stat-badge.low .num { color: var(--text-muted); }
 
     .stat-badge .lbl {
       font-size: 0.65rem;
       color: var(--text-muted);
       text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.04em;
     }
 
+    /* File Selector Dropdown for ZIP Results */
+    .file-filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      background: var(--bg-subtle);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 0.45rem 0.75rem;
+    }
+
+    .file-select-dropdown {
+      flex: 1;
+      background: var(--bg);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+      border-radius: 4px;
+      padding: 0.4rem 0.6rem;
+      font-size: 0.8rem;
+      font-family: 'Geist Mono', monospace;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* Findings List Container */
     .findings-container {
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
       overflow-y: auto;
-      max-height: 480px;
-      padding-right: 0.5rem;
+      max-height: 520px;
+      padding-right: 0.35rem;
     }
 
+    /* Finding Card */
     .finding-card {
-      background: rgba(13, 19, 33, 0.7);
+      background: var(--card-bg);
       border: 1px solid var(--card-border);
-      border-left: 4px solid var(--accent-purple);
-      border-radius: 8px;
-      padding: 1rem;
+      border-left: 3px solid var(--text-main);
+      border-radius: 6px;
+      padding: 0.9rem;
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
-      transition: all 0.2s;
+      gap: 0.45rem;
+      transition: border-color 0.15s;
     }
 
-    .finding-card.critical { border-left-color: var(--accent-red); }
-    .finding-card.high { border-left-color: var(--accent-orange); }
-    .finding-card.medium { border-left-color: var(--accent-yellow); }
-    .finding-card.low { border-left-color: var(--accent-blue); }
-    .finding-card.info { border-left-color: #64748b; }
+    .finding-card.critical { border-left-color: #ef4444; }
+    .finding-card.high { border-left-color: #f97316; }
+    .finding-card.medium { border-left-color: #eab308; }
+    .finding-card.low { border-left-color: #3b82f6; }
+    .finding-card.info { border-left-color: var(--text-muted); }
 
     .finding-top {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 0.5rem;
     }
 
     .finding-title {
       font-weight: 700;
-      font-size: 0.95rem;
-      color: #fff;
+      font-size: 0.88rem;
+      color: var(--text-main);
     }
 
     .badge-pill {
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       font-weight: 700;
       text-transform: uppercase;
-      padding: 0.2rem 0.5rem;
+      padding: 0.15rem 0.45rem;
       border-radius: 4px;
+      border: 1px solid var(--badge-border);
+      background: var(--badge-bg);
+      color: var(--text-muted);
+      font-family: 'Geist Mono', monospace;
     }
 
-    .badge-pill.critical { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-    .badge-pill.high { background: rgba(249, 115, 22, 0.2); color: #fb923c; }
-    .badge-pill.medium { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
-    .badge-pill.low { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
-    .badge-pill.info { background: rgba(100, 116, 139, 0.2); color: #94a3b8; }
+    .badge-pill.critical { border-color: rgba(239, 68, 68, 0.4); color: #ef4444; background: rgba(239, 68, 68, 0.05); }
+    .badge-pill.high { border-color: rgba(249, 115, 22, 0.4); color: #f97316; background: rgba(249, 115, 22, 0.05); }
+    .badge-pill.medium { border-color: rgba(234, 179, 8, 0.4); color: #eab308; background: rgba(234, 179, 8, 0.05); }
+    .badge-pill.low { border-color: rgba(59, 130, 246, 0.4); color: #3b82f6; background: rgba(59, 130, 246, 0.05); }
 
     .finding-meta {
       font-size: 0.8rem;
       color: var(--text-muted);
-      line-height: 1.4;
+      line-height: 1.45;
     }
 
-    .code-box {
-      background: #060a12;
-      border: 1px solid rgba(255, 255, 255, 0.05);
+    /* =========================================================================
+       VS CODE AUTHENTIC DARK+ CODE BOXES
+       ========================================================================= */
+    .vscode-code-frame {
+      background: var(--vsc-bg);
+      border: 1px solid var(--vsc-border);
       border-radius: 6px;
-      padding: 0.5rem 0.75rem;
-      font-family: 'JetBrains Mono', monospace;
+      overflow: hidden;
+      margin-top: 0.35rem;
+      font-family: 'JetBrains Mono', 'Geist Mono', monospace;
       font-size: 0.8rem;
-      color: #f43f5e;
-      overflow-x: auto;
+      line-height: 1.55;
     }
 
-    .code-box.fix {
-      color: #10b981;
-      border-color: rgba(16, 185, 129, 0.2);
+    .vscode-frame-header {
+      background: var(--vsc-header);
+      padding: 0.35rem 0.65rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--vsc-border);
+      font-size: 0.72rem;
+      color: #9cdcfe;
+    }
+
+    .vscode-code-content {
+      padding: 0.65rem 0.85rem;
+      overflow-x: auto;
+      color: var(--vsc-fg);
+      white-space: pre;
+    }
+
+    /* Syntax Tokens */
+    .vsc-kw { color: var(--vsc-keyword); font-weight: 600; }     /* def, import, return, etc. */
+    .vsc-ctrl { color: var(--vsc-control); font-weight: 600; }   /* if, else, for, try, except */
+    .vsc-str { color: var(--vsc-string); }                      /* 'hello', "world" */
+    .vsc-comment { color: var(--vsc-comment); font-style: italic; } /* # comments */
+    .vsc-fn { color: var(--vsc-function); }                     /* function_name() */
+    .vsc-num { color: var(--vsc-number); }                      /* 123, 0.05 */
+    .vsc-type { color: var(--vsc-type); }                       /* int, str, float, None */
+    .vsc-var { color: var(--vsc-variable); }                    /* variables */
+    .vsc-diff-add { background: var(--vsc-diff-add-bg); color: var(--vsc-diff-add-fg); display: block; }
+    .vsc-diff-del { background: var(--vsc-diff-del-bg); color: var(--vsc-diff-del-fg); display: block; }
+
+    /* Consensus & Patch Cards */
+    .consensus-card {
+      background: var(--bg-subtle);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .consensus-card.merge_ready { border-left: 3px solid #10b981; }
+    .consensus-card.needs_revision { border-left: 3px solid #eab308; }
+    .consensus-card.blocked_on_issues { border-left: 3px solid #ef4444; }
+
+    .patch-card {
+      background: var(--bg-subtle);
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    /* Minimalist Project Breakdown Table */
+    .table-project-files {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+    }
+    .table-project-files th {
+      text-align: left;
+      padding: 0.4rem 0.5rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--card-border);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.68rem;
+    }
+    .table-project-files td {
+      padding: 0.45rem 0.5rem;
+      border-bottom: 1px solid var(--card-border);
+      font-family: 'Geist Mono', monospace;
+    }
+    .table-project-files tr:hover {
+      background: var(--bg-subtle);
+      cursor: pointer;
     }
 
     .spinner {
-      border: 3px solid rgba(255, 255, 255, 0.2);
-      border-top: 3px solid #fff;
+      border: 2px solid var(--text-muted);
+      border-top: 2px solid var(--text-main);
       border-radius: 50%;
-      width: 18px;
-      height: 18px;
-      animation: spin 0.8s linear infinite;
+      width: 14px;
+      height: 14px;
+      animation: spin 0.7s linear infinite;
       display: none;
-    }
-
-    .consensus-card {
-      background: rgba(15, 23, 42, 0.85);
-      border: 1px solid rgba(59, 130, 246, 0.4);
-      border-radius: 10px;
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-    .consensus-card.merge_ready { border-color: rgba(16, 185, 129, 0.5); background: rgba(6, 78, 59, 0.2); }
-    .consensus-card.needs_revision { border-color: rgba(245, 158, 11, 0.5); background: rgba(120, 53, 15, 0.2); }
-    .consensus-card.blocked_on_issues { border-color: rgba(239, 68, 68, 0.5); background: rgba(127, 29, 29, 0.2); }
-
-    .patch-card {
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid rgba(16, 185, 129, 0.4);
-      border-radius: 10px;
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-    .patch-code {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.8rem;
-      background: #020617;
-      padding: 0.75rem;
-      border-radius: 6px;
-      white-space: pre-wrap;
-      overflow-x: auto;
-      color: #34d399;
-      max-height: 200px;
     }
 
     @keyframes spin {
@@ -471,6 +765,7 @@
 </head>
 <body>
 
+  <!-- Minimalist Header -->
   <header>
     <div class="brand">
       <div class="logo-badge">&lt;/&gt;</div>
@@ -479,41 +774,106 @@
         <div class="brand-subtitle">Multi-Agent Code Intelligence</div>
       </div>
     </div>
-    <div class="status-pill">
-      <div class="status-dot"></div>
-      <span id="system-status">5 Agents Ready • Dual-Tier Cache Active</span>
+    <div class="header-actions">
+      <div class="status-pill">
+        <div class="status-dot"></div>
+        <span id="system-status">5 Agents Ready</span>
+      </div>
+      <button class="theme-toggle-btn" id="btn-theme-toggle" onclick="toggleTheme()" title="Toggle White/Black Theme">
+        <span id="theme-icon">☀️</span>
+      </button>
     </div>
   </header>
 
   <main>
-    <!-- Left: Code Input Section -->
+    <!-- Left: Code Input & Project Upload Section -->
     <section class="panel">
-      <div class="panel-header">
-        <div class="panel-title">
-          <span>Source Code Analysis</span>
+      <!-- Mode Tabs: Single Snippet vs ZIP Archive -->
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="tab-snippet" onclick="switchMode('snippet')">
+          <span>📝 Code Snippet</span>
+        </button>
+        <button class="mode-tab" id="tab-zip" onclick="switchMode('zip')">
+          <span>📦 Upload ZIP Project</span>
+        </button>
+      </div>
+
+      <!-- Mode 1: Code Snippet Input -->
+      <div id="container-snippet" style="display: flex; flex-direction: column; gap: 0.85rem; flex: 1;">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>Source Code Analysis</span>
+          </div>
+          <div class="presets">
+            <button class="btn-preset" onclick="loadPreset('vulnerable')">SQL &amp; Secrets</button>
+            <button class="btn-preset" onclick="loadPreset('performance')">O(n²) &amp; Loops</button>
+            <button class="btn-preset" onclick="loadPreset('compliance')">HIPAA &amp; GDPR</button>
+            <button class="btn-preset" onclick="loadPreset('architecture')">Arch &amp; Style</button>
+            <button class="btn-preset" onclick="loadPreset('clean')">Clean Code</button>
+          </div>
         </div>
-        <div class="presets">
-          <button class="btn-preset" onclick="loadPreset('vulnerable')">⚠️ SQL &amp; Secrets</button>
-          <button class="btn-preset" onclick="loadPreset('performance')">⚡ O(n²) &amp; Loops</button>
-          <button class="btn-preset" onclick="loadPreset('compliance')">📋 HIPAA &amp; GDPR</button>
-          <button class="btn-preset" onclick="loadPreset('architecture')">🏛️ Arch &amp; Style</button>
-          <button class="btn-preset" onclick="loadPreset('clean')">✨ Clean Code</button>
+
+        <div class="editor-wrapper">
+          <div class="vscode-window-header">
+            <div class="vscode-dots">
+              <div class="vscode-dot red"></div>
+              <div class="vscode-dot yellow"></div>
+              <div class="vscode-dot green"></div>
+            </div>
+            <div class="vscode-tab-title">
+              <span>snippet.py</span>
+            </div>
+            <span style="font-size: 0.65rem; color: #858585;">UTF-8</span>
+          </div>
+          <textarea id="code-input" class="code-editor" spellcheck="false" placeholder="# Paste your source code here..."></textarea>
         </div>
       </div>
 
-      <div class="editor-wrapper">
-        <textarea id="code-input" class="code-editor" spellcheck="false" placeholder="Paste your source code here..."></textarea>
+      <!-- Mode 2: ZIP Project Upload -->
+      <div id="container-zip" style="display: none; flex-direction: column; gap: 0.85rem; flex: 1;">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>Multi-File Project Archive</span>
+          </div>
+          <span style="font-size: 0.75rem; color: var(--text-muted);">ZIP • Up to 150 files</span>
+        </div>
+
+        <!-- Dropzone -->
+        <div id="dropzone" class="dropzone" onclick="document.getElementById('zip-file-input').click()">
+          <div class="drop-icon">📦</div>
+          <div class="drop-title" id="drop-title">Drag &amp; drop .ZIP project archive here</div>
+          <div class="drop-subtitle">or click to browse files from your machine</div>
+          <input type="file" id="zip-file-input" accept=".zip" style="display:none;" onchange="handleZipSelected(this.files)">
+        </div>
+
+        <!-- Selected ZIP Info Pill -->
+        <div id="selected-zip-pill" class="selected-zip-pill" style="display:none;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span>📁</span>
+            <div>
+              <div id="zip-file-name" style="font-family: 'Geist Mono', monospace; font-size: 0.85rem; font-weight: 700;"></div>
+              <div id="zip-file-size" style="color: var(--text-muted); font-size: 0.72rem;"></div>
+            </div>
+          </div>
+          <button class="btn-remove-zip" onclick="clearSelectedZip(event)" title="Remove ZIP">✕</button>
+        </div>
+
+        <div>
+          <label style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 0.3rem; text-transform: uppercase;">Project Identifier (Optional)</label>
+          <input type="text" id="project-name-input" class="project-input" placeholder="e.g. MyEnterpriseProject (defaults to zip name)">
+        </div>
       </div>
 
+      <!-- Agent Selection Checklist -->
       <div class="agent-selector">
-        <label class="agent-checkbox"><input type="checkbox" id="agent-security" checked> 🛡️ Security</label>
-        <label class="agent-checkbox"><input type="checkbox" id="agent-performance" checked> ⚡ Performance</label>
-        <label class="agent-checkbox"><input type="checkbox" id="agent-quality" checked> 🎯 Quality</label>
-        <label class="agent-checkbox"><input type="checkbox" id="agent-architecture" checked> 🏛️ Architecture</label>
-        <label class="agent-checkbox"><input type="checkbox" id="agent-compliance" checked> 📋 Compliance</label>
+        <label class="agent-checkbox"><input type="checkbox" id="agent-security" checked> Security</label>
+        <label class="agent-checkbox"><input type="checkbox" id="agent-performance" checked> Performance</label>
+        <label class="agent-checkbox"><input type="checkbox" id="agent-quality" checked> Quality</label>
+        <label class="agent-checkbox"><input type="checkbox" id="agent-architecture" checked> Architecture</label>
+        <label class="agent-checkbox"><input type="checkbox" id="agent-compliance" checked> Compliance</label>
       </div>
 
-      <button id="btn-review" class="btn-submit" onclick="executeReview()">
+      <button id="btn-review" class="btn-submit" onclick="submitActiveReview()">
         <span class="spinner" id="btn-spinner"></span>
         <span id="btn-text">Execute Multi-Agent Review</span>
       </button>
@@ -523,19 +883,27 @@
     <section class="panel">
       <div class="panel-header">
         <div class="panel-title">
-          <span>Review Synthesizer</span>
+          <span id="results-panel-title">Review Synthesizer</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 0.75rem;">
-          <span id="latency-tag" style="font-size: 0.8rem; color: var(--text-muted);">Awaiting submission</span>
-          <button id="btn-copy-json" class="btn-preset" onclick="copyReportJson()" title="Copy full review report as JSON">📋 Copy JSON</button>
+        <div style="display: flex; align-items: center; gap: 0.65rem;">
+          <span id="latency-tag" style="font-size: 0.76rem; color: var(--text-muted); font-family: 'Geist Mono', monospace;">Awaiting submission</span>
+          <button id="btn-copy-json" class="btn-preset" onclick="copyReportJson()" title="Copy full review report as JSON">Copy JSON</button>
         </div>
+      </div>
+
+      <!-- File Filter Bar for ZIP reviews -->
+      <div id="project-file-filter-bar" class="file-filter-bar" style="display:none;">
+        <span style="font-size: 0.76rem; font-weight: 600; color: var(--text-muted);">File:</span>
+        <select id="project-file-select" class="file-select-dropdown" onchange="onSelectZipFile(this.value)">
+          <option value="__ALL__">📂 Entire Project Overview</option>
+        </select>
       </div>
 
       <div class="overview-grid">
         <div class="score-circle" id="score-circle">
           <div class="score-inner">
             <div class="score-num" id="score-val">--</div>
-            <div class="score-label">Quality Score</div>
+            <div class="score-label" id="score-label">Score</div>
           </div>
         </div>
         <div class="summary-cards">
@@ -547,26 +915,147 @@
       </div>
 
       <div class="findings-container" id="findings-list">
-        <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
-          Select a preset or paste code to trigger autonomous multi-agent analysis.
+        <div style="text-align: center; padding: 3.5rem 1rem; color: var(--text-muted); font-size: 0.85rem;">
+          Select a preset, paste code, or upload a .ZIP archive to trigger multi-agent review.
         </div>
       </div>
     </section>
   </main>
 
   <script>
+    let activeMode = 'snippet';
+    let selectedZipFile = null;
     let lastReviewData = null;
+    let currentZipReview = null;
+
+    // Minimalist Theme Switcher (White vs Black)
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme') || 'dark';
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('cerberus_theme', next);
+      document.getElementById('theme-icon').innerText = next === 'dark' ? '☀️' : '🌙';
+    }
+
+    // Initialize Theme
+    (function initTheme() {
+      const saved = localStorage.getItem('cerberus_theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', saved);
+      const icon = document.getElementById('theme-icon');
+      if (icon) icon.innerText = saved === 'dark' ? '☀️' : '🌙';
+    })();
 
     const PRESETS = {
-      vulnerable: `import os\n\nAPI_KEY = "sk-live-98213847291038291029381"\n\ndef get_user_profile(user_id):\n    # Critical: SQL Injection flaw\n    query = "SELECT * FROM users WHERE id = " + user_id\n    db.execute(query)\n\ndef ping_host(host):\n    # Command injection\n    os.system("ping -c 1 " + host)\n`,
+      vulnerable: `import os\n\nAPI_KEY = "sk-live-98213847291038291029381"\n\ndef get_user_profile(user_id):\n    # Critical: SQL Injection flaw\n    query = "SELECT * FROM users WHERE id = " + user_id\n    db.execute(query)\n\ndef ping_host(host):\n    # Command injection vulnerability\n    os.system("ping -c 1 " + host)\n`,
       performance: `def process_records(items):\n    # O(n^2) Quadratic nested loop\n    duplicates = []\n    for i in items:\n        for j in items:\n            if i == j:\n                duplicates.append(i)\n\n    # Inefficient string concatenation in loop\n    summary = ""\n    for item in duplicates:\n        summary += str(item)\n\n    # Database N+1 query inside loop\n    for dup in duplicates:\n        db.query("SELECT * FROM audit WHERE item_id = " + str(dup))\n\n    return summary\n`,
       compliance: `import logging\n\n# HIPAA & GDPR Compliance Violations Demo\nlogger = logging.getLogger("auth_audit")\n\ndef export_patient_records(ssn: str, patient_name: str, medical_diagnosis: str):\n    # HIPAA Violation: PHI emitted to logs\n    logger.info(f"Exporting record: {patient_name}, SSN: {ssn}, Diagnosis: {medical_diagnosis}")\n\n    # HIPAA In-Transit Encryption Violation (Cleartext HTTP) + GDPR PII in URL\n    url = f"http://api.healthcare-analytics.org/records?ssn={ssn}"\n    return url\n`,
       architecture: `from ..core.internal.utils import sanitize_input\n\n# Architectural coupling and quality violations\ndef process_batch(items):\n    try:\n        for item in items:\n            pass\n    except:\n        # Dangerous bare except suppressing runtime errors\n        pass\n`,
-      clean: `from typing import List, Optional\nimport os\n\ndef calculate_total(prices: List[float], tax_rate: float = 0.05) -> float:\n    """Calculate total price including sales tax in a fully compliant manner.\n\n    Args:\n        prices: List of positive float prices.\n        tax_rate: Sales tax multiplier.\n\n    Returns:\n        Calculated total rounded to 2 decimal places.\n    """\n    subtotal = sum(prices)\n    return round(subtotal * (1 + tax_rate), 2)\n`
+      clean: `from typing import List, Optional\nimport os\n\ndef calculate_total(prices: List[float], tax_rate: float = 0.05) -> float:\n    \"\"\"Calculate total price including sales tax in a fully compliant manner.\n\n    Args:\n        prices: List of positive float prices.\n        tax_rate: Sales tax multiplier.\n\n    Returns:\n        Calculated total rounded to 2 decimal places.\n    \"\"\"\n    subtotal = sum(prices)\n    return round(subtotal * (1 + tax_rate), 2)\n`
     };
 
     function loadPreset(name) {
+      if (activeMode !== 'snippet') switchMode('snippet');
       document.getElementById('code-input').value = PRESETS[name] || '';
+    }
+
+    function switchMode(mode) {
+      activeMode = mode;
+      const tabSnippet = document.getElementById('tab-snippet');
+      const tabZip = document.getElementById('tab-zip');
+      const containerSnippet = document.getElementById('container-snippet');
+      const containerZip = document.getElementById('container-zip');
+      const btnText = document.getElementById('btn-text');
+
+      if (mode === 'snippet') {
+        tabSnippet.classList.add('active');
+        tabZip.classList.remove('active');
+        containerSnippet.style.display = 'flex';
+        containerZip.style.display = 'none';
+        btnText.innerText = 'Execute Multi-Agent Review';
+      } else {
+        tabZip.classList.add('active');
+        tabSnippet.classList.remove('active');
+        containerSnippet.style.display = 'none';
+        containerZip.style.display = 'flex';
+        btnText.innerText = selectedZipFile ? `Inspect & Review ZIP (${selectedZipFile.name})` : 'Inspect & Review ZIP Project';
+      }
+    }
+
+    // Drag and Drop Handlers
+    const dropzone = document.getElementById('dropzone');
+    if (dropzone) {
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.add('dragover');
+        }, false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropzone.classList.remove('dragover');
+        }, false);
+      });
+
+      dropzone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleZipSelected(files);
+      }, false);
+    }
+
+    function handleZipSelected(files) {
+      if (!files || files.length === 0) return;
+      const file = files[0];
+      if (!file.name.toLowerCase().endsWith('.zip')) {
+        alert('Please select a valid .ZIP project archive file.');
+        return;
+      }
+
+      selectedZipFile = file;
+      document.getElementById('dropzone').style.display = 'none';
+      const pill = document.getElementById('selected-zip-pill');
+      pill.style.display = 'flex';
+      document.getElementById('zip-file-name').innerText = file.name;
+      document.getElementById('zip-file-size').innerText = `${(file.size / 1024 / 1024).toFixed(2)} MB • Ready for inspection`;
+
+      const pInput = document.getElementById('project-name-input');
+      if (!pInput.value) {
+        pInput.value = file.name.replace(/\.zip$/i, '');
+      }
+
+      document.getElementById('btn-text').innerText = `Inspect & Review ZIP (${file.name})`;
+    }
+
+    function clearSelectedZip(e) {
+      if (e) { e.stopPropagation(); }
+      selectedZipFile = null;
+      document.getElementById('zip-file-input').value = '';
+      document.getElementById('selected-zip-pill').style.display = 'none';
+      document.getElementById('dropzone').style.display = 'flex';
+      document.getElementById('btn-text').innerText = 'Inspect & Review ZIP Project';
+    }
+
+    function getSelectedAgents() {
+      const agents = [];
+      if (document.getElementById('agent-security').checked) agents.push('security');
+      if (document.getElementById('agent-performance').checked) agents.push('performance');
+      if (document.getElementById('agent-quality').checked) agents.push('quality');
+      if (document.getElementById('agent-architecture').checked) agents.push('architecture');
+      if (document.getElementById('agent-compliance').checked) agents.push('compliance');
+      return agents;
+    }
+
+    function submitActiveReview() {
+      if (activeMode === 'snippet') {
+        executeReview();
+      } else {
+        executeZipUploadReview();
+      }
     }
 
     async function executeReview() {
@@ -576,20 +1065,14 @@
         return;
       }
 
-      const agents = [];
-      if (document.getElementById('agent-security').checked) agents.push('security');
-      if (document.getElementById('agent-performance').checked) agents.push('performance');
-      if (document.getElementById('agent-quality').checked) agents.push('quality');
-      if (document.getElementById('agent-architecture').checked) agents.push('architecture');
-      if (document.getElementById('agent-compliance').checked) agents.push('compliance');
-
+      const agents = getSelectedAgents();
       const btn = document.getElementById('btn-review');
       const spinner = document.getElementById('btn-spinner');
       const btnText = document.getElementById('btn-text');
 
       btn.disabled = true;
       spinner.style.display = 'inline-block';
-      btnText.innerText = 'Agents Inspecting...';
+      btnText.innerText = 'Agents Inspecting Snippet...';
 
       try {
         const res = await fetch('/api/v1/review', {
@@ -605,16 +1088,296 @@
           })
         });
 
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `HTTP ${res.status}`);
+        }
+
         const data = await res.json();
         lastReviewData = data;
+        currentZipReview = null;
+        document.getElementById('project-file-filter-bar').style.display = 'none';
+        document.getElementById('results-panel-title').innerText = 'Review Synthesizer';
+        document.getElementById('score-label').innerText = 'Score';
         renderResults(data);
       } catch (err) {
         console.error(err);
-        alert('Failed to execute review: ' + err.message);
+        alert('Failed to execute snippet review: ' + err.message);
       } finally {
         btn.disabled = false;
         spinner.style.display = 'none';
         btnText.innerText = 'Execute Multi-Agent Review';
+      }
+    }
+
+    async function executeZipUploadReview() {
+      if (!selectedZipFile) {
+        alert('Please select a .ZIP file first.');
+        return;
+      }
+
+      const agents = getSelectedAgents();
+      const btn = document.getElementById('btn-review');
+      const spinner = document.getElementById('btn-spinner');
+      const btnText = document.getElementById('btn-text');
+
+      btn.disabled = true;
+      spinner.style.display = 'inline-block';
+      btnText.innerText = 'Scanning Code Files...';
+
+      try {
+        const formData = new FormData();
+        formData.append('file', selectedZipFile);
+        const pName = document.getElementById('project-name-input').value.trim();
+        if (pName) formData.append('project_name', pName);
+        if (agents.length) formData.append('agents', agents.join(','));
+
+        const res = await fetch('/api/v1/review/upload-zip', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer cvai_dev_key_123'
+          },
+          body: formData
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+        lastReviewData = data;
+        currentZipReview = data;
+        renderZipResults(data);
+      } catch (err) {
+        console.error(err);
+        alert('Failed to execute ZIP review: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        spinner.style.display = 'none';
+        btnText.innerText = `Inspect & Review ZIP (${selectedZipFile.name})`;
+      }
+    }
+
+    /* =========================================================================
+       VS CODE SYNTAX HIGHLIGHTER (AUTHENTIC DARK+ ENGINE)
+       ========================================================================= */
+    function highlightVSCode(code, lang) {
+      if (!code) return '';
+      let safe = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      // Comments: #... or //...
+      safe = safe.replace(/(#[^\n]*|\/\/[^\n]*)/g, '<span class="vsc-comment">$1</span>');
+
+      // Strings: "..." or '...'
+      safe = safe.replace(/(&quot;[\s\S]*?&quot;|&#39;[\s\S]*?&#39;|"[^"\n]*"|'[^'\n]*')/g, '<span class="vsc-str">$1</span>');
+
+      // Control Flow: if, else, elif, for, while, try, except, finally, return, yield
+      safe = safe.replace(/\b(if|else|elif|for|while|try|except|finally|return|yield|break|continue|throw|catch)\b/g, '<span class="vsc-ctrl">$1</span>');
+
+      // Keywords: def, class, import, from, as, async, await, function, const, let, var
+      safe = safe.replace(/\b(def|class|import|from|as|async|await|lambda|with|pass|function|const|let|var|public|private|static|SELECT|FROM|WHERE|INSERT|UPDATE|DELETE)\b/g, '<span class="vsc-kw">$1</span>');
+
+      // Builtin Types / Constants: int, str, float, bool, None, True, False, null, undefined
+      safe = safe.replace(/\b(int|str|float|bool|list|dict|tuple|set|None|True|False|null|undefined|void|List|Dict|Optional)\b/g, '<span class="vsc-type">$1</span>');
+
+      // Numbers
+      safe = safe.replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="vsc-num">$1</span>');
+
+      // Function calls: name(...)
+      safe = safe.replace(/\b([a-zA-Z_]\w*)(?=\s*\()/g, '<span class="vsc-fn">$1</span>');
+
+      return safe;
+    }
+
+    function createVSCodeFrame(code, title, lineStart) {
+      const highlighted = highlightVSCode(code);
+      const startLine = lineStart || 1;
+
+      return `
+        <div class="vscode-code-frame">
+          <div class="vscode-frame-header">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:0.75rem;">📄</span>
+              <span style="font-weight:600;">${title || 'snippet.py'}</span>
+            </div>
+            <span style="color:#858585; font-size:0.68rem;">Line ${startLine}</span>
+          </div>
+          <div class="vscode-code-content">${highlighted}</div>
+        </div>
+      `;
+    }
+
+    function createVSCodeDiffFrame(diffText, title) {
+      if (!diffText) return '';
+      const lines = diffText.split('\n');
+      let renderedLines = lines.map(line => {
+        const escaped = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        if (line.startsWith('+') && !line.startsWith('+++')) {
+          return `<span class="vsc-diff-add">${escaped}</span>`;
+        } else if (line.startsWith('-') && !line.startsWith('---')) {
+          return `<span class="vsc-diff-del">${escaped}</span>`;
+        } else if (line.startsWith('@@')) {
+          return `<span class="vsc-kw" style="display:block; opacity:0.8;">${escaped}</span>`;
+        }
+        return escaped;
+      }).join('\n');
+
+      return `
+        <div class="vscode-code-frame">
+          <div class="vscode-frame-header">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="color:#4ade80;">✔</span>
+              <span style="font-weight:600; color:#4ade80;">${title || 'patch.diff'}</span>
+            </div>
+            <button class="btn-preset" style="padding:0.15rem 0.45rem; font-size:0.68rem;" onclick="navigator.clipboard.writeText(lastReviewData?.unified_patch || ''); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy', 1500);">Copy</button>
+          </div>
+          <div class="vscode-code-content">${renderedLines}</div>
+        </div>
+      `;
+    }
+
+    function renderZipResults(data) {
+      document.getElementById('results-panel-title').innerText = `Project: ${data.project_name}`;
+      document.getElementById('score-label').innerText = 'Project';
+
+      const score = data.overall_project_score || 0;
+      document.getElementById('score-val').innerText = score;
+
+      const circle = document.getElementById('score-circle');
+      circle.style.background = `conic-gradient(var(--text-main) 0% ${score}%, var(--card-border) ${score}% 100%)`;
+
+      const summary = data.severity_summary || { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+      document.getElementById('cnt-critical').innerText = summary.critical;
+      document.getElementById('cnt-high').innerText = summary.high;
+      document.getElementById('cnt-medium').innerText = summary.medium;
+      document.getElementById('cnt-low').innerText = summary.low + (summary.info || 0);
+
+      document.getElementById('latency-tag').innerText = `${data.reviewed_files_count} files (${data.total_lines_of_code} LOC) • ${data.processing_time_ms}ms`;
+
+      const filterBar = document.getElementById('project-file-filter-bar');
+      filterBar.style.display = 'flex';
+      const select = document.getElementById('project-file-select');
+      select.innerHTML = `<option value="__ALL__">📂 Entire Project Overview (${data.reviewed_files_count} files)</option>`;
+
+      (data.file_reviews || []).forEach((fr, idx) => {
+        const issuesText = fr.findings_count > 0 ? `[${fr.findings_count} issues]` : '[Clean]';
+        select.innerHTML += `<option value="${idx}">${fr.file_path} • ${fr.score}/100 ${issuesText}</option>`;
+      });
+
+      renderZipOverview(data);
+    }
+
+    function onSelectZipFile(val) {
+      if (!currentZipReview) return;
+      if (val === '__ALL__') {
+        renderZipOverview(currentZipReview);
+      } else {
+        const idx = parseInt(val, 10);
+        const fr = currentZipReview.file_reviews[idx];
+        if (fr && fr.review) {
+          renderResults(fr.review, fr.file_path);
+        }
+      }
+    }
+
+    function renderZipOverview(data) {
+      const container = document.getElementById('findings-list');
+      container.innerHTML = '';
+
+      // 1. Consensus
+      if (data.collaborative_consensus) {
+        const cc = data.collaborative_consensus;
+        const action = (cc.pr_action || 'MERGE_READY').toLowerCase();
+        const actionDisplay = (cc.pr_action || 'MERGE_READY').replace(/_/g, ' ');
+        const consensusEl = document.createElement('div');
+        consensusEl.className = `consensus-card ${action}`;
+        consensusEl.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 700; font-size: 0.88rem; color: var(--text-main);">Multi-Agent Project Consensus</span>
+            <span class="badge-pill">${actionDisplay}</span>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.45;">${cc.summary || ''}</div>
+          ${cc.priority_action_plan && cc.priority_action_plan.length ? `
+            <div style="margin-top: 0.25rem; font-size: 0.72rem; color: var(--text-faint);">
+              <strong>Action Plan:</strong> ${cc.priority_action_plan.join(' • ')}
+            </div>
+          ` : ''}
+        `;
+        container.appendChild(consensusEl);
+      }
+
+      // 2. File Quality Matrix
+      const tableCard = document.createElement('div');
+      tableCard.className = 'finding-card';
+      tableCard.style.borderLeftColor = 'var(--text-main)';
+
+      let rowsHtml = '';
+      (data.file_reviews || []).forEach((fr, idx) => {
+        const badge = (fr.critical_count === 0 && fr.high_count === 0)
+          ? '<span style="color:#10b981; font-weight:600;">Clean</span>'
+          : `<span style="color:#ef4444; font-weight:600;">${fr.critical_count} Crit, ${fr.high_count} High</span>`;
+
+        rowsHtml += `
+          <tr onclick="document.getElementById('project-file-select').value='${idx}'; onSelectZipFile('${idx}');">
+            <td style="color:var(--text-main); font-weight:600;">${fr.file_path}</td>
+            <td style="color:var(--text-muted);">${fr.language}</td>
+            <td style="text-align:right;">${fr.lines_of_code}</td>
+            <td style="text-align:right; font-weight:700;">${fr.score}</td>
+            <td>${badge}</td>
+          </tr>
+        `;
+      });
+
+      tableCard.innerHTML = `
+        <div class="finding-top">
+          <span class="finding-title">Project File Matrix (${data.reviewed_files_count} files)</span>
+          <span style="font-size:0.72rem; color:var(--text-muted);">Click to inspect file</span>
+        </div>
+        <div style="overflow-x: auto; margin-top: 0.25rem;">
+          <table class="table-project-files">
+            <thead>
+              <tr>
+                <th>Path</th>
+                <th>Lang</th>
+                <th style="text-align:right;">LOC</th>
+                <th style="text-align:right;">Score</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+      `;
+      container.appendChild(tableCard);
+
+      // 3. Top Critical Issues
+      if (data.top_critical_findings && data.top_critical_findings.length > 0) {
+        const topHeader = document.createElement('div');
+        topHeader.innerHTML = `<div style="font-size:0.82rem; font-weight:700; color:#ef4444; margin-top:0.4rem; text-transform:uppercase; letter-spacing:0.04em;">Priority Vulnerabilities (${data.top_critical_findings.length})</div>`;
+        container.appendChild(topHeader);
+
+        data.top_critical_findings.forEach(f => {
+          const card = document.createElement('div');
+          card.className = `finding-card ${f.severity.toLowerCase()}`;
+          let codeBoxHtml = '';
+          if (f.code_snippet) {
+            codeBoxHtml = createVSCodeFrame(f.code_snippet, 'vulnerability.py', f.line || 1);
+          }
+          if (f.suggestion) {
+            codeBoxHtml += createVSCodeDiffFrame(f.suggestion, 'suggested_fix.diff');
+          }
+
+          card.innerHTML = `
+            <div class="finding-top">
+              <span class="finding-title">${f.title}</span>
+              <span class="badge-pill ${f.severity.toLowerCase()}">${f.severity}</span>
+            </div>
+            <div class="finding-meta">${f.message}</div>
+            ${codeBoxHtml}
+          `;
+          container.appendChild(card);
+        });
       }
     }
 
@@ -626,39 +1389,44 @@
       navigator.clipboard.writeText(JSON.stringify(lastReviewData, null, 2)).then(() => {
         const copyBtn = document.getElementById('btn-copy-json');
         const orig = copyBtn.innerText;
-        copyBtn.innerText = '✔ Copied!';
-        setTimeout(() => { copyBtn.innerText = orig; }, 2000);
+        copyBtn.innerText = 'Copied!';
+        setTimeout(() => { copyBtn.innerText = orig; }, 1500);
       });
     }
 
-    function renderResults(data) {
-      // Score
+    function renderResults(data, fileContextTitle) {
       const score = data.overall_score || 0;
       document.getElementById('score-val').innerText = score;
 
       const circle = document.getElementById('score-circle');
-      let color = '#10b981';
-      if (score < 60) color = '#ef4444';
-      else if (score < 80) color = '#f59e0b';
-      circle.style.background = `conic-gradient(${color} 0% ${score}%, rgba(255,255,255,0.05) ${score}% 100%)`;
+      circle.style.background = `conic-gradient(var(--text-main) 0% ${score}%, var(--card-border) ${score}% 100%)`;
 
-      // Counters
       const summary = data.results?.severity_summary || { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
       document.getElementById('cnt-critical').innerText = summary.critical;
       document.getElementById('cnt-high').innerText = summary.high;
       document.getElementById('cnt-medium').innerText = summary.medium;
-      document.getElementById('cnt-low').innerText = summary.low + summary.info;
+      document.getElementById('cnt-low').innerText = summary.low + (summary.info || 0);
 
-      // Latency & Cache
       const timeMs = data.processing_time_ms || 0;
-      const hit = data.cache_hit ? ' • ⚡ Cache Hit (70%+ Saved)' : '';
-      document.getElementById('latency-tag').innerText = `Completed in ${timeMs}ms${hit}`;
+      const hit = data.cache_hit ? ' • Cache Hit' : '';
+      const prefix = fileContextTitle ? `[${fileContextTitle}] ` : '';
+      document.getElementById('latency-tag').innerText = `${prefix}${timeMs}ms${hit}`;
 
-      // Findings List
       const container = document.getElementById('findings-list');
       container.innerHTML = '';
 
-      // 1. Collaborative Consensus Section
+      if (fileContextTitle) {
+        const backBtn = document.createElement('div');
+        backBtn.style.marginBottom = '0.4rem';
+        backBtn.innerHTML = `
+          <button class="btn-preset" onclick="document.getElementById('project-file-select').value='__ALL__'; onSelectZipFile('__ALL__');">
+            ← Entire Project Overview
+          </button>
+        `;
+        container.appendChild(backBtn);
+      }
+
+      // 1. Consensus
       if (data.collaborative_consensus) {
         const cc = data.collaborative_consensus;
         const action = (cc.pr_action || 'MERGE_READY').toLowerCase();
@@ -667,12 +1435,12 @@
         consensusEl.className = `consensus-card ${action}`;
         consensusEl.innerHTML = `
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: 800; font-size: 0.95rem; color: #fff;">🤝 Multi-Agent Collaborative Consensus</span>
-            <span class="badge-pill" style="background: rgba(255,255,255,0.15); color: #fff;">${actionDisplay}</span>
+            <span style="font-weight: 700; font-size: 0.88rem; color: var(--text-main);">Multi-Agent Collaborative Consensus</span>
+            <span class="badge-pill">${actionDisplay}</span>
           </div>
-          <div style="font-size: 0.85rem; color: #cbd5e1; line-height: 1.4;">${cc.summary || cc.consensus_summary || ''}</div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.45;">${cc.summary || cc.consensus_summary || ''}</div>
           ${cc.priority_action_plan && cc.priority_action_plan.length ? `
-            <div style="margin-top: 0.25rem; font-size: 0.75rem; color: #94a3b8;">
+            <div style="margin-top: 0.25rem; font-size: 0.72rem; color: var(--text-faint);">
               <strong>Action Plan:</strong> ${cc.priority_action_plan.join(' • ')}
             </div>
           ` : ''}
@@ -680,16 +1448,15 @@
         container.appendChild(consensusEl);
       }
 
-      // 2. Automated Git Unified Diff Patch
+      // 2. Automated Git Unified Patch
       if (data.unified_patch) {
         const patchEl = document.createElement('div');
         patchEl.className = 'patch-card';
         patchEl.innerHTML = `
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: 800; font-size: 0.95rem; color: #34d399;">🛠️ Multi-Agent Automated Patch (Git Unified Diff)</span>
-            <button class="btn-preset" onclick="navigator.clipboard.writeText(lastReviewData.unified_patch); this.innerText = '✔ Copied!'; setTimeout(() => this.innerText = 'Copy Patch', 2000);">Copy Patch</button>
+            <span style="font-weight: 700; font-size: 0.88rem; color: #4ade80;">Automated Patch (Git Unified Diff)</span>
           </div>
-          <div class="patch-code">${data.unified_patch.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+          ${createVSCodeDiffFrame(data.unified_patch, fileContextTitle ? `${fileContextTitle}.diff` : 'repair.diff')}
         `;
         container.appendChild(patchEl);
       }
@@ -697,21 +1464,28 @@
       const allFindings = [...(data.critical_issues || []), ...(data.warnings || []), ...(data.suggestions || [])];
 
       if (allFindings.length === 0 && !data.collaborative_consensus && !data.unified_patch) {
-        container.innerHTML = '<div style="text-align: center; padding: 3rem; color: #10b981; font-weight: 700;">✅ Excellent! All agents passed with zero findings.</div>';
+        container.innerHTML = '<div style="text-align: center; padding: 3rem; color: #10b981; font-weight: 600;">Zero vulnerabilities or quality issues detected. Code is clean.</div>';
         return;
       }
 
       allFindings.forEach(f => {
         const card = document.createElement('div');
         card.className = `finding-card ${f.severity.toLowerCase()}`;
+        let codeBoxHtml = '';
+        if (f.code_snippet) {
+          codeBoxHtml = createVSCodeFrame(f.code_snippet, fileContextTitle || 'snippet.py', f.line || 1);
+        }
+        if (f.suggestion) {
+          codeBoxHtml += createVSCodeDiffFrame(f.suggestion, 'fix_recommendation.diff');
+        }
+
         card.innerHTML = `
           <div class="finding-top">
             <span class="finding-title">${f.title}</span>
             <span class="badge-pill ${f.severity.toLowerCase()}">${f.severity}</span>
           </div>
           <div class="finding-meta">${f.message}</div>
-          ${f.code_snippet ? `<div class="code-box">Line ${f.line || '?'}: ${f.code_snippet}</div>` : ''}
-          ${f.suggestion ? `<div class="code-box fix"><strong>Suggested Fix:</strong><br>${f.suggestion}</div>` : ''}
+          ${codeBoxHtml}
         `;
         container.appendChild(card);
       });
@@ -720,7 +1494,7 @@
     // Keyboard shortcut: Ctrl+Enter or Cmd+Enter to execute review
     document.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        executeReview();
+        submitActiveReview();
       }
     });
 

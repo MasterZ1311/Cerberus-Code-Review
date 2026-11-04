@@ -27,12 +27,17 @@ from cerberus.core.telemetry import (
     REVIEW_DURATION_SECONDS,
     REVIEW_REQUESTS_TOTAL,
 )
+from cerberus.core.zip_processor import extract_code_from_zip
 from cerberus.models.schemas import (
     AgentResult,
     CodeReviewRequest,
     CodeReviewResponse,
     Finding,
+    ReviewConfig,
     SeverityEnum,
+    SeveritySummary,
+    ZipFileReview,
+    ZipReviewResponse,
 )
 
 logger = logging.getLogger("cerberus.orchestrator")
@@ -277,6 +282,176 @@ class ReviewOrchestrator:
         REVIEW_DURATION_SECONDS.observe(total_elapsed_ms / 1000.0)
 
         return response
+
+    async def execute_zip_review(
+        self,
+        zip_source: Any,
+        project_name: Optional[str] = None,
+        agents: Optional[List[str]] = None,
+        config: Optional[ReviewConfig] = None,
+        concurrency: int = 5,
+        max_files: int = 100,
+    ) -> ZipReviewResponse:
+        """
+        Extract and review an entire project from a ZIP archive.
+        Executes parallel multi-agent reviews across all detected code files.
+        """
+        start_time = time.perf_counter()
+        project_review_id = f"zip_{uuid.uuid4().hex[:16]}"
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        # 1. Safely extract code files
+        extraction = extract_code_from_zip(
+            zip_source=zip_source,
+            project_name=project_name,
+            max_files=max_files,
+        )
+
+        if not extraction.code_files:
+            return ZipReviewResponse(
+                project_name=extraction.project_name,
+                review_id=project_review_id,
+                status="completed",
+                created_at=now_iso,
+                completed_at=datetime.now(timezone.utc).isoformat(),
+                total_files_discovered=extraction.total_entries_in_zip,
+                reviewed_files_count=0,
+                skipped_files_count=len(extraction.skipped_files),
+                total_lines_of_code=0,
+                overall_project_score=100.0,
+                severity_summary=SeveritySummary(),
+                language_distribution={},
+                file_reviews=[],
+                top_critical_findings=[],
+                processing_time_ms=int((time.perf_counter() - start_time) * 1000),
+                summary="No supported source code files detected in the provided ZIP archive.",
+            )
+
+        # 2. Concurrently review all extracted files with concurrency throttling
+        semaphore = asyncio.Semaphore(concurrency)
+
+        async def _review_single_file(extracted_file) -> ZipFileReview:
+            async with semaphore:
+                req = CodeReviewRequest(
+                    code=extracted_file.content,
+                    language=extracted_file.language,
+                    filename=extracted_file.path,
+                    agents=agents,
+                    config=config or ReviewConfig(),
+                )
+                file_resp = await self.execute_review(req)
+
+                sev_summary = file_resp.results.get("severity_summary", {}) if file_resp.results else {}
+                crit = sev_summary.get("critical", 0)
+                high = sev_summary.get("high", 0)
+                med = sev_summary.get("medium", 0)
+                low = sev_summary.get("low", 0) + sev_summary.get("info", 0)
+                total_findings = crit + high + med + low
+
+                return ZipFileReview(
+                    file_path=extracted_file.path,
+                    filename=extracted_file.filename,
+                    language=extracted_file.language,
+                    lines_of_code=extracted_file.line_count,
+                    score=file_resp.overall_score or 100.0,
+                    status=file_resp.status,
+                    review_id=file_resp.review_id,
+                    critical_count=crit,
+                    high_count=high,
+                    medium_count=med,
+                    low_count=low,
+                    findings_count=total_findings,
+                    review=file_resp,
+                )
+
+        tasks = [_review_single_file(f) for f in extraction.code_files]
+        file_reviews: List[ZipFileReview] = await asyncio.gather(*tasks)
+
+        # 3. Aggregate Metrics & Scores
+        total_loc = sum(fr.lines_of_code for fr in file_reviews)
+        if total_loc > 0:
+            weighted_score = sum(fr.score * max(1, fr.lines_of_code) for fr in file_reviews) / total_loc
+        else:
+            weighted_score = sum(fr.score for fr in file_reviews) / max(1, len(file_reviews))
+
+        overall_score = round(max(0.0, min(100.0, weighted_score)), 1)
+
+        cum_crit = sum(fr.critical_count for fr in file_reviews)
+        cum_high = sum(fr.high_count for fr in file_reviews)
+        cum_med = sum(fr.medium_count for fr in file_reviews)
+        cum_low = sum(fr.low_count for fr in file_reviews)
+
+        sev_summary = SeveritySummary(
+            critical=cum_crit,
+            high=cum_high,
+            medium=cum_med,
+            low=cum_low,
+            info=0,
+        )
+
+        # 4. Extract Top Critical Findings across all files (annotated with file path)
+        all_crit_findings: List[Finding] = []
+        for fr in file_reviews:
+            for f in fr.review.critical_issues:
+                # Add file context if not already present in title
+                annotated = f.model_copy()
+                if not annotated.title.startswith(f"[{fr.file_path}]"):
+                    annotated.title = f"[{fr.file_path}] {annotated.title}"
+                all_crit_findings.append(annotated)
+
+        # Sort: critical first, then high
+        all_crit_findings.sort(
+            key=lambda x: (0 if x.severity == SeverityEnum.CRITICAL else 1, -(x.cvss_score or 0))
+        )
+        top_critical = all_crit_findings[:30]
+
+        # 5. Project-wide Collaborative Consensus
+        pr_action = "MERGE_READY"
+        if cum_crit > 0:
+            pr_action = "BLOCKED_ON_ISSUES"
+        elif cum_high > 0 or overall_score < 75.0:
+            pr_action = "NEEDS_REVISION"
+
+        project_summary = (
+            f"Project review completed for {len(file_reviews)} files ({total_loc:,} LOC). "
+            f"Overall health score: {overall_score}/100. "
+            f"Detected {cum_crit} critical, {cum_high} high, and {cum_med} medium issues."
+        )
+
+        consensus_data = {
+            "status": "completed",
+            "pr_action": pr_action,
+            "verdict": f"Scanned {len(file_reviews)} files. Recommended action: {pr_action.replace('_', ' ')}.",
+            "summary": project_summary,
+            "priority_action_plan": [
+                f"Remediate {cum_crit} critical security/compliance flaws across project",
+                f"Address {cum_high} high-severity bottlenecks and defects",
+                f"Maintain quality standard across {len(extraction.language_distribution)} programming languages"
+            ] if (cum_crit > 0 or cum_high > 0) else ["Project is in clean, healthy state for merge/deployment."]
+        }
+
+        total_elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+        completed_iso = datetime.now(timezone.utc).isoformat()
+
+        return ZipReviewResponse(
+            project_name=extraction.project_name,
+            review_id=project_review_id,
+            status="completed",
+            created_at=now_iso,
+            completed_at=completed_iso,
+            total_files_discovered=extraction.total_entries_in_zip,
+            reviewed_files_count=len(file_reviews),
+            skipped_files_count=len(extraction.skipped_files),
+            total_lines_of_code=total_loc,
+            overall_project_score=overall_score,
+            severity_summary=sev_summary,
+            language_distribution=extraction.language_distribution,
+            file_reviews=file_reviews,
+            top_critical_findings=top_critical,
+            processing_time_ms=total_elapsed_ms,
+            collaborative_consensus=consensus_data,
+            summary=project_summary,
+        )
 
 
 # Singleton orchestrator

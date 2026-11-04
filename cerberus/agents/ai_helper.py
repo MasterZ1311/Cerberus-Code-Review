@@ -212,11 +212,25 @@ def compute_composite_score(
 
     computed_score = max(0.0, min(100.0, score))
 
-    # If LLM or heuristic provided a score, take the most conservative (lowest)
+    # Build candidate list: take the most conservative (lowest) of all signals.
+    # The findings-derived computed_score is always included as the baseline.
     candidates = [computed_score]
     if llm_score is not None and 0.0 <= llm_score <= 100.0:
         candidates.append(llm_score)
     if heuristic_score is not None and 0.0 <= heuristic_score <= 100.0:
         candidates.append(heuristic_score)
 
-    return round(min(candidates), 1)
+    final = min(candidates)
+
+    # Anti-hallucination guard: if the heuristic found the code completely clean
+    # (score == 100) but the LLM-derived findings are pulling the score below 70,
+    # apply a floor of 70 to prevent a hallucinating LLM from destroying a
+    # heuristically-pristine result.
+    if (
+        heuristic_score is not None
+        and heuristic_score >= 100.0
+        and final < 70.0
+    ):
+        final = 70.0
+
+    return round(max(0.0, min(100.0, final)), 1)

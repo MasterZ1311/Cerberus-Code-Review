@@ -3,6 +3,7 @@ cerberus</> Configuration Management using Pydantic Settings.
 Supports loading from environment variables and .env files.
 """
 
+from pathlib import Path
 from typing import List, Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, model_validator
@@ -18,17 +19,19 @@ INSECURE_DEFAULT_SECRETS = {
     "admin",
 }
 
+_ENV_FALLBACK = str(Path(__file__).resolve().parent.parent / ".env")
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", _ENV_FALLBACK),
         env_file_encoding="utf-8",
         extra="ignore"
     )
 
     # Server Settings
     HOST: str = "0.0.0.0"
-    PORT: int = 8000
+    PORT: int = 5173
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"
 
@@ -38,7 +41,7 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_HOUR: int = 100
     RATE_LIMIT_MAX_TRACKED: int = 10000
     DEFAULT_DEV_API_KEY: str = "cvai_dev_key_123"
-    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8000,http://127.0.0.1:8000,http://127.0.0.1:3000"
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8000,http://127.0.0.1:8000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
 
     # Database Settings
     DATABASE_URL: str = "sqlite+aiosqlite:///./cerberus.db"

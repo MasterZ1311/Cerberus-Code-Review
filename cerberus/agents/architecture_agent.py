@@ -1,6 +1,6 @@
 """
 Architecture Agent: Specializes in Modular Design, Coupling, and Anti-Patterns.
-Combines deterministic AST import graph heuristics with IBM Granite foundation model reasoning.
+Combines deterministic AST import graph heuristics with configurable LLM provider reasoning.
 """
 
 import logging
@@ -60,7 +60,7 @@ class ArchitectureAgent(BaseAgent):
                     bounded_code += "\n# ... [Remaining code truncated for LLM context window]"
 
                 system_prompt = (
-                    "[ROLE]: Enterprise Software Architect utilizing IBM Granite foundation models.\n"
+                    "[ROLE]: Enterprise Software Architect and system design specialist.\n"
                     "[TASK]: Analyze the source code for architectural anti-patterns, module coupling, "
                     "Single Responsibility Principle (SRP) violations, circular dependency risks, "
                     "deep relative imports, and structural layer integrity.\n"

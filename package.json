@@ -1,0 +1,12 @@
+{
+  "name": "multi-agent-code-review-app",
+  "version": "1.0.0",
+  "description": "Cerberus Autonomous Multi-Agent Code Review & Collaborative Quality Assurance Platform",
+  "scripts": {
+    "dev": "python -m cerberus.cli serve --host 0.0.0.0 --port 5173 --reload",
+    "start": "python -m cerberus.cli serve --host 0.0.0.0 --port 5173",
+    "serve": "python -m cerberus.cli serve --host 0.0.0.0 --port 5173"
+  },
+  "author": "",
+  "license": "MIT"
+}

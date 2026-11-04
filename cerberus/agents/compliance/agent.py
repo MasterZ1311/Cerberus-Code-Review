@@ -192,11 +192,14 @@ class ComprehensiveComplianceAgent(BaseAgent):
                     bounded_code += "\n# ... [Remaining code truncated for LLM context window]"
 
                 system_prompt = (
-                    "[ROLE]: Enterprise Regulatory Compliance Auditor utilizing IBM Granite foundation models.\n"
+                    "[ROLE]: Enterprise Regulatory Compliance Auditor specializing in HIPAA, GDPR, SOC 2, PCI-DSS, and CCPA.\n"
                     "[TASK]: Audit the source code against regulatory mandates: HIPAA (ePHI logging, cleartext transmission), "
                     "GDPR (PII exposure, data minimization, consent/erasure), SOC 2 (secrets in code, audit logging, RBAC), "
                     "PCI-DSS (cardholder PANs, CVV storage), and CCPA.\n"
-                    "[CONSTRAINTS]: Return strictly a valid JSON object matching the requested schema. No conversational filler.\n"
+                    "[CONSTRAINTS]: Return strictly a valid JSON object matching the requested schema. No conversational filler. "
+                    "Only flag DEFINITIVE violations visible in the code itself — not speculative architectural gaps, "
+                    "missing endpoints, or best-practice suggestions. Do NOT flag parameterized queries, env-var secrets, "
+                    "or HTTPS URLs as violations. If code is clean, return an empty findings array and score 100.\n"
                     "[FORMAT]:\n"
                     "{\n"
                     '  "score": 85.0,\n'

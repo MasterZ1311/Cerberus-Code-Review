@@ -130,9 +130,13 @@ class CodeFixerAgent(BaseAgent):
                     "}"
                 )
 
+                bounded_code = code[:12000]
+                if len(code) > 12000:
+                    bounded_code += "\n# ... [Remaining code truncated for LLM context window]"
+
                 user_prompt = (
                     f"Identified Multi-Agent Findings:\n{json.dumps(findings_payload)}\n\n"
-                    f"Original {language} Code to Repair:\n```{language}\n{code}\n```"
+                    f"Original {language} Code to Repair:\n```{language}\n{bounded_code}\n```"
                 )
 
                 raw_res = await provider.generate_response(system_prompt, user_prompt)

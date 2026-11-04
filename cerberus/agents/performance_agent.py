@@ -1,6 +1,6 @@
 """
 Performance Agent: Specializes in Algorithmic Profiling, Bottlenecks, and Resource Optimization.
-Combines deterministic AST / loop analysis heuristics with IBM Granite foundation model reasoning.
+Combines deterministic AST / loop analysis heuristics with configurable LLM provider reasoning.
 """
 
 import logging
@@ -62,7 +62,7 @@ class PerformanceAgent(BaseAgent):
                     bounded_code += "\n# ... [Remaining code truncated for LLM context window]"
 
                 system_prompt = (
-                    "[ROLE]: High-Performance Systems Engineer utilizing IBM Granite foundation models.\n"
+                    "[ROLE]: High-Performance Systems Engineer and algorithmic optimization expert.\n"
                     "[TASK]: Analyze the source code for performance bottlenecks: algorithmic complexity issues "
                     "(quadratic O(n²) or cubic O(n³) nested iterations), database N+1 query patterns in loops, "
                     "inefficient string concatenation inside loops, unbounded memory allocations, CPU churn, and missing caching.\n"

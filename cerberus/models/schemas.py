@@ -120,6 +120,52 @@ class BatchReviewResponse(BaseModel):
     reviews: List[CodeReviewResponse]
 
 
+class ZipBase64ReviewRequest(BaseModel):
+    """JSON payload for reviewing a base64-encoded ZIP archive."""
+    zip_base64: str = Field(description="Base64-encoded ZIP archive content")
+    project_name: Optional[str] = Field(default="uploaded_project")
+    agents: Optional[List[str]] = Field(default=None, description="Optional specific agents to run")
+    blocking: Optional[bool] = Field(default=False, description="Enable blocking mode")
+
+
+class ZipFileReview(BaseModel):
+    """Review metadata and findings summary for an individual file within a zip project."""
+    file_path: str = Field(description="Relative file path within zip archive")
+    filename: str = Field(description="Base filename")
+    language: str = Field(description="Detected language")
+    lines_of_code: int = Field(default=0, description="Total source lines")
+    score: float = Field(default=100.0, description="Overall score for this file")
+    status: str = Field(default="completed", description="Review status")
+    review_id: str = Field(description="Individual review ID")
+    critical_count: int = Field(default=0)
+    high_count: int = Field(default=0)
+    medium_count: int = Field(default=0)
+    low_count: int = Field(default=0)
+    findings_count: int = Field(default=0)
+    review: CodeReviewResponse = Field(description="Full review response object")
+
+
+class ZipReviewResponse(BaseModel):
+    """Comprehensive synthesized review of an entire project ZIP archive."""
+    project_name: str
+    review_id: str = Field(description="Unique project review identifier")
+    status: str = Field(default="completed", description="Overall project status")
+    created_at: str
+    completed_at: Optional[str] = None
+    total_files_discovered: int
+    reviewed_files_count: int
+    skipped_files_count: int
+    total_lines_of_code: int
+    overall_project_score: float
+    severity_summary: SeveritySummary
+    language_distribution: Dict[str, int] = Field(default_factory=dict)
+    file_reviews: List[ZipFileReview] = Field(default_factory=list)
+    top_critical_findings: List[Finding] = Field(default_factory=list)
+    processing_time_ms: int = 0
+    collaborative_consensus: Optional[Dict[str, Any]] = None
+    summary: Optional[str] = None
+
+
 class FeedbackRequest(BaseModel):
     rating: int = Field(ge=1, le=5, description="Star rating from 1 to 5")
     is_helpful: bool = True

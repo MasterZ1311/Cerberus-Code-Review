@@ -17,7 +17,7 @@ from cerberus import __version__
 from cerberus.agents.orchestrator import orchestrator
 from cerberus.config import settings
 from cerberus.core.security import generate_api_key
-from cerberus.models.schemas import CodeReviewRequest, ReviewConfig
+from cerberus.models.schemas import CodeReviewRequest, ReviewConfig, ZipReviewResponse
 
 # Reconfigure stdout/stderr to utf-8 safely
 if hasattr(sys.stdout, "reconfigure"):
@@ -49,6 +49,93 @@ def _safe_text(val: Optional[str]) -> str:
         text = text.replace(old, new)
     return text
 
+
+def _render_zip_review_cli(res: ZipReviewResponse, blocking: bool = False) -> None:
+    """Renders comprehensive project archive review to CLI."""
+    score_color = "green" if res.overall_project_score >= 80 else ("yellow" if res.overall_project_score >= 60 else "red")
+    summary = res.severity_summary
+
+    console.print(Panel(
+        f"[bold]Project Name:[/bold] {res.project_name}\n"
+        f"[bold]Overall Project Score:[/bold] [{score_color}]{res.overall_project_score} / 100[/{score_color}]\n"
+        f"[bold]Files Reviewed:[/bold] {res.reviewed_files_count} / {res.total_files_discovered} files ({res.total_lines_of_code:,} LOC)\n"
+        f"[bold]Skipped Files:[/bold] {res.skipped_files_count}\n"
+        f"[bold]Languages:[/bold] {', '.join(f'{k} ({v})' for k, v in res.language_distribution.items()) if res.language_distribution else 'None'}\n"
+        f"[bold]Critical:[/bold] [red]{summary.critical}[/red] | "
+        f"[bold]High:[/bold] [yellow]{summary.high}[/yellow] | "
+        f"[bold]Medium:[/bold] {summary.medium} | "
+        f"[bold]Low/Info:[/bold] {summary.low + summary.info}\n"
+        f"[bold]Latency:[/bold] {res.processing_time_ms}ms",
+        title="[bold cyan]Project Archive Review Summary[/bold cyan]",
+        border_style="cyan"
+    ))
+
+    # File breakdown table
+    if res.file_reviews:
+        table = Table(title=f"File-by-File Quality Breakdown ({len(res.file_reviews)} files)", show_header=True, header_style="bold magenta")
+        table.add_column("File Path", style="cyan")
+        table.add_column("Lang", width=10)
+        table.add_column("LOC", width=6, justify="right")
+        table.add_column("Score", width=8, justify="right")
+        table.add_column("Crit", width=6, justify="right")
+        table.add_column("High", width=6, justify="right")
+        table.add_column("Med", width=6, justify="right")
+        table.add_column("Status", width=10)
+
+        for fr in res.file_reviews:
+            f_color = "green" if fr.score >= 80 else ("yellow" if fr.score >= 60 else "red")
+            crit_str = f"[red]{fr.critical_count}[/red]" if fr.critical_count > 0 else "0"
+            high_str = f"[yellow]{fr.high_count}[/yellow]" if fr.high_count > 0 else "0"
+            table.add_row(
+                _safe_text(fr.file_path),
+                fr.language,
+                str(fr.lines_of_code),
+                f"[{f_color}]{fr.score}[/{f_color}]",
+                crit_str,
+                high_str,
+                str(fr.medium_count),
+                "[green]PASS[/green]" if (fr.critical_count == 0 and fr.high_count == 0) else "[red]ISSUES[/red]"
+            )
+
+        console.print(table)
+
+    # Top critical findings
+    if res.top_critical_findings:
+        crit_table = Table(title=f"Top Project Vulnerabilities & Critical Issues ({len(res.top_critical_findings)})", show_header=True, header_style="bold red")
+        crit_table.add_column("Sev", width=10)
+        crit_table.add_column("Category", width=14)
+        crit_table.add_column("Issue & Context")
+
+        for f in res.top_critical_findings[:15]:
+            sev_col = "red" if f.severity.value == "critical" else "yellow"
+            safe_title = _safe_text(f.title)
+            safe_msg = _safe_text(f.message)
+            crit_table.add_row(
+                f"[{sev_col}]{f.severity.value.upper()}[/{sev_col}]",
+                _safe_text(f.category),
+                f"[bold]{safe_title}[/bold]\n[dim]{safe_msg}[/dim]"
+            )
+        console.print(crit_table)
+
+    # Consensus
+    if res.collaborative_consensus:
+        cc = res.collaborative_consensus
+        pr_action = cc.get("pr_action", "MERGE_READY")
+        action_color = "green" if pr_action == "MERGE_READY" else ("yellow" if pr_action == "NEEDS_REVISION" else "red")
+        plans = [_safe_text(p) for p in cc.get('priority_action_plan', [])] if cc.get('priority_action_plan') else []
+        console.print(Panel(
+            f"[bold]Project Consensus Verdict:[/bold] [{action_color}]{pr_action.replace('_', ' ')}[/{action_color}]\n"
+            f"[bold]Summary:[/bold] {_safe_text(cc.get('summary'))}\n"
+            + (f"[dim]Plan: {', '.join(plans)}[/dim]" if plans else ""),
+            title="[bold cyan][PROJECT CONSENSUS] Multi-Agent Alignment[/bold cyan]",
+            border_style=action_color
+        ))
+
+    if blocking and (summary.critical > 0 or summary.high > 0):
+        console.print(f"[bold red][BLOCKED] Project failed blocking threshold with {summary.critical} critical and {summary.high} high issues.[/bold red]")
+        raise typer.Exit(code=1)
+
+
 app = typer.Typer(
     name="cerberus",
     help="cerberus</> - Autonomous Multi-Agent Code Review & Quality Assurance Platform",
@@ -59,26 +146,52 @@ console = Console()
 
 @app.command()
 def review(
-    file_path: Optional[Path] = typer.Argument(None, help="Path to code file to review"),
+    file_path: Optional[Path] = typer.Argument(None, help="Path to code file or ZIP archive to review"),
     snippet: Optional[str] = typer.Option(None, "--snippet", "-s", help="Direct code snippet to review"),
+    zip_file: Optional[Path] = typer.Option(None, "--zip", "-z", help="Direct path to ZIP project archive to review"),
     language: str = typer.Option("python", "--language", "-l", help="Language of code"),
     blocking: bool = typer.Option(False, "--blocking", "-b", help="Block with exit code 1 if critical/high flaws found"),
     agents: Optional[str] = typer.Option(None, "--agents", "-a", help="Comma-separated agents to run"),
 ):
-    """Run autonomous multi-agent review on a file or code snippet."""
+    """Run autonomous multi-agent review on a file, code snippet, or ZIP archive."""
+    agents_list = [a.strip() for a in agents.split(",")] if agents else None
+
+    # Check for ZIP project review
+    target_zip = zip_file or (file_path if file_path and file_path.suffix.lower() == ".zip" else None)
+    if target_zip:
+        if not target_zip.exists():
+            console.print(f"[bold red]Error:[/bold red] ZIP file not found: {target_zip}")
+            raise typer.Exit(code=1)
+
+        console.print(f"[bold cyan]cerberus</>[/bold cyan] [dim]v{__version__}[/dim] extracting and reviewing project archive: [bold]{target_zip.name}[/bold]...")
+
+        try:
+            zip_response = asyncio.run(orchestrator.execute_zip_review(
+                zip_source=target_zip,
+                project_name=target_zip.stem,
+                agents=agents_list,
+                config=ReviewConfig(blocking_mode=blocking)
+            ))
+        except Exception as e:
+            console.print(f"[bold red]Extraction/Review Error:[/bold red] {e}")
+            raise typer.Exit(code=1)
+
+        _render_zip_review_cli(zip_response, blocking)
+        return
+
     code = ""
     filename = "snippet.py"
 
     if file_path:
         if not file_path.exists():
-            console.print(f"[bold red]Error:[/bold run] File not found: {file_path}")
+            console.print(f"[bold red]Error:[/bold red] File not found: {file_path}")
             raise typer.Exit(code=1)
         code = file_path.read_text(encoding="utf-8")
         filename = file_path.name
     elif snippet:
         code = snippet
     else:
-        console.print("[bold red]Error:[/bold red] Provide either a file path or --snippet.")
+        console.print("[bold red]Error:[/bold red] Provide a code file, .zip archive, or --snippet.")
         raise typer.Exit(code=1)
 
     agents_list = [a.strip() for a in agents.split(",")] if agents else None
@@ -263,7 +376,7 @@ def health():
 @app.command()
 def serve(
     host: str = typer.Option("0.0.0.0", "--host", "-h", help="Bind host"),
-    port: int = typer.Option(8000, "--port", "-p", help="Bind port"),
+    port: int = typer.Option(settings.PORT, "--port", "-p", help="Bind port"),
     reload: bool = typer.Option(False, "--reload", "-r", help="Auto-reload on changes")
 ):
     """Launch the FastAPI server and visual Web Dashboard."""

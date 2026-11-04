@@ -16,6 +16,13 @@ db_url = settings.DATABASE_URL
 if db_url.startswith("sqlite:///") and not db_url.startswith("sqlite+aiosqlite:///"):
     db_url = db_url.replace("sqlite:///", "sqlite+aiosqlite:///")
 
+if "sqlite+aiosqlite:///./cerberus.db" in db_url:
+    from pathlib import Path
+    if not Path("cerberus.db").exists():
+        fallback_db = Path(__file__).resolve().parent.parent.parent / "cerberus.db"
+        if fallback_db.exists():
+            db_url = f"sqlite+aiosqlite:///{fallback_db.as_posix()}"
+
 connect_args = {}
 if "sqlite" in db_url:
     connect_args["check_same_thread"] = False
