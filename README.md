@@ -16,7 +16,7 @@
 
 ![cerberus</> Autonomous Multi-Agent Code Review Demo](assets/cerberus_demo.gif)
 
-> 🍎 **Designed with Steve Jobs Philosophy — *"Simplicity is the ultimate sophistication."***  
+> 🍎 **Human-Centered Cupertino Design — *"Simplicity is the ultimate sophistication."***  
 > - **Iconic Apple 4-Concentric Activity Rings:** Security 🔴, Performance 🔵, Quality 🟢, Compliance 🟣.  
 > - **Global Magic Dropzone:** Drag & drop any code file or `.zip` project anywhere to inspect instantly.  
 > - **✨ Auto-Heal Code:** 1-Click AST verified code repair with emerald wave feedback directly in the editor.  

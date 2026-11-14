@@ -24,7 +24,7 @@ It just works. 🛡️
 ## LinkedIn Post (Executive / Technical Leader Angle)
 Pull requests shouldn't be a bottleneck or an argument.
 
-We reimagined code review from first principles using Steve Jobs' philosophy: "Simplicity is the ultimate sophistication."
+We reimagined code review from first principles with a singular philosophy: "Simplicity is the ultimate sophistication."
 
 Introducing cerberus</> v1.0.0 Pro:
 An autonomous multi-agent code intelligence platform that pairs 7 specialized AI detectives to review security, algorithmic efficiency, architectural coupling, and regulatory compliance (HIPAA §164.312, GDPR, SOC 2, PCI-DSS).

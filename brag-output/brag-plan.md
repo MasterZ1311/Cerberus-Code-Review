@@ -1,7 +1,7 @@
 # Brag Plan: cerberus</> Autonomous Multi-Agent Code Intelligence & Review
 
 ## What is this app?
-**cerberus</>** is an autonomous AI code intelligence platform built with **Steve Jobs / Apple Human Interface Design** philosophy: *Simplicity is the ultimate sophistication*. Seven specialized AI agents inspect code for security flaws (CWE), performance bottlenecks ($O(n^2)$), clean code quality, architecture coupling, and enterprise compliance (HIPAA, GDPR, SOC 2, PCI-DSS), collaborate on a unified verdict, and automatically apply verified Git code repairs in milliseconds.
+**cerberus</>** is an autonomous AI code intelligence platform built with **Cupertino Human Interface Design** philosophy: *Simplicity is the ultimate sophistication*. Seven specialized AI agents inspect code for security flaws (CWE), performance bottlenecks ($O(n^2)$), clean code quality, architecture coupling, and enterprise compliance (HIPAA, GDPR, SOC 2, PCI-DSS), collaborate on a unified verdict, and automatically apply verified Git code repairs in milliseconds.
 
 ## The angle
 "What if code review was as fluid, tactile, and intuitive as an Apple product? Seven autonomous AI detectives. Zero drama. One unified mind."

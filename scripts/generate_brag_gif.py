@@ -1,6 +1,6 @@
 """
 Generates an ultra-cinematic 20-second animated product demonstration GIF for cerberus</>.
-Showcases the Steve Jobs / Apple Human Interface Design transformation:
+Showcases the Cupertino Human Interface Design transformation:
 - Cupertino Frosted Glass Vibrancy & SF Pro Typography
 - Magic Dropzone & One-Click Input
 - Parallel Multi-Agent Stepper (7 Specialized Agents)
@@ -697,7 +697,7 @@ HTML_CONTENT = """<!DOCTYPE html>
           <div style="font-size: 13px; color: #8e8e93; max-width: 420px; line-height: 1.5;">
             Drop any code file or .zip repository archive to analyze immediately.
           </div>
-          <div class="badge-pro" style="margin-top: 6px;">Steve Jobs Philosophy • "It Just Works"</div>
+          <div class="badge-pro" style="margin-top: 6px;">Human Interface Design • "It Just Works"</div>
         </div>
       </div>
     </div>
