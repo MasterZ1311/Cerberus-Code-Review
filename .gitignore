@@ -65,4 +65,8 @@ scratch/
 
 # Internal documentation & submission reports
 internal_docs/
+*.docx
+*.pptx
+*.doc
+*.ppt
 
