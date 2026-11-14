@@ -8,7 +8,8 @@ import logging
 from pathlib import Path
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST
 from cerberus import __version__
 from cerberus.api.v1 import agents, analytics, config, health, review
@@ -84,6 +85,26 @@ def create_app() -> FastAPI:
     @app.get("/metrics", include_in_schema=False)
     def metrics_endpoint():
         return Response(content=get_prometheus_metrics(), media_type=CONTENT_TYPE_LATEST)
+
+    # Static Assets & Logo Serving
+    assets_dir = Path(__file__).parent.parent.parent / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+    @app.get("/logo.png", include_in_schema=False)
+    def logo_endpoint():
+        logo_path = Path(__file__).parent.parent / "web" / "logo.png"
+        if not logo_path.exists():
+            logo_path = Path(__file__).parent.parent.parent / "assets" / "cerberus_logo.png"
+        return FileResponse(logo_path, media_type="image/png")
+
+    @app.get("/favicon.png", include_in_schema=False)
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon_endpoint():
+        fav_path = Path(__file__).parent.parent / "web" / "favicon.png"
+        if not fav_path.exists():
+            fav_path = Path(__file__).parent.parent.parent / "assets" / "favicon.png"
+        return FileResponse(fav_path, media_type="image/png")
 
     # Serve the Embedded Web Dashboard at Root
     @app.get("/", response_class=HTMLResponse, include_in_schema=False)

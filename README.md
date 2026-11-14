@@ -1,14 +1,22 @@
-# cerberus</> MultiAgent-CodeReview
+<p align="center">
+  <img src="assets/cerberus_logo.png" alt="cerberus</> Official Logo" width="180">
+</p>
 
-**Autonomous Multi-Agent Code Review & Collaborative Quality Assurance System**  
-*(CodeVault AI Architecture Concept)*
+<h1 align="center">cerberus&lt;/&gt; MultiAgent-CodeReview</h1>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Python: 3.11+](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/downloads/)
-[![CI Status](https://github.com/MasterZ1311/MultiAgent-CodeReview/actions/workflows/ci.yml/badge.svg)](https://github.com/MasterZ1311/MultiAgent-CodeReview/actions/workflows/ci.yml)
-[![Tests Passing](https://img.shields.io/badge/tests-412%20passed-brightgreen.svg)](tests/)
-[![Overall Score](https://img.shields.io/badge/Score-10%2F10%20(Perfect%20Score)-success.svg)](file:///C:/Users/vishwa/.gemini/antigravity/brain/c7e69cb8-ef18-4d78-829a-3ec73684f438/app_rating_report.md)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+<p align="center">
+  <strong>Autonomous Multi-Agent Code Review &amp; Collaborative Quality Assurance System</strong><br>
+  <em>(CodeVault AI Architecture Concept)</em>
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg" alt="Python: 3.11+"></a>
+  <a href="https://github.com/MasterZ1311/MultiAgent-CodeReview/actions/workflows/ci.yml"><img src="https://github.com/MasterZ1311/MultiAgent-CodeReview/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/tests-412%20passed-brightgreen.svg" alt="Tests Passing"></a>
+  <a href="file:///C:/Users/vishwa/.gemini/antigravity/brain/c7e69cb8-ef18-4d78-829a-3ec73684f438/app_rating_report.md"><img src="https://img.shields.io/badge/Score-10%2F10%20(Perfect%20Score)-success.svg" alt="Overall Score"></a>
+  <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"></a>
+</p>
 
 ---
 

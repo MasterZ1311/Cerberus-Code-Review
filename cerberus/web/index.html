@@ -5,8 +5,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cerberus </> | Autonomous Multi-Agent Code Intelligence</title>
-  <link rel="icon"
-    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" href="/logo.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -257,29 +257,40 @@
     }
 
     .logo-badge {
-      background: linear-gradient(135deg, #1d1d1f, #3a3a3c);
-      color: #ffffff;
-      width: 36px;
-      height: 36px;
+      width: 38px;
+      height: 38px;
       border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-family: 'JetBrains Mono', 'Geist Mono', monospace;
-      font-weight: 800;
-      font-size: 0.95rem;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
-      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
     }
 
     [data-theme="dark"] .logo-badge {
-      background: linear-gradient(135deg, #ffffff, #d1d1d6);
-      color: #000000;
-      box-shadow: 0 4px 16px rgba(255, 255, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 4px 16px rgba(0, 210, 211, 0.18);
+    }
+
+    .brand-logo-img {
+      width: 30px;
+      height: 30px;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 5px rgba(0, 210, 211, 0.4));
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .brand:hover .logo-badge {
-      transform: scale(1.06);
+      transform: scale(1.08);
+      box-shadow: 0 6px 20px rgba(0, 210, 211, 0.28);
+    }
+
+    .brand:hover .brand-logo-img {
+      transform: scale(1.05);
     }
 
     .brand-title {
@@ -357,6 +368,7 @@
         transform: scale(0.8);
         opacity: 0.8;
       }
+
       100% {
         transform: scale(2.3);
         opacity: 0;
@@ -419,9 +431,17 @@
       transition: height 0.2s ease;
     }
 
-    .sound-bar:nth-child(1) { height: 4px; }
-    .sound-bar:nth-child(2) { height: 8px; }
-    .sound-bar:nth-child(3) { height: 12px; }
+    .sound-bar:nth-child(1) {
+      height: 4px;
+    }
+
+    .sound-bar:nth-child(2) {
+      height: 8px;
+    }
+
+    .sound-bar:nth-child(3) {
+      height: 12px;
+    }
 
     .sound-active .sound-bar {
       background: var(--accent);
@@ -479,8 +499,15 @@
     }
 
     @keyframes floatDropIcon {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-8px); }
+
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+
+      50% {
+        transform: translateY(-8px);
+      }
     }
 
     .magic-drop-title {
@@ -515,9 +542,11 @@
         grid-template-columns: 1fr;
         padding: 1rem;
       }
+
       header {
         padding: 0.75rem 1.25rem;
       }
+
       .brand-subtitle {
         display: none;
       }
@@ -704,9 +733,11 @@
       0% {
         box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.8), inset 0 0 20px rgba(52, 199, 89, 0.4);
       }
+
       50% {
         box-shadow: 0 0 30px 10px rgba(52, 199, 89, 0.6), inset 0 0 40px rgba(52, 199, 89, 0.3);
       }
+
       100% {
         box-shadow: var(--shadow-sm), inset 0 0 0 rgba(52, 199, 89, 0);
       }
@@ -758,9 +789,17 @@
       box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.2);
     }
 
-    .vscode-dot.red { background: #ff5f56; }
-    .vscode-dot.yellow { background: #ffbd2e; }
-    .vscode-dot.green { background: #27c93f; }
+    .vscode-dot.red {
+      background: #ff5f56;
+    }
+
+    .vscode-dot.yellow {
+      background: #ffbd2e;
+    }
+
+    .vscode-dot.green {
+      background: #27c93f;
+    }
 
     .vscode-tab-title {
       font-family: 'JetBrains Mono', 'Geist Mono', monospace;
@@ -1121,8 +1160,15 @@
     }
 
     @keyframes pulseStep {
-      0%, 100% { transform: scale(1); }
-      50% { transform: scale(1.15); }
+
+      0%,
+      100% {
+        transform: scale(1);
+      }
+
+      50% {
+        transform: scale(1.15);
+      }
     }
 
     .skeleton-card {
@@ -1143,8 +1189,15 @@
     }
 
     @keyframes pulseSkeleton {
-      0%, 100% { opacity: 0.5; }
-      50% { opacity: 0.9; }
+
+      0%,
+      100% {
+        opacity: 0.5;
+      }
+
+      50% {
+        opacity: 0.9;
+      }
     }
 
     /* =========================================================================
@@ -1192,10 +1245,21 @@
       opacity: 0.2;
     }
 
-    .ring-track.ring-security { stroke: #ff453a; }
-    .ring-track.ring-performance { stroke: #0a84ff; }
-    .ring-track.ring-quality { stroke: #30d158; }
-    .ring-track.ring-compliance { stroke: #bf5af2; }
+    .ring-track.ring-security {
+      stroke: #ff453a;
+    }
+
+    .ring-track.ring-performance {
+      stroke: #0a84ff;
+    }
+
+    .ring-track.ring-quality {
+      stroke: #30d158;
+    }
+
+    .ring-track.ring-compliance {
+      stroke: #bf5af2;
+    }
 
     /* Rings Animated Meters */
     .ring-meter {
@@ -1299,10 +1363,21 @@
       line-height: 1.1;
     }
 
-    .stat-badge.critical .num { color: var(--critical); }
-    .stat-badge.high .num { color: var(--high); }
-    .stat-badge.medium .num { color: var(--medium); }
-    .stat-badge.low .num { color: var(--low); }
+    .stat-badge.critical .num {
+      color: var(--critical);
+    }
+
+    .stat-badge.high .num {
+      color: var(--high);
+    }
+
+    .stat-badge.medium .num {
+      color: var(--medium);
+    }
+
+    .stat-badge.low .num {
+      color: var(--low);
+    }
 
     .stat-badge .lbl {
       font-size: 0.68rem;
@@ -1349,10 +1424,21 @@
       border-radius: 50%;
     }
 
-    .ring-legend-dot.sec { background: #ff453a; }
-    .ring-legend-dot.perf { background: #0a84ff; }
-    .ring-legend-dot.qual { background: #30d158; }
-    .ring-legend-dot.comp { background: #bf5af2; }
+    .ring-legend-dot.sec {
+      background: #ff453a;
+    }
+
+    .ring-legend-dot.perf {
+      background: #0a84ff;
+    }
+
+    .ring-legend-dot.qual {
+      background: #30d158;
+    }
+
+    .ring-legend-dot.comp {
+      background: #bf5af2;
+    }
 
     /* Results Workspace Tabs */
     .results-tab-bar {
@@ -1479,10 +1565,21 @@
       transform: translateY(-1px);
     }
 
-    .finding-card.critical { border-left-color: var(--critical); }
-    .finding-card.high { border-left-color: var(--high); }
-    .finding-card.medium { border-left-color: var(--medium); }
-    .finding-card.low { border-left-color: var(--low); }
+    .finding-card.critical {
+      border-left-color: var(--critical);
+    }
+
+    .finding-card.high {
+      border-left-color: var(--high);
+    }
+
+    .finding-card.medium {
+      border-left-color: var(--medium);
+    }
+
+    .finding-card.low {
+      border-left-color: var(--low);
+    }
 
     .finding-top {
       display: flex;
@@ -1799,9 +1896,17 @@
       opacity: 1;
     }
 
-    .toast.success { border-color: var(--success); }
-    .toast.error { border-color: var(--critical); }
-    .toast.warning { border-color: var(--high); }
+    .toast.success {
+      border-color: var(--success);
+    }
+
+    .toast.error {
+      border-color: var(--critical);
+    }
+
+    .toast.warning {
+      border-color: var(--high);
+    }
 
     /* Spinner */
     .spinner {
@@ -1815,7 +1920,9 @@
     }
 
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     /* Footer */
@@ -1862,9 +1969,11 @@
       <div class="magic-drop-icon">✨</div>
       <div class="magic-drop-title">Magic Code Dropzone</div>
       <div class="magic-drop-subtitle">
-        Drop any source file (<code>.py</code>, <code>.js</code>, <code>.ts</code>, <code>.go</code>, <code>.java</code>, <code>.sql</code>) or <code>.zip</code> repository archive to analyze immediately.
+        Drop any source file (<code>.py</code>, <code>.js</code>, <code>.ts</code>, <code>.go</code>,
+        <code>.java</code>, <code>.sql</code>) or <code>.zip</code> repository archive to analyze immediately.
       </div>
-      <div class="brand-version-badge" style="margin-top:0.5rem;">Cupertino Human Interface • Instant Zero-Clutter Analysis</div>
+      <div class="brand-version-badge" style="margin-top:0.5rem;">Cupertino Human Interface • Instant Zero-Clutter
+        Analysis</div>
     </div>
   </div>
 
@@ -1873,7 +1982,10 @@
        ======================================================================= -->
   <header>
     <div class="brand" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
-      <div class="logo-badge">&lt;/&gt;</div>
+      <div class="logo-badge" title="Cerberus AI Code Shield">
+        <img src="/logo.png" onerror="this.onerror=null; this.src='logo.png';" alt="cerberus logo"
+          class="brand-logo-img">
+      </div>
       <div>
         <div class="brand-title">
           <span>cerberus&lt;/&gt;</span>
@@ -1908,7 +2020,8 @@
       </button>
 
       <!-- Agent Capabilities Drawer Trigger -->
-      <button class="btn-header-action" onclick="openAgentsModal()" title="View Active Review Agents &amp; Capabilities">
+      <button class="btn-header-action" onclick="openAgentsModal()"
+        title="View Active Review Agents &amp; Capabilities">
         <span>🛡️</span>
         <span>7 Agents</span>
       </button>
@@ -1939,8 +2052,7 @@
           onclick="switchMode('snippet')">
           <span>📝 Single Code Snippet</span>
         </button>
-        <button class="mode-tab" id="tab-zip" role="tab" aria-selected="false"
-          onclick="switchMode('zip')">
+        <button class="mode-tab" id="tab-zip" role="tab" aria-selected="false" onclick="switchMode('zip')">
           <span>📦 Multi-File ZIP Archive</span>
         </button>
       </div>
@@ -1952,11 +2064,16 @@
             <span>Source Code Analysis</span>
           </div>
           <div class="presets-bar">
-            <span style="font-size:0.7rem; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Scenarios:</span>
-            <button class="btn-preset active" id="preset-vulnerable" onclick="loadPreset('vulnerable')">🔴 SQL &amp; Secrets</button>
-            <button class="btn-preset" id="preset-performance" onclick="loadPreset('performance')">⚡ O(n²) &amp; Loops</button>
-            <button class="btn-preset" id="preset-compliance" onclick="loadPreset('compliance')">🛡️ HIPAA &amp; GDPR</button>
-            <button class="btn-preset" id="preset-architecture" onclick="loadPreset('architecture')">🏗️ Arch &amp; SRP</button>
+            <span
+              style="font-size:0.7rem; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Scenarios:</span>
+            <button class="btn-preset active" id="preset-vulnerable" onclick="loadPreset('vulnerable')">🔴 SQL &amp;
+              Secrets</button>
+            <button class="btn-preset" id="preset-performance" onclick="loadPreset('performance')">⚡ O(n²) &amp;
+              Loops</button>
+            <button class="btn-preset" id="preset-compliance" onclick="loadPreset('compliance')">🛡️ HIPAA &amp;
+              GDPR</button>
+            <button class="btn-preset" id="preset-architecture" onclick="loadPreset('architecture')">🏗️ Arch &amp;
+              SRP</button>
             <button class="btn-preset" id="preset-clean" onclick="loadPreset('clean')">✨ Clean Code</button>
           </div>
         </div>
@@ -1974,11 +2091,14 @@
             </div>
             <div class="editor-toolbar">
               <!-- Auto-Heal Trigger -->
-              <button class="btn-auto-heal" id="btn-editor-autoheal" style="display:none;" onclick="triggerAutoHealCode()" title="Magically apply verified AST repairs into the editor">
+              <button class="btn-auto-heal" id="btn-editor-autoheal" style="display:none;"
+                onclick="triggerAutoHealCode()" title="Magically apply verified AST repairs into the editor">
                 <span>✨ Auto-Heal</span>
               </button>
-              <input type="file" id="file-upload-input" style="display:none;" onchange="handleSingleFileUpload(this.files)">
-              <button class="btn-editor-action" onclick="document.getElementById('file-upload-input').click()" title="Open local code file">
+              <input type="file" id="file-upload-input" style="display:none;"
+                onchange="handleSingleFileUpload(this.files)">
+              <button class="btn-editor-action" onclick="document.getElementById('file-upload-input').click()"
+                title="Open local code file">
                 <span>📂 Open</span>
               </button>
               <button class="btn-editor-action" onclick="copyEditorCode()" title="Copy editor code">
@@ -1992,12 +2112,12 @@
           <div class="editor-body-container">
             <div class="editor-gutter" id="editor-gutter">1</div>
             <textarea id="code-input" class="code-editor" spellcheck="false"
-              placeholder="# Paste code or drop any file here..."
-              oninput="updateEditorMetrics()"></textarea>
+              placeholder="# Paste code or drop any file here..." oninput="updateEditorMetrics()"></textarea>
           </div>
           <div class="editor-status-bar">
             <div>
-              <span id="editor-lang-tag">Python 3</span> • <span id="editor-loc-tag">1 lines</span> • <span id="editor-char-tag">0 chars</span>
+              <span id="editor-lang-tag">Python 3</span> • <span id="editor-loc-tag">1 lines</span> • <span
+                id="editor-char-tag">0 chars</span>
             </div>
             <div>
               <span>UTF-8</span> • <span style="color:#34c759;">Spaces (4)</span>
@@ -2030,7 +2150,8 @@
             <span style="font-size: 1.6rem;">📁</span>
             <div>
               <div id="zip-file-name"
-                style="font-family: 'Geist Mono', monospace; font-size: 0.9rem; font-weight: 700; color: var(--text-main);"></div>
+                style="font-family: 'Geist Mono', monospace; font-size: 0.9rem; font-weight: 700; color: var(--text-main);">
+              </div>
               <div id="zip-file-size" style="color: var(--text-muted); font-size: 0.75rem;"></div>
             </div>
           </div>
@@ -2052,20 +2173,26 @@
         <div class="agent-selector-header">
           <span>Active Review Agents</span>
           <div style="display:flex; gap:0.5rem;">
-            <a href="javascript:void(0)" onclick="selectAllAgents(true)" style="color:var(--accent); text-decoration:none;">All</a>
+            <a href="javascript:void(0)" onclick="selectAllAgents(true)"
+              style="color:var(--accent); text-decoration:none;">All</a>
             <span style="color:var(--text-faint);">•</span>
-            <a href="javascript:void(0)" onclick="selectAllAgents(false)" style="color:var(--text-muted); text-decoration:none;">None</a>
+            <a href="javascript:void(0)" onclick="selectAllAgents(false)"
+              style="color:var(--text-muted); text-decoration:none;">None</a>
           </div>
         </div>
         <div class="agent-selector">
           <label class="agent-checkbox"><input type="checkbox" id="agent-security" checked> Security (CWE)</label>
-          <label class="agent-checkbox"><input type="checkbox" id="agent-performance" checked> Performance (O(n²))</label>
+          <label class="agent-checkbox"><input type="checkbox" id="agent-performance" checked> Performance
+            (O(n²))</label>
           <label class="agent-checkbox"><input type="checkbox" id="agent-quality" checked> Quality (PEP 257)</label>
-          <label class="agent-checkbox"><input type="checkbox" id="agent-architecture" checked> Architecture (SRP)</label>
-          <label class="agent-checkbox"><input type="checkbox" id="agent-compliance" checked> Compliance (HIPAA/GDPR)</label>
+          <label class="agent-checkbox"><input type="checkbox" id="agent-architecture" checked> Architecture
+            (SRP)</label>
+          <label class="agent-checkbox"><input type="checkbox" id="agent-compliance" checked> Compliance
+            (HIPAA/GDPR)</label>
         </div>
         <label class="toggle-blocking-mode">
-          <input type="checkbox" id="strict-blocking-toggle" checked style="accent-color:var(--accent); cursor:pointer;">
+          <input type="checkbox" id="strict-blocking-toggle" checked
+            style="accent-color:var(--accent); cursor:pointer;">
           <span>Strict Merge Gating: Block PR if critical security flaws or compliance leaks are found</span>
         </label>
       </div>
@@ -2073,7 +2200,8 @@
       <button id="btn-review" class="btn-submit" onclick="submitActiveReview()">
         <span class="spinner" id="btn-spinner"></span>
         <span id="btn-text">Execute Multi-Agent Review</span>
-        <span style="font-size:0.75rem; font-weight:500; opacity:0.8; font-family:'Geist Mono', monospace;">[Ctrl+Enter]</span>
+        <span
+          style="font-size:0.75rem; font-weight:500; opacity:0.8; font-family:'Geist Mono', monospace;">[Ctrl+Enter]</span>
       </button>
     </section>
 
@@ -2087,27 +2215,33 @@
           <!-- Zen vs Inspector Mode Segmented Switch -->
           <div class="view-mode-tabs" role="tablist">
             <button class="view-mode-tab active" id="mode-zen" onclick="toggleZenInspectorMode('zen')">🧘 Zen</button>
-            <button class="view-mode-tab" id="mode-inspector" onclick="toggleZenInspectorMode('inspector')">🔬 Inspector</button>
+            <button class="view-mode-tab" id="mode-inspector" onclick="toggleZenInspectorMode('inspector')">🔬
+              Inspector</button>
           </div>
           <span id="latency-tag"
             style="font-size: 0.78rem; color: var(--text-muted); font-family: 'Geist Mono', monospace;">Ready</span>
-          <button id="btn-copy-json" class="btn-preset" onclick="copyReportJson()" title="Copy full review report as JSON">
+          <button id="btn-copy-json" class="btn-preset" onclick="copyReportJson()"
+            title="Copy full review report as JSON">
             JSON
           </button>
         </div>
       </div>
 
       <!-- File Filter Bar for ZIP reviews -->
-      <div id="project-file-filter-bar" class="file-filter-bar" style="display:none; background:var(--surface-raised); border:1px solid var(--card-border); border-radius:12px; padding:0.45rem 0.85rem; align-items:center; gap:0.65rem;">
-        <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform:uppercase;">Active File:</span>
-        <select id="project-file-select" class="select-filter" style="flex:1; font-family:'Geist Mono', monospace;" onchange="onSelectZipFile(this.value)">
+      <div id="project-file-filter-bar" class="file-filter-bar"
+        style="display:none; background:var(--surface-raised); border:1px solid var(--card-border); border-radius:12px; padding:0.45rem 0.85rem; align-items:center; gap:0.65rem;">
+        <span style="font-size: 0.76rem; font-weight: 700; color: var(--text-muted); text-transform:uppercase;">Active
+          File:</span>
+        <select id="project-file-select" class="select-filter" style="flex:1; font-family:'Geist Mono', monospace;"
+          onchange="onSelectZipFile(this.value)">
           <option value="__ALL__">📂 Entire Project Overview</option>
         </select>
       </div>
 
       <!-- Overview Grid: Apple 4-Concentric Activity Rings & Severity Breakdown Chips -->
       <div class="overview-grid">
-        <div class="rings-wrapper" id="rings-wrapper" title="Concentric Activity Rings: Security, Performance, Quality, Compliance">
+        <div class="rings-wrapper" id="rings-wrapper"
+          title="Concentric Activity Rings: Security, Performance, Quality, Compliance">
           <svg class="rings-svg" viewBox="0 0 150 150">
             <!-- Ring 1 (Outer - Security: Red) -->
             <circle class="ring-track ring-security" cx="75" cy="75" r="52" stroke-width="7" />
@@ -2115,7 +2249,8 @@
 
             <!-- Ring 2 (Middle-Outer - Performance: Blue) -->
             <circle class="ring-track ring-performance" cx="75" cy="75" r="42" stroke-width="7" />
-            <circle class="ring-meter ring-performance" id="ring-meter-performance" cx="75" cy="75" r="42" stroke-width="7" />
+            <circle class="ring-meter ring-performance" id="ring-meter-performance" cx="75" cy="75" r="42"
+              stroke-width="7" />
 
             <!-- Ring 3 (Middle-Inner - Quality: Green) -->
             <circle class="ring-track ring-quality" cx="75" cy="75" r="32" stroke-width="7" />
@@ -2123,7 +2258,8 @@
 
             <!-- Ring 4 (Inner - Compliance: Purple) -->
             <circle class="ring-track ring-compliance" cx="75" cy="75" r="22" stroke-width="7" />
-            <circle class="ring-meter ring-compliance" id="ring-meter-compliance" cx="75" cy="75" r="22" stroke-width="7" />
+            <circle class="ring-meter ring-compliance" id="ring-meter-compliance" cx="75" cy="75" r="22"
+              stroke-width="7" />
 
             <!-- Legacy Gauge Meter Fallback for compatibility -->
             <circle id="gauge-meter" style="display:none;" />
@@ -2135,19 +2271,23 @@
         </div>
 
         <div class="summary-cards">
-          <div class="stat-badge critical" id="filter-stat-critical" onclick="toggleSeverityFilter('critical')" title="Filter by Critical">
+          <div class="stat-badge critical" id="filter-stat-critical" onclick="toggleSeverityFilter('critical')"
+            title="Filter by Critical">
             <div class="num" id="cnt-critical">0</div>
             <div class="lbl">Critical</div>
           </div>
-          <div class="stat-badge high" id="filter-stat-high" onclick="toggleSeverityFilter('high')" title="Filter by High">
+          <div class="stat-badge high" id="filter-stat-high" onclick="toggleSeverityFilter('high')"
+            title="Filter by High">
             <div class="num" id="cnt-high">0</div>
             <div class="lbl">High</div>
           </div>
-          <div class="stat-badge medium" id="filter-stat-medium" onclick="toggleSeverityFilter('medium')" title="Filter by Medium">
+          <div class="stat-badge medium" id="filter-stat-medium" onclick="toggleSeverityFilter('medium')"
+            title="Filter by Medium">
             <div class="num" id="cnt-medium">0</div>
             <div class="lbl">Medium</div>
           </div>
-          <div class="stat-badge low" id="filter-stat-low" onclick="toggleSeverityFilter('low')" title="Filter by Low &amp; Info">
+          <div class="stat-badge low" id="filter-stat-low" onclick="toggleSeverityFilter('low')"
+            title="Filter by Low &amp; Info">
             <div class="num" id="cnt-low">0</div>
             <div class="lbl">Low / Info</div>
           </div>
@@ -2201,8 +2341,8 @@
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
-          <input type="text" id="findings-search-input" class="search-input" placeholder="Search findings, CWE, rule... [/]"
-            oninput="applyFindingsFilters()">
+          <input type="text" id="findings-search-input" class="search-input"
+            placeholder="Search findings, CWE, rule... [/]" oninput="applyFindingsFilters()">
         </div>
 
         <select id="filter-domain-select" class="select-filter" onchange="applyFindingsFilters()">
@@ -2214,7 +2354,8 @@
           <option value="compliance">Compliance</option>
         </select>
 
-        <button class="btn-preset" onclick="toggleAllFindingsCollapse()" id="btn-toggle-collapse" title="Expand or collapse all finding cards">
+        <button class="btn-preset" onclick="toggleAllFindingsCollapse()" id="btn-toggle-collapse"
+          title="Expand or collapse all finding cards">
           Collapse All
         </button>
       </div>
@@ -2222,15 +2363,21 @@
       <!-- Findings List & Dynamic Views Container -->
       <div class="findings-container" id="findings-list">
         <!-- Initial Empty State -->
-        <div style="text-align: center; padding: 4.5rem 1.5rem; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 0.95rem;">
-          <div style="font-size: 3.2rem;">🛡️</div>
-          <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); letter-spacing:-0.02em;">Cerberus Multi-Agent Engine Ready</div>
+        <div
+          style="text-align: center; padding: 4.5rem 1.5rem; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 0.95rem;">
+          <img src="/logo.png" onerror="this.onerror=null; this.src='logo.png';" alt="Cerberus Shield Logo"
+            style="width: 76px; height: 76px; object-fit: contain; filter: drop-shadow(0 4px 18px rgba(0, 210, 211, 0.45)); margin-bottom: 0.25rem;">
+          <div style="font-size: 1.15rem; font-weight: 700; color: var(--text-main); letter-spacing:-0.02em;">Cerberus
+            Multi-Agent Engine Ready</div>
           <div style="font-size: 0.85rem; max-width: 460px; line-height: 1.55;">
-            Drop any file directly onto this screen, select a scenario preset above, or drop a multi-file <code>.zip</code> to unleash parallel diagnostic agents.
+            Drop any file directly onto this screen, select a scenario preset above, or drop a multi-file
+            <code>.zip</code> to unleash parallel diagnostic agents.
           </div>
           <div style="display:flex; gap:0.6rem; margin-top:0.5rem; flex-wrap:wrap; justify-content:center;">
-            <button class="btn-preset" onclick="loadPreset('vulnerable'); submitActiveReview();">Run Vulnerable Preset</button>
-            <button class="btn-preset" onclick="loadPreset('clean'); submitActiveReview();">Run Clean Code Preset</button>
+            <button class="btn-preset" onclick="loadPreset('vulnerable'); submitActiveReview();">Run Vulnerable
+              Preset</button>
+            <button class="btn-preset" onclick="loadPreset('clean'); submitActiveReview();">Run Clean Code
+              Preset</button>
           </div>
         </div>
       </div>
@@ -2247,16 +2394,23 @@
         <button class="btn-close-modal" onclick="closeApprovalModal()">✕</button>
       </div>
       <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.5;">
-        You are authorizing a human lead override for review: <code id="modal-review-id-tag" style="font-family:'Geist Mono', monospace; font-weight:700; background:var(--surface-raised); padding:0.15rem 0.4rem; border-radius:6px;"></code>.
+        You are authorizing a human lead override for review: <code id="modal-review-id-tag"
+          style="font-family:'Geist Mono', monospace; font-weight:700; background:var(--surface-raised); padding:0.15rem 0.4rem; border-radius:6px;"></code>.
         This explicitly overrules automated merge blocking criteria and commits a verifiable sign-off to the audit log.
       </div>
       <div>
-        <label style="font-size:0.74rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.35rem;">Reviewer Identity / Role</label>
-        <input type="text" id="approval-reviewer-input" class="project-input" placeholder="e.g. Lead Security Architect (Jane Doe)">
+        <label
+          style="font-size:0.74rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.35rem;">Reviewer
+          Identity / Role</label>
+        <input type="text" id="approval-reviewer-input" class="project-input"
+          placeholder="e.g. Lead Security Architect (Jane Doe)">
       </div>
       <div>
-        <label style="font-size:0.74rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.35rem;">Justification &amp; Risk Acceptance Note</label>
-        <textarea id="approval-reason-input" class="project-input" style="min-height:85px; resize:vertical;" placeholder="e.g. Verified false positive in sandbox deployment script; threat mitigated by network boundary isolation."></textarea>
+        <label
+          style="font-size:0.74rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.35rem;">Justification
+          &amp; Risk Acceptance Note</label>
+        <textarea id="approval-reason-input" class="project-input" style="min-height:85px; resize:vertical;"
+          placeholder="e.g. Verified false positive in sandbox deployment script; threat mitigated by network boundary isolation."></textarea>
       </div>
       <div style="display:flex; justify-content:flex-end; gap:0.65rem; margin-top:0.5rem;">
         <button class="btn-preset" onclick="closeApprovalModal()">Cancel</button>
@@ -2271,13 +2425,19 @@
        MODAL 2: ACTIVE AGENTS & ARCHITECTURAL CAPABILITIES
        ======================================================================= -->
   <div class="modal-overlay" id="agents-modal" onclick="closeAgentsModal(event)">
-    <div class="modal-card" style="max-width:680px; max-height:80vh; overflow-y:auto;" onclick="event.stopPropagation()">
+    <div class="modal-card" style="max-width:680px; max-height:80vh; overflow-y:auto;"
+      onclick="event.stopPropagation()">
       <div class="modal-header">
-        <div class="modal-title">🛡️ Cerberus Specialized Agent Network</div>
+        <div style="display:flex; align-items:center; gap:0.6rem;">
+          <img src="/logo.png" onerror="this.onerror=null; this.src='logo.png';" alt="cerberus logo"
+            style="width:28px; height:28px; object-fit:contain; filter:drop-shadow(0 2px 6px rgba(0,210,211,0.4));">
+          <div class="modal-title">Cerberus Specialized Agent Network</div>
+        </div>
         <button class="btn-close-modal" onclick="closeAgentsModal()">✕</button>
       </div>
       <div style="font-size:0.84rem; color:var(--text-muted);">
-        Cerberus deploys 7 decoupled agents executing parallel domain audits followed by consensus arbitration and AST repair synthesis:
+        Cerberus deploys 7 decoupled agents executing parallel domain audits followed by consensus arbitration and AST
+        repair synthesis:
       </div>
       <div id="agents-list-modal-body" style="display:flex; flex-direction:column; gap:0.75rem; margin-top:0.5rem;">
         <!-- Populated dynamically via fetch /api/v1/agents -->
@@ -2295,17 +2455,22 @@
         <button class="btn-close-modal" onclick="closeApiKeyModal()">✕</button>
       </div>
       <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.5;">
-        Requests to the Cerberus API are authenticated via Bearer tokens. In development, the default key is <code style="font-family:'Geist Mono', monospace; font-weight:700;">cvai_dev_key_123</code>.
+        Requests to the Cerberus API are authenticated via Bearer tokens. In development, the default key is <code
+          style="font-family:'Geist Mono', monospace; font-weight:700;">cvai_dev_key_123</code>.
       </div>
       <div>
-        <label style="font-size:0.74rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.35rem;">Bearer API Key</label>
-        <input type="password" id="modal-api-key-input" class="project-input" placeholder="cvai_..." style="font-family:'Geist Mono', monospace;">
+        <label
+          style="font-size:0.74rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); display:block; margin-bottom:0.35rem;">Bearer
+          API Key</label>
+        <input type="password" id="modal-api-key-input" class="project-input" placeholder="cvai_..."
+          style="font-family:'Geist Mono', monospace;">
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem;">
         <button class="btn-preset" onclick="testApiKeyConnection()">Test Health</button>
         <div style="display:flex; gap:0.5rem;">
           <button class="btn-preset" onclick="closeApiKeyModal()">Cancel</button>
-          <button class="btn-submit" style="padding:0.6rem 1.25rem; font-size:0.85rem;" onclick="saveApiKeyModal()">Save Key</button>
+          <button class="btn-submit" style="padding:0.6rem 1.25rem; font-size:0.85rem;" onclick="saveApiKeyModal()">Save
+            Key</button>
         </div>
       </div>
     </div>
@@ -2317,26 +2482,34 @@
   <div class="modal-overlay" id="share-modal" onclick="closeShareSheetModal(event)">
     <div class="modal-card" onclick="event.stopPropagation()">
       <div class="modal-header">
-        <div class="modal-title">↗ Executive Share &amp; Export Sheet</div>
+        <div style="display:flex; align-items:center; gap:0.6rem;">
+          <img src="/logo.png" onerror="this.onerror=null; this.src='logo.png';" alt="cerberus logo"
+            style="width:28px; height:28px; object-fit:contain; filter:drop-shadow(0 2px 6px rgba(0,210,211,0.4));">
+          <div class="modal-title">Executive Share &amp; Export Sheet</div>
+        </div>
         <button class="btn-close-modal" onclick="closeShareSheetModal()">✕</button>
       </div>
       <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.5;">
         Export and share Cerberus code health metrics across GitHub, Slack, or enterprise compliance audits.
       </div>
       <div style="display:flex; flex-direction:column; gap:0.6rem;">
-        <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;" onclick="copyMarkdownSummary()">
+        <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;"
+          onclick="copyMarkdownSummary()">
           <span>📋 Copy Executive Markdown Brief</span>
           <span style="font-size:0.75rem; color:var(--text-muted);">For Slack / Docs</span>
         </button>
-        <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;" onclick="copyGitHubPrComment()">
+        <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;"
+          onclick="copyGitHubPrComment()">
           <span>💬 Copy GitHub PR Review Comment</span>
           <span style="font-size:0.75rem; color:var(--text-muted);">Collapsible Markdown</span>
         </button>
-        <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;" onclick="copyComplianceAttestation()">
+        <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;"
+          onclick="copyComplianceAttestation()">
           <span>🛡️ Copy Compliance Attestation</span>
           <span style="font-size:0.75rem; color:var(--text-muted);">SOC 2 / HIPAA / GDPR</span>
         </button>
-        <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;" onclick="downloadSvgBadge()">
+        <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;"
+          onclick="downloadSvgBadge()">
           <span>🏷️ Download Health Badge (SVG)</span>
           <span style="font-size:0.75rem; color:var(--text-muted);">Vector Badge</span>
         </button>
@@ -2416,7 +2589,7 @@
           gain.connect(this.ctx.destination);
           osc.start();
           osc.stop(this.ctx.currentTime + 0.022);
-        } catch (e) {}
+        } catch (e) { }
       },
       sweep() {
         if (!this.enabled) return;
@@ -2434,7 +2607,7 @@
           gain.connect(this.ctx.destination);
           osc.start();
           osc.stop(this.ctx.currentTime + 0.18);
-        } catch (e) {}
+        } catch (e) { }
       },
       success() {
         if (!this.enabled) return;
@@ -2456,7 +2629,7 @@
             osc.start(this.ctx.currentTime + i * 0.08);
             osc.stop(this.ctx.currentTime + i * 0.08 + 0.45);
           });
-        } catch (e) {}
+        } catch (e) { }
       }
     };
 
@@ -2627,7 +2800,7 @@
     const editorGutter = document.getElementById('editor-gutter');
 
     if (codeEditor) {
-      codeEditor.addEventListener('keydown', function(e) {
+      codeEditor.addEventListener('keydown', function (e) {
         if (e.key === 'Tab') {
           e.preventDefault();
           const start = this.selectionStart;
@@ -2638,7 +2811,7 @@
         }
       });
 
-      codeEditor.addEventListener('scroll', function() {
+      codeEditor.addEventListener('scroll', function () {
         if (editorGutter) {
           editorGutter.scrollTop = this.scrollTop;
         }
