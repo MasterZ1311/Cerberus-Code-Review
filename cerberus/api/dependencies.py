@@ -3,12 +3,12 @@ FastAPI Dependencies for Authentication, Database Sessions, and Rate Limiting.
 """
 
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Callable, List, Optional
 from fastapi import Header, HTTPException, Request, status
 from sqlalchemy import select
 from cerberus.config import settings
 from cerberus.core.database import AsyncSessionLocal
-from cerberus.core.security import hash_api_key, rate_limiter
+from cerberus.core.security import hash_api_key, rate_limiter, timing_safe_compare
 from cerberus.models.database import ApiKeyRecord
 
 
@@ -45,7 +45,7 @@ async def validate_token_against_db(token: Optional[str]) -> bool:
     if (
         settings.ENVIRONMENT.lower() not in ("production", "prod")
         and settings.DEFAULT_DEV_API_KEY
-        and token == settings.DEFAULT_DEV_API_KEY
+        and timing_safe_compare(token, settings.DEFAULT_DEV_API_KEY)
     ):
         return True
 
@@ -106,14 +106,19 @@ async def verify_api_key(
         if (
             settings.ENVIRONMENT.lower() not in ("production", "prod")
             and settings.DEFAULT_DEV_API_KEY
-            and token == settings.DEFAULT_DEV_API_KEY
+            and timing_safe_compare(token, settings.DEFAULT_DEV_API_KEY)
         ):
-            pass
+            scopes_set = {"review:read", "review:write", "admin"}
         else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail={"error": "invalid_api_key", "message": "API key is invalid or has expired"}
             )
+
+    scopes_str = key_record.scopes if key_record and key_record.scopes else "review:read,review:write"
+    scopes_set = {s.strip().lower() for s in scopes_str.split(",") if s.strip()}
+    request.state.api_key_record = key_record
+    request.state.api_key_scopes = scopes_set
 
     # Check Rate Limit (distributed Redis with automatic in-memory fallback)
     allowed, remaining, retry_after = await rate_limiter.is_allowed_async(token)
@@ -125,3 +130,27 @@ async def verify_api_key(
         )
 
     return token
+
+
+def require_scopes(*required_scopes: str) -> Callable:
+    """
+    Dependency factory enforcing granular Role-Based Access Control (RBAC).
+    Verifies that the authenticated API key possesses all required scopes.
+    """
+    async def _scope_checker(request: Request, token: str = verify_api_key) -> str:
+        granted_scopes = getattr(request.state, "api_key_scopes", set())
+        if "admin" in granted_scopes:
+            return token
+        for rs in required_scopes:
+            if rs.lower() not in granted_scopes:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={
+                        "error": "insufficient_scope",
+                        "message": f"Permission denied: Missing required scope '{rs}'",
+                        "required_scopes": list(required_scopes),
+                        "granted_scopes": list(granted_scopes)
+                    }
+                )
+        return token
+    return _scope_checker

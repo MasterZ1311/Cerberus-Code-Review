@@ -38,6 +38,7 @@ cerberus.db
 # Testing & Coverage
 .pytest_cache/
 .coverage
+coverage.json
 htmlcov/
 .tox/
 .nox/

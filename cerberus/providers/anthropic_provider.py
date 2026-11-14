@@ -50,13 +50,18 @@ class AnthropicProvider(BaseLLMProvider):
                 "temperature": 0.1,
             }
             client = await self.get_client()
-            res = await client.post("https://api.anthropic.com/v1/messages", json=payload, headers=headers, timeout=25.0)
-            if res.status_code == 200:
+            url = "https://api.anthropic.com/v1/messages"
+
+            async def _req():
+                return await client.post(url, json=payload, headers=headers, timeout=25.0)
+
+            res = await self.execute_request_with_retry(_req)
+            if res is not None and getattr(res, "status_code", 0) == 200:
                 data = res.json()
                 content = data.get("content", [])
                 if content and len(content) > 0:
                     return content[0].get("text")
-            else:
+            elif res is not None:
                 logger.warning(f"Anthropic API request returned HTTP {res.status_code}: {res.text}")
         except Exception as e:
             logger.warning(f"Anthropic completion failed: {e}")

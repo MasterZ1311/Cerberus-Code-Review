@@ -49,13 +49,18 @@ class GroqProvider(BaseLLMProvider):
                 "max_tokens": 2048,
             }
             client = await self.get_client()
-            res = await client.post("https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers, timeout=25.0)
-            if res.status_code == 200:
+            url = "https://api.groq.com/openai/v1/chat/completions"
+
+            async def _req():
+                return await client.post(url, json=payload, headers=headers, timeout=25.0)
+
+            res = await self.execute_request_with_retry(_req)
+            if res is not None and getattr(res, "status_code", 0) == 200:
                 data = res.json()
                 choices = data.get("choices", [])
                 if choices and len(choices) > 0:
                     return choices[0].get("message", {}).get("content")
-            else:
+            elif res is not None:
                 logger.warning(f"Groq API request returned HTTP {res.status_code}: {res.text}")
         except Exception as e:
             logger.warning(f"Groq generation failed: {e}")

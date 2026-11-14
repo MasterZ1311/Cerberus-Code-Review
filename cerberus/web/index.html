@@ -1956,6 +1956,65 @@
     .footer-links a:hover {
       color: var(--text-main);
     }
+
+    /* =========================================================================
+       PRINT STYLESHEET (Executive 1-Click PDF Report Export)
+       ========================================================================= */
+    @media print {
+      body {
+        background: #ffffff !important;
+        color: #000000 !important;
+        font-size: 10pt;
+      }
+
+      header,
+      .magic-dropzone-overlay,
+      .modal-overlay,
+      #toast-container,
+      .input-workspace-container,
+      .preset-chips-container,
+      .btn-header-action,
+      .status-beacon-pill,
+      .sound-toggle-btn,
+      .theme-toggle-btn,
+      footer,
+      .action-bar,
+      .review-tabs {
+        display: none !important;
+      }
+
+      .main-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      .results-container {
+        display: block !important;
+      }
+
+      .glass-card,
+      .stat-card,
+      .finding-card {
+        background: #ffffff !important;
+        border: 1px solid #d1d5db !important;
+        box-shadow: none !important;
+        color: #111827 !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+        margin-bottom: 1rem !important;
+      }
+
+      .score-circle-svg {
+        filter: none !important;
+      }
+
+      a {
+        text-decoration: underline;
+        color: #111827 !important;
+      }
+    }
   </style>
 </head>
 
@@ -2030,6 +2089,12 @@
       <button class="btn-header-action" onclick="openApiKeyModal()" title="Manage API Keys &amp; Security">
         <span>🔑</span>
         <span id="api-key-label">API Key</span>
+      </button>
+
+      <!-- Keyboard Shortcuts Trigger -->
+      <button class="btn-header-action" onclick="openShortcutsModal()" title="Keyboard Shortcuts (?)" aria-label="Keyboard Shortcuts">
+        <span>⌨️</span>
+        <span>Shortcuts</span>
       </button>
 
       <!-- Theme Switcher -->
@@ -2513,6 +2578,69 @@
           <span>🏷️ Download Health Badge (SVG)</span>
           <span style="font-size:0.75rem; color:var(--text-muted);">Vector Badge</span>
         </button>
+        <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;"
+          onclick="downloadSarifReport()">
+          <span>📑 Export OASIS SARIF 2.1.0</span>
+          <span style="font-size:0.75rem; color:var(--text-muted);">GitHub Code Scanning JSON</span>
+        </button>
+        <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;"
+          onclick="downloadGitLabReport()">
+          <span>🦊 Export GitLab Code Quality</span>
+          <span style="font-size:0.75rem; color:var(--text-muted);">GitLab CI JSON (gl-code-quality)</span>
+        </button>
+        <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;"
+          onclick="downloadSonarQubeReport()">
+          <span>🐟 Export SonarQube Generic Issues</span>
+          <span style="font-size:0.75rem; color:var(--text-muted);">SonarQube JSON (sonar.externalIssuesReportPaths)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MODAL 5: KEYBOARD SHORTCUTS PALETTE
+       ======================================================================= -->
+  <div class="modal-overlay" id="shortcuts-modal" onclick="closeShortcutsModal(event)">
+    <div class="modal-card" style="max-width:480px;" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:0.6rem;">
+          <span style="font-size:1.3rem;">⌨️</span>
+          <div class="modal-title">Keyboard Shortcuts</div>
+        </div>
+        <button class="btn-close-modal" onclick="closeShortcutsModal()">✕</button>
+      </div>
+      <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.5; margin-bottom:0.75rem;">
+        Navigate and trigger Cerberus review operations with zero latency via keyboard.
+      </div>
+      <div style="display:flex; flex-direction:column; gap:0.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0.75rem; background:var(--surface-raised); border-radius:8px; border:1px solid var(--card-border);">
+          <span style="font-size:0.85rem; font-weight:500;">Run Code Review</span>
+          <kbd style="padding:0.2rem 0.5rem; background:var(--btn-secondary-bg); border:1px solid var(--card-border-strong); border-radius:4px; font-family:var(--font-mono); font-size:0.78rem;">⌘ / Ctrl + Enter</kbd>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0.75rem; background:var(--surface-raised); border-radius:8px; border:1px solid var(--card-border);">
+          <span style="font-size:0.85rem; font-weight:500;">✨ 1-Click Auto-Heal Code</span>
+          <kbd style="padding:0.2rem 0.5rem; background:var(--btn-secondary-bg); border:1px solid var(--card-border-strong); border-radius:4px; font-family:var(--font-mono); font-size:0.78rem;">⌘ / Ctrl + H</kbd>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0.75rem; background:var(--surface-raised); border-radius:8px; border:1px solid var(--card-border);">
+          <span style="font-size:0.85rem; font-weight:500;">Clear Code Editor</span>
+          <kbd style="padding:0.2rem 0.5rem; background:var(--btn-secondary-bg); border:1px solid var(--card-border-strong); border-radius:4px; font-family:var(--font-mono); font-size:0.78rem;">⌘ / Ctrl + K</kbd>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0.75rem; background:var(--surface-raised); border-radius:8px; border:1px solid var(--card-border);">
+          <span style="font-size:0.85rem; font-weight:500;">Focus Findings Search</span>
+          <kbd style="padding:0.2rem 0.5rem; background:var(--btn-secondary-bg); border:1px solid var(--card-border-strong); border-radius:4px; font-family:var(--font-mono); font-size:0.78rem;">/</kbd>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0.75rem; background:var(--surface-raised); border-radius:8px; border:1px solid var(--card-border);">
+          <span style="font-size:0.85rem; font-weight:500;">Switch Result Tabs</span>
+          <kbd style="padding:0.2rem 0.5rem; background:var(--btn-secondary-bg); border:1px solid var(--card-border-strong); border-radius:4px; font-family:var(--font-mono); font-size:0.78rem;">1 – 5</kbd>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0.75rem; background:var(--surface-raised); border-radius:8px; border:1px solid var(--card-border);">
+          <span style="font-size:0.85rem; font-weight:500;">Open Shortcuts Help</span>
+          <kbd style="padding:0.2rem 0.5rem; background:var(--btn-secondary-bg); border:1px solid var(--card-border-strong); border-radius:4px; font-family:var(--font-mono); font-size:0.78rem;">?</kbd>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:0.5rem 0.75rem; background:var(--surface-raised); border-radius:8px; border:1px solid var(--card-border);">
+          <span style="font-size:0.85rem; font-weight:500;">Dismiss Active Modal</span>
+          <kbd style="padding:0.2rem 0.5rem; background:var(--btn-secondary-bg); border:1px solid var(--card-border-strong); border-radius:4px; font-family:var(--font-mono); font-size:0.78rem;">Escape</kbd>
+        </div>
       </div>
     </div>
   </div>
@@ -4281,6 +4409,118 @@ Status: AUTHORIZED FOR PRODUCTION MERGE
       });
     }
 
+    function downloadSarifReport() {
+      SoundEngine.click();
+      const data = lastReviewData || {};
+      if (!data.review_id) {
+        showToast('Run a review first to export SARIF report', 'info');
+        return;
+      }
+      const reviewId = data.review_id;
+      const apiKey = getApiKey();
+      const headers = {};
+      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+      fetch(`/api/v1/review/${reviewId}/sarif`, { headers })
+        .then(res => {
+          if (!res.ok) throw new Error('SARIF export endpoint returned ' + res.status);
+          return res.blob();
+        })
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `cerberus-${reviewId}.sarif`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          closeShareSheetModal();
+          showToast('OASIS SARIF 2.1.0 report exported successfully!', 'success');
+        })
+        .catch(err => {
+          showToast('SARIF Export error: ' + err.message, 'error');
+        });
+    }
+
+    function downloadGitLabReport() {
+      SoundEngine.click();
+      const data = lastReviewData || {};
+      if (!data.review_id) {
+        showToast('Run a review first to export GitLab report', 'info');
+        return;
+      }
+      const reviewId = data.review_id;
+      const headers = {};
+      const token = (document.getElementById('api-key-input')?.value || '').trim();
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      fetch(`/api/v1/review/${reviewId}/gitlab`, { headers })
+        .then(res => {
+          if (!res.ok) throw new Error('GitLab export endpoint returned ' + res.status);
+          return res.blob();
+        })
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `gl-code-quality-report-${reviewId}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          closeShareSheetModal();
+          showToast('GitLab Code Quality report exported successfully!', 'success');
+        })
+        .catch(err => {
+          showToast('GitLab Export error: ' + err.message, 'error');
+        });
+    }
+
+    function downloadSonarQubeReport() {
+      SoundEngine.click();
+      const data = lastReviewData || {};
+      if (!data.review_id) {
+        showToast('Run a review first to export SonarQube report', 'info');
+        return;
+      }
+      const reviewId = data.review_id;
+      const headers = {};
+      const token = (document.getElementById('api-key-input')?.value || '').trim();
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      fetch(`/api/v1/review/${reviewId}/sonarqube`, { headers })
+        .then(res => {
+          if (!res.ok) throw new Error('SonarQube export endpoint returned ' + res.status);
+          return res.blob();
+        })
+        .then(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `sonarqube-issues-${reviewId}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          closeShareSheetModal();
+          showToast('SonarQube Generic Issues exported successfully!', 'success');
+        })
+        .catch(err => {
+          showToast('SonarQube Export error: ' + err.message, 'error');
+        });
+    }
+
+    function openShortcutsModal() {
+      SoundEngine.click();
+      document.getElementById('shortcuts-modal').classList.add('active');
+    }
+
+    function closeShortcutsModal(e) {
+      if (e && e.target !== e.currentTarget) return;
+      document.getElementById('shortcuts-modal').classList.remove('active');
+    }
+
     // Background Health Ping
     async function pingBackendHealth() {
       try {
@@ -4305,6 +4545,26 @@ Status: AUTHORIZED FOR PRODUCTION MERGE
         e.preventDefault();
         submitActiveReview();
       }
+      // Ctrl+H or Cmd+H for 1-Click Auto-Heal Code
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'h' || e.key === 'H')) {
+        e.preventDefault();
+        triggerAutoHealCode();
+      }
+      // Ctrl+K or Cmd+K to clear editor
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K') && document.activeElement === document.getElementById('code-input')) {
+        e.preventDefault();
+        clearEditorCode();
+      }
+      // '?' to open shortcuts modal (when not typing in textarea or search)
+      if (e.key === '?' && document.activeElement !== document.getElementById('code-input') && document.activeElement !== document.getElementById('findings-search-input')) {
+        e.preventDefault();
+        openShortcutsModal();
+      }
+      // Numbers 1-5 to switch result tabs
+      if (['1', '2', '3', '4', '5'].includes(e.key) && document.activeElement !== document.getElementById('code-input') && document.activeElement !== document.getElementById('findings-search-input')) {
+        const tabMap = { '1': 'findings', '2': 'consensus', '3': 'patch', '4': 'files', '5': 'feedback' };
+        if (tabMap[e.key]) switchResultTab(tabMap[e.key]);
+      }
       // Slash '/' to focus search input
       if (e.key === '/' && document.activeElement !== document.getElementById('code-input') && document.activeElement !== document.getElementById('findings-search-input')) {
         e.preventDefault();
@@ -4316,6 +4576,7 @@ Status: AUTHORIZED FOR PRODUCTION MERGE
         closeAgentsModal();
         closeApiKeyModal();
         closeShareSheetModal();
+        closeShortcutsModal();
       }
     });
 

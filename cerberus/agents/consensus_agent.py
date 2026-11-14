@@ -90,11 +90,33 @@ class ConsensusAgent(BaseAgent):
         if not priority_plan:
             priority_plan.append("LGTM: No blocking issues flagged across agents")
 
+        # Domain Trade-off Arbitration Matrix
+        arbitrations = []
+        categories_present = {f.category.lower() for f in findings}
+        has_security = any(c in categories_present for c in ("injection", "secrets", "cryptography", "security", "deserialization"))
+        has_perf = any(c in categories_present for c in ("performance", "algorithmic_complexity", "database", "memory_efficiency"))
+        has_compliance = any(c in categories_present for c in ("compliance", "hipaa", "gdpr", "pcidss", "ccpa"))
+        has_arch = any(c in categories_present for c in ("architecture", "dependency", "circular_import"))
+
+        if has_security and has_perf:
+            arbitrations.append(
+                "Security vs. Performance Invariant: Parameterized inputs and cryptographic hardening are mandatory invariants. Resolve latency via asynchronous workers or caching rather than relaxing security validations."
+            )
+        if has_compliance:
+            arbitrations.append(
+                "Regulatory Compliance Invariant: Statutory data protections (HIPAA, GDPR, PCI-DSS) are non-negotiable legal mandates and supersede stylistic brevity."
+            )
+        if has_arch:
+            arbitrations.append(
+                "Architecture Decoupling Invariant: Circular imports and deep parent references must be resolved via dependency inversion or domain event boundaries."
+            )
+
         return {
             "pr_action": pr_action,
             "consensus_reached": True,
             "cross_domain_intersections": intersections,
             "cross_domain_correlations": intersections,
+            "arbitration_principles": arbitrations,
             "summary": summary,
             "consensus_summary": summary,
             "verdict": verdict,

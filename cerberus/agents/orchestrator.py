@@ -27,6 +27,7 @@ from cerberus.core.telemetry import (
     FINDINGS_DETECTED_TOTAL,
     REVIEW_DURATION_SECONDS,
     REVIEW_REQUESTS_TOTAL,
+    tracer,
 )
 from cerberus.core.zip_processor import extract_code_from_zip
 from cerberus.models.schemas import (
@@ -57,6 +58,20 @@ class ReviewOrchestrator:
             "consensus": ConsensusAgent(),
             "code_fixer": CodeFixerAgent(),
         }
+        self._pre_hooks: List[Any] = []
+        self._post_hooks: List[Any] = []
+
+    def register_pre_hook(self, hook: Any) -> None:
+        """Register a pre-review transformation or validation hook."""
+        self._pre_hooks.append(hook)
+
+    def register_post_hook(self, hook: Any) -> None:
+        """Register a post-review analysis, audit, or notification hook."""
+        self._post_hooks.append(hook)
+
+    def register_agent(self, agent_id: str, agent: BaseAgent) -> None:
+        """Dynamically register a custom agent into the review panel."""
+        self.registry[agent_id] = agent
 
     def list_agents(self) -> List[Dict[str, Any]]:
         """List all available agents and their active capabilities."""
@@ -76,9 +91,32 @@ class ReviewOrchestrator:
         """
         Execute full multi-agent review with two-tier caching and prioritization.
         """
+        # 0. Execute Pre-Review Lifecycle Hooks
+        current_request = request
+        for hook in self._pre_hooks:
+            try:
+                res = hook(current_request)
+                if asyncio.iscoroutine(res):
+                    res = await res
+                if isinstance(res, CodeReviewRequest):
+                    current_request = res
+            except Exception as e:
+                logger.warning(f"Error executing pre-review hook: {e}")
+        request = current_request
+
         start_time = time.perf_counter()
         review_id = f"rev_{uuid.uuid4().hex[:16]}"
         now_iso = datetime.now(timezone.utc).isoformat()
+
+        # Start OpenTelemetry-compatible distributed trace
+        root_span = tracer.start_trace(
+            "review.orchestration",
+            attributes={
+                "review.id": review_id,
+                "review.language": request.language or "python",
+                "review.filename": request.filename or "snippet.py",
+            }
+        )
 
         # 1. Determine which agents to execute
         requested_agents = request.agents or settings.enabled_agents_list
@@ -108,6 +146,17 @@ class ReviewOrchestrator:
             cached_resp.cache_hit = True
             cached_resp.created_at = now_iso
             cached_resp.completed_at = now_iso
+
+            for hook in self._post_hooks:
+                try:
+                    res = hook(cached_resp)
+                    if asyncio.iscoroutine(res):
+                        res = await res
+                    if isinstance(res, CodeReviewResponse):
+                        cached_resp = res
+                except Exception as e:
+                    logger.warning(f"Error executing post-review hook on cache hit: {e}")
+
             return cached_resp
 
         CACHE_MISSES_TOTAL.inc()
@@ -120,25 +169,29 @@ class ReviewOrchestrator:
         async def run_agent(agent_name: str) -> AgentResult:
             agent = self.registry[agent_name]
             a_start = time.perf_counter()
-            try:
-                res = await agent.analyze(
-                    code=request.code,
-                    language=request.language or "python",
-                    context=agent_context,
-                )
-                AGENT_EXECUTION_SECONDS.labels(agent_name=agent_name).observe(time.perf_counter() - a_start)
-                for f in res.findings:
-                    FINDINGS_DETECTED_TOTAL.labels(agent_name=agent_name, severity=f.severity.value).inc()
-                return res
-            except Exception as e:
-                logger.error(f"Agent '{agent_name}' failed during review: {e}")
-                return AgentResult(
-                    name=agent_name,
-                    status="failed",
-                    score=0.0,
-                    execution_time_ms=int((time.perf_counter() - a_start) * 1000),
-                    error=str(e),
-                )
+            async with tracer.async_span(f"agent.{agent_name}", parent=root_span, attributes={"agent.name": agent_name}) as a_span:
+                try:
+                    res = await agent.analyze(
+                        code=request.code,
+                        language=request.language or "python",
+                        context=agent_context,
+                    )
+                    AGENT_EXECUTION_SECONDS.labels(agent_name=agent_name).observe(time.perf_counter() - a_start)
+                    for f in res.findings:
+                        FINDINGS_DETECTED_TOTAL.labels(agent_name=agent_name, severity=f.severity.value).inc()
+                    a_span.set_attribute("agent.score", res.score)
+                    a_span.set_attribute("agent.findings_count", len(res.findings))
+                    return res
+                except Exception as e:
+                    logger.error(f"Agent '{agent_name}' failed during review: {e}")
+                    a_span.record_exception(e)
+                    return AgentResult(
+                        name=agent_name,
+                        status="failed",
+                        score=0.0,
+                        execution_time_ms=int((time.perf_counter() - a_start) * 1000),
+                        error=str(e),
+                    )
 
         tasks = [run_agent(agent_name) for agent_name in primary_agents]
         agent_results: List[AgentResult] = await asyncio.gather(*tasks)
@@ -254,12 +307,25 @@ class ReviewOrchestrator:
             except Exception as e:
                 logger.warning(f"Collaborative code fixer step failed: {e}")
 
+        # Finalize root OpenTelemetry span
+        root_span.set_attribute("review.overall_score", overall_score)
+        root_span.set_attribute("review.status", review_status)
+        root_span.finish()
+
+        trace_payload = {
+            "trace_id": root_span.trace_id,
+            "span_id": root_span.span_id,
+            "traceparent": root_span.to_w3c_traceparent(),
+            "spans": tracer.get_trace_spans(root_span.trace_id),
+        }
+
         results_data = {
             "overall_score": overall_score,
             "severity_summary": summary,
             "agents": agents_payload,
             "collaborative_consensus": collaborative_consensus,
             "unified_patch": unified_patch,
+            "trace": trace_payload,
         }
 
         response = CodeReviewResponse(
@@ -286,6 +352,7 @@ class ReviewOrchestrator:
             summary=consensus_summary,
             collaborative_consensus=collaborative_consensus,
             unified_patch=unified_patch,
+            trace_id=root_span.trace_id,
         )
 
         # 6. Save to Cache only if all agents completed successfully (prevent cache poisoning)
@@ -295,6 +362,17 @@ class ReviewOrchestrator:
         # 7. Record Metrics
         REVIEW_REQUESTS_TOTAL.labels(status=review_status, language=request.language or "python").inc()
         REVIEW_DURATION_SECONDS.observe(total_elapsed_ms / 1000.0)
+
+        # 8. Execute Post-Review Lifecycle Hooks
+        for hook in self._post_hooks:
+            try:
+                res = hook(response)
+                if asyncio.iscoroutine(res):
+                    res = await res
+                if isinstance(res, CodeReviewResponse):
+                    response = res
+            except Exception as e:
+                logger.warning(f"Error executing post-review hook: {e}")
 
         return response
 

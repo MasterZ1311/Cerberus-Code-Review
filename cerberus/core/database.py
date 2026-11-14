@@ -27,14 +27,27 @@ if "sqlite+aiosqlite:///./cerberus.db" in db_url:
             db_url = f"sqlite+aiosqlite:///{fallback_db.as_posix()}"
 
 connect_args = {}
+engine_kwargs = {
+    "echo": False,
+    "future": True,
+    "pool_pre_ping": True,
+}
+
 if "sqlite" in db_url:
     connect_args["check_same_thread"] = False
+else:
+    # Enterprise connection pooling for PostgreSQL in production
+    engine_kwargs.update({
+        "pool_size": 20,
+        "max_overflow": 10,
+        "pool_recycle": 3600,
+        "pool_timeout": 30,
+    })
 
 engine = create_async_engine(
     db_url,
-    echo=False,
     connect_args=connect_args,
-    future=True
+    **engine_kwargs
 )
 
 AsyncSessionLocal = async_sessionmaker(
@@ -45,12 +58,26 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
+async def warm_connection_pool() -> bool:
+    """Pre-warms database connection pool on startup to prevent cold-start latency."""
+    try:
+        from sqlalchemy import text
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        logger.info("Database connection pool warmed successfully.")
+        return True
+    except Exception as e:
+        logger.warning(f"Connection pool warm-up notice: {e}")
+        return False
+
+
 async def init_db() -> None:
-    """Initialize database tables and seed development credentials."""
+    """Initialize database tables, warm connections, and seed development credentials."""
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         await run_migrations(engine)
+        await warm_connection_pool()
         logger.info("Database schema initialized and migrations applied successfully.")
 
         # Seed default dev key in non-production mode
@@ -77,6 +104,26 @@ async def init_db() -> None:
                     logger.info(f"Seeded default development API key '{settings.DEFAULT_DEV_API_KEY}'.")
     except Exception as e:
         logger.warning(f"Database initialization warning: {e}")
+
+
+async def execute_with_db_retry(
+    fn,
+    max_retries: int = 3,
+    delay: float = 0.1
+):
+    """
+    Executes a database transaction with automated retry on transient operational or lock errors.
+    """
+    import asyncio
+    for attempt in range(max_retries):
+        try:
+            return await fn()
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise
+            logger.warning(f"Database transient error on attempt {attempt + 1}: {e}. Retrying in {delay}s...")
+            await asyncio.sleep(delay)
+            delay *= 2.0
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:

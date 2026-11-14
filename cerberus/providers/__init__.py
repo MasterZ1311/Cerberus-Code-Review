@@ -1,8 +1,8 @@
 """
 LLM and Analysis Providers Package.
 Includes multi-provider support: OpenAI, Anthropic Claude, Google Gemini, Groq, DeepSeek,
-Ollama, IBM watsonx (optional), and the offline Heuristic AST engine.
-Supports auto-detection of configured keys and per-agent provider routing.
+OpenRouter, Ollama, IBM watsonx (optional), and the offline Heuristic AST engine.
+Supports auto-detection of configured keys, circuit breaker resilience, and per-agent provider routing.
 """
 
 import logging
@@ -10,13 +10,14 @@ import os
 from typing import Dict, Optional
 from cerberus.config import settings
 from cerberus.providers.anthropic_provider import AnthropicProvider
-from cerberus.providers.base import BaseLLMProvider
+from cerberus.providers.base import BaseLLMProvider, CircuitBreaker, CircuitState
 from cerberus.providers.deepseek_provider import DeepSeekProvider
 from cerberus.providers.gemini_provider import GeminiProvider
 from cerberus.providers.groq_provider import GroqProvider
 from cerberus.providers.heuristic_engine import HeuristicEngine
 from cerberus.providers.ollama_provider import OllamaProvider
 from cerberus.providers.openai_provider import OpenAIProvider
+from cerberus.providers.openrouter_provider import OpenRouterProvider
 from cerberus.providers.watsonx_provider import WatsonxProvider
 
 logger = logging.getLogger("cerberus.providers")
@@ -27,7 +28,7 @@ _provider_registry: Dict[str, BaseLLMProvider] = {}
 def resolve_auto_provider() -> str:
     """
     Auto-detects the active provider by checking which API key is present in environment/settings.
-    Prioritizes fast & modern providers: Groq > OpenAI > Anthropic > Gemini > DeepSeek > Watsonx.
+    Prioritizes fast & modern providers: Groq > OpenAI > Anthropic > Gemini > DeepSeek > OpenRouter > Watsonx.
     Falls back to 'heuristic' if no credentials are configured.
     """
     if os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None):
@@ -40,6 +41,8 @@ def resolve_auto_provider() -> str:
         return "gemini"
     if os.getenv("DEEPSEEK_API_KEY") or getattr(settings, "DEEPSEEK_API_KEY", None):
         return "deepseek"
+    if os.getenv("OPENROUTER_API_KEY") or getattr(settings, "OPENROUTER_API_KEY", None):
+        return "openrouter"
     if os.getenv("WATSONX_API_KEY") or getattr(settings, "WATSONX_API_KEY", None):
         return "watsonx"
     return "heuristic"
@@ -88,6 +91,8 @@ def get_llm_provider(
             _provider_registry[ptype] = GroqProvider()
         elif ptype == "deepseek":
             _provider_registry[ptype] = DeepSeekProvider()
+        elif ptype == "openrouter":
+            _provider_registry[ptype] = OpenRouterProvider()
         elif ptype == "ollama":
             _provider_registry[ptype] = OllamaProvider()
         elif ptype == "watsonx":
@@ -111,12 +116,15 @@ async def close_all_providers() -> None:
 
 __all__ = [
     "BaseLLMProvider",
+    "CircuitBreaker",
+    "CircuitState",
     "HeuristicEngine",
     "OpenAIProvider",
     "AnthropicProvider",
     "GeminiProvider",
     "GroqProvider",
     "DeepSeekProvider",
+    "OpenRouterProvider",
     "OllamaProvider",
     "WatsonxProvider",
     "get_llm_provider",

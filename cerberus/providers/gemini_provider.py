@@ -54,15 +54,19 @@ class GeminiProvider(BaseLLMProvider):
             # Try v1 first, then v1beta
             for api_version in ("v1", "v1beta"):
                 url = f"https://generativelanguage.googleapis.com/{api_version}/models/{model}:generateContent?key={self.effective_api_key}"
-                res = await client.post(url, json=payload, headers=headers, timeout=25.0)
-                if res.status_code == 200:
+
+                async def _req():
+                    return await client.post(url, json=payload, headers=headers, timeout=25.0)
+
+                res = await self.execute_request_with_retry(_req)
+                if res is not None and getattr(res, "status_code", 0) == 200:
                     data = res.json()
                     candidates = data.get("candidates", [])
                     if candidates and len(candidates) > 0:
                         parts = candidates[0].get("content", {}).get("parts", [])
                         if parts and len(parts) > 0:
                             return parts[0].get("text")
-                elif res.status_code != 404:
+                elif res is not None and getattr(res, "status_code", 0) != 404:
                     logger.warning(f"Gemini API request ({api_version}) returned HTTP {res.status_code}: {res.text}")
                     break
         except Exception as e:

@@ -16,18 +16,36 @@ from fastapi import (
     Depends,
     File,
     Form,
+    Header,
     HTTPException,
     Query,
+    Request,
+    Response,
     UploadFile,
     WebSocket,
     WebSocketDisconnect,
     status,
 )
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from cerberus.agents.orchestrator import orchestrator
-from cerberus.api.dependencies import validate_token_against_db, verify_api_key
+from cerberus.api.dependencies import require_scopes, validate_token_against_db, verify_api_key
 from cerberus.config import settings
 from cerberus.core.database import AsyncSessionLocal
+from cerberus.core.sarif import (
+    review_response_to_gitlab_code_quality,
+    review_response_to_sarif,
+    review_response_to_sonarqube,
+    zip_review_response_to_gitlab_code_quality,
+    zip_review_response_to_sarif,
+    zip_review_response_to_sonarqube,
+)
+from cerberus.core.security import verify_github_signature
+from cerberus.core.github_app import (
+    parse_pull_request_event,
+    build_pr_review_payload,
+    post_pr_review_to_github
+)
+from cerberus.core.syntax_verifier import detect_language_from_path
 from cerberus.models.database import CodeReviewRecord, FindingRecord, ReviewFeedbackRecord
 from cerberus.models.schemas import (
     BatchReviewRequest,
@@ -156,6 +174,171 @@ async def get_review_results(
 ):
     """Retrieve full synthesized results, agent findings, and remediation suggestions."""
     return await get_review_status(review_id, api_key)
+
+
+@router.get("/{review_id}/sarif", response_class=JSONResponse)
+async def get_review_sarif(
+    review_id: str,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Export review findings in OASIS SARIF v2.1.0 standard format.
+    Enables native ingestion by GitHub Code Scanning and CI/CD security gates.
+    """
+    full = await get_review_status(review_id, api_key)
+    filename = full.results.get("filename") if isinstance(full.results, dict) else "snippet.py"
+    sarif_data = review_response_to_sarif(full, filename=filename)
+    return JSONResponse(
+        content=sarif_data,
+        media_type="application/sarif+json",
+        headers={"Content-Disposition": f"attachment; filename=cerberus-{review_id}.sarif"}
+    )
+
+
+@router.get("/{review_id}/gitlab", response_class=JSONResponse)
+async def get_review_gitlab_code_quality(
+    review_id: str,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Export review findings in standard GitLab CI Code Quality format (gl-code-quality-report.json).
+    Enables native MR widget integration in GitLab CI/CD pipelines.
+    """
+    full = await get_review_status(review_id, api_key)
+    filename = full.results.get("filename") if isinstance(full.results, dict) else "snippet.py"
+    gl_data = review_response_to_gitlab_code_quality(full, filename=filename)
+    return JSONResponse(
+        content=gl_data,
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename=gl-code-quality-report-{review_id}.json"}
+    )
+
+
+@router.get("/{review_id}/sonarqube", response_class=JSONResponse)
+async def get_review_sonarqube(
+    review_id: str,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Export review findings in standard SonarQube Generic Issue Import format (sonar-generic-issues.json).
+    Enables native dashboard ingestion in enterprise SonarQube and SonarCloud instances.
+    """
+    full = await get_review_status(review_id, api_key)
+    filename = full.results.get("filename") if isinstance(full.results, dict) else "snippet.py"
+    sonar_data = review_response_to_sonarqube(full, filename=filename)
+    return JSONResponse(
+        content=sonar_data,
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename=sonar-generic-issues-{review_id}.json"}
+    )
+
+
+@router.post("/webhooks/github")
+async def handle_github_webhook(
+    request: Request,
+    x_hub_signature_256: Optional[str] = Header(None),
+    x_github_event: str = Header("pull_request")
+):
+    """
+    Native GitHub Actions and GitHub App Webhook Event Ingestion.
+    Validates X-Hub-Signature-256 HMAC signature against configured secret,
+    processes pull_request.opened events to perform zero-click automated code review,
+    generates line-anchored review comments, and submits reviews to the GitHub API.
+    """
+    raw_body = await request.body()
+    secret = settings.GITHUB_WEBHOOK_SECRET or settings.SECRET_KEY
+
+    # Signature verification
+    if x_hub_signature_256:
+        is_valid = verify_github_signature(raw_body, x_hub_signature_256, secret)
+        if not is_valid:
+            raise HTTPException(status_code=401, detail="Invalid GitHub X-Hub-Signature-256 HMAC signature")
+
+    try:
+        payload = json.loads(raw_body.decode("utf-8")) if raw_body else {}
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload in webhook request")
+
+    # Handle Ping Event
+    if x_github_event == "ping":
+        return {
+            "status": "pong",
+            "zen": "Keep it logically awesome.",
+            "hook_id": payload.get("hook_id", 0)
+        }
+
+    # Parse Pull Request Context
+    pr_info = parse_pull_request_event(payload)
+    action = pr_info.action if pr_info else payload.get("action", "opened")
+
+    # Determine code to review
+    code_to_review = payload.get("code") or payload.get("patch") or payload.get("diff") or ""
+    filename = payload.get("filename")
+
+    if not code_to_review and payload.get("files") and isinstance(payload["files"], list):
+        f0 = payload["files"][0]
+        if isinstance(f0, dict):
+            code_to_review = f0.get("patch") or f0.get("content") or ""
+            filename = f0.get("filename")
+
+    if not filename:
+        filename = f"PR_{pr_info.pr_number}.py" if pr_info else "pr_change.py"
+
+    if not code_to_review and pr_info:
+        code_to_review = pr_info.body or pr_info.title or ""
+
+    if not code_to_review:
+        return {
+            "status": "ignored",
+            "message": f"Webhook received for event '{x_github_event}' (action: '{action}') with no reviewable code content."
+        }
+
+    language = payload.get("language") or detect_language_from_path(filename) or "python"
+
+    review_req = CodeReviewRequest(
+        code=code_to_review,
+        filename=filename,
+        language=language,
+        config=ReviewConfig(blocking_mode=True)
+    )
+    result = await orchestrator.execute_review(review_req)
+    _store_review(result.review_id, result)
+    asyncio.create_task(_persist_review_record(review_req, result))
+
+    # Build official GitHub PR review payload
+    pr_payload = None
+    posted = False
+    github_comments = []
+
+    if pr_info:
+        pr_payload = build_pr_review_payload(result, pr_info, filename=filename)
+        posted, _ = await post_pr_review_to_github(pr_info, pr_payload)
+        github_comments = [c.model_dump() for c in pr_payload.comments]
+    else:
+        fixer = orchestrator.registry.get("code_fixer")
+        all_findings = result.critical_issues + result.warnings + result.suggestions
+        github_comments = fixer.generate_pr_review_comments(all_findings, filename=filename) if hasattr(fixer, "generate_pr_review_comments") else []
+
+    verdict = result.collaborative_consensus.get("pr_action", "MERGE_READY") if result.collaborative_consensus else "MERGE_READY"
+    pr_action = pr_payload.event if pr_payload else ("REQUEST_CHANGES" if result.should_block else "APPROVE")
+
+    return {
+        "status": "completed",
+        "event": x_github_event,
+        "action": action,
+        "review_id": result.review_id,
+        "pr_number": pr_info.pr_number if pr_info else payload.get("number", 0),
+        "repository": pr_info.full_name if pr_info else payload.get("repository", {}).get("full_name", "unknown"),
+        "overall_score": result.overall_score or 0,
+        "verdict": verdict,
+        "pr_review_action": pr_action,
+        "should_block": result.should_block,
+        "block_reason": result.block_reason,
+        "posted_to_github": posted,
+        "github_review_payload": pr_payload.model_dump() if pr_payload else {},
+        "github_review_comments": github_comments,
+        "summary": result.summary or f"Cerberus analyzed {filename}: Score {result.overall_score}/100"
+    }
 
 
 @router.get("/{review_id}/status", response_model=ReviewStatusResponse)
@@ -375,6 +558,36 @@ async def get_zip_review(
         zip_reviews_store.move_to_end(zip_review_id)
         return zip_reviews_store[zip_review_id]
     raise HTTPException(status_code=404, detail=f"Project review '{zip_review_id}' was not found.")
+
+
+@router.get("/zip/{zip_review_id}/sonarqube", response_class=JSONResponse)
+async def get_zip_review_sonarqube(
+    zip_review_id: str,
+    api_key: str = Depends(verify_api_key)
+):
+    """Export full project ZIP review findings in SonarQube Generic Issue Import format."""
+    zip_resp = await get_zip_review(zip_review_id, api_key)
+    sonar_data = zip_review_response_to_sonarqube(zip_resp)
+    return JSONResponse(
+        content=sonar_data,
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename=sonar-generic-issues-{zip_review_id}.json"}
+    )
+
+
+@router.get("/zip/{zip_review_id}/gitlab", response_class=JSONResponse)
+async def get_zip_review_gitlab(
+    zip_review_id: str,
+    api_key: str = Depends(verify_api_key)
+):
+    """Export full project ZIP review findings in GitLab CI Code Quality format."""
+    zip_resp = await get_zip_review(zip_review_id, api_key)
+    gl_data = zip_review_response_to_gitlab_code_quality(zip_resp)
+    return JSONResponse(
+        content=gl_data,
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename=gl-code-quality-report-{zip_review_id}.json"}
+    )
 
 
 @router.post("/{review_id}/feedback", response_model=FeedbackResponse)

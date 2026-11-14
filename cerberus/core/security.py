@@ -3,6 +3,7 @@ Security, API Key Generation, Authentication, and Rate Limiting.
 """
 
 import hashlib
+import hmac
 import logging
 import secrets
 import time
@@ -11,6 +12,42 @@ from typing import Dict, List, Optional, Tuple
 from cerberus.config import settings
 
 logger = logging.getLogger("cerberus.security")
+
+
+def timing_safe_compare(a: str, b: str) -> bool:
+    """Constant-time string comparison to prevent timing side-channel attacks."""
+    if a is None or b is None:
+        return False
+    return hmac.compare_digest(str(a).encode("utf-8"), str(b).encode("utf-8"))
+
+
+def generate_webhook_signature(payload_bytes: bytes, secret: str) -> str:
+    """Computes standard sha256 HMAC signature for outgoing webhooks."""
+    mac = hmac.new(secret.encode("utf-8"), payload_bytes, hashlib.sha256)
+    return f"sha256={mac.hexdigest()}"
+
+
+def verify_github_signature(
+    payload_bytes: bytes,
+    signature_header: Optional[str],
+    secret: Optional[str]
+) -> bool:
+    """
+    Validates GitHub X-Hub-Signature-256 HMAC SHA-256 webhook signatures.
+    Returns True if valid, False otherwise.
+    """
+    if not signature_header or not secret:
+        return False
+
+    prefix = "sha256="
+    if not signature_header.startswith(prefix):
+        return False
+
+    expected_sig = signature_header[len(prefix):].strip().lower()
+    mac = hmac.new(secret.encode("utf-8"), payload_bytes, hashlib.sha256)
+    computed_sig = mac.hexdigest().lower()
+
+    return hmac.compare_digest(expected_sig.encode("utf-8"), computed_sig.encode("utf-8"))
 
 
 def generate_api_key(name: str = "default") -> Tuple[str, str, str]:
@@ -28,6 +65,27 @@ def generate_api_key(name: str = "default") -> Tuple[str, str, str]:
 def hash_api_key(key: str) -> str:
     """Computes SHA-256 hash of API key for safe database storage."""
     return hashlib.sha256(f"{settings.SECRET_KEY}:{key}".encode("utf-8")).hexdigest()
+
+
+def calculate_shannon_entropy(data: str) -> float:
+    """
+    Computes Shannon entropy (bits per character) of a string to detect weak/predictable keys.
+    Random hex tokens have entropy ~3.8-4.0.
+    """
+    if not data:
+        return 0.0
+    import math
+    from collections import Counter
+    counts = Counter(data)
+    total = len(data)
+    return -sum((count / total) * math.log2(count / total) for count in counts.values())
+
+
+def verify_key_entropy(key: str, min_entropy: float = 3.0) -> bool:
+    """Verifies that an API key possesses sufficient cryptographic entropy."""
+    if not key or len(key) < 16:
+        return False
+    return calculate_shannon_entropy(key) >= min_entropy
 
 
 class RateLimiter:

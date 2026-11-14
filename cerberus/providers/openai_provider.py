@@ -59,13 +59,17 @@ class OpenAIProvider(BaseLLMProvider):
             }
             client = await self.get_client()
             url = f"{self.effective_base_url}/chat/completions"
-            res = await client.post(url, json=payload, headers=headers, timeout=25.0)
-            if res.status_code == 200:
+
+            async def _req():
+                return await client.post(url, json=payload, headers=headers, timeout=25.0)
+
+            res = await self.execute_request_with_retry(_req)
+            if res is not None and getattr(res, "status_code", 0) == 200:
                 data = res.json()
                 choices = data.get("choices", [])
                 if choices and len(choices) > 0:
                     return choices[0].get("message", {}).get("content")
-            else:
+            elif res is not None:
                 logger.warning(f"OpenAI API request returned HTTP {res.status_code}: {res.text}")
         except Exception as e:
             logger.warning(f"OpenAI completion failed: {e}")

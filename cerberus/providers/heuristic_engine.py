@@ -47,6 +47,11 @@ class HeuristicEngine:
             return None
 
     @staticmethod
+    def _safe_scan_line(line: str, max_chars: int = 10000) -> str:
+        """Mitigates ReDoS by bounding line evaluation width for regular expressions."""
+        return line[:max_chars] if line else ""
+
+    @staticmethod
     def _is_comment_or_docstring_line(line: str, docstring_ranges: Set[int], lineno: int) -> bool:
         """Checks if a given line is a comment or inside a docstring block."""
         stripped = line.strip()

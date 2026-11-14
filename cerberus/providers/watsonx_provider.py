@@ -110,13 +110,17 @@ class WatsonxProvider(BaseLLMProvider):
             client = await self.get_client()
             endpoint_base = self.effective_endpoint.rstrip("/")
             url = f"{endpoint_base}/ml/v1/text/generation?version=2023-05-29"
-            res = await client.post(url, json=payload, headers=headers, timeout=20.0)
-            if res.status_code == 200:
+
+            async def _req():
+                return await client.post(url, json=payload, headers=headers, timeout=20.0)
+
+            res = await self.execute_request_with_retry(_req)
+            if res is not None and getattr(res, "status_code", 0) == 200:
                 data = res.json()
                 results = data.get("results")
                 if results and len(results) > 0:
                     return results[0].get("generated_text")
-            else:
+            elif res is not None:
                 logger.warning(f"watsonx API request returned HTTP {res.status_code}: {res.text}")
         except Exception as e:
             logger.warning(f"watsonx API request failed: {e}")

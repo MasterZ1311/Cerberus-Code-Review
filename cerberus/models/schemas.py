@@ -91,6 +91,7 @@ class ReviewResults(BaseModel):
     agents: List[Dict[str, Any]] = Field(default_factory=list, description="Agent execution outputs")
     collaborative_consensus: Optional[Dict[str, Any]] = Field(default=None, description="Consensus agent details")
     unified_patch: Optional[str] = Field(default=None, description="AST-verified Git diff patch")
+    trace: Optional[Dict[str, Any]] = Field(default=None, description="OpenTelemetry-compatible distributed trace data")
 
     def __getitem__(self, item: str) -> Any:
         return getattr(self, item)
@@ -124,6 +125,7 @@ class CodeReviewResponse(BaseModel):
     summary: Optional[str] = None
     collaborative_consensus: Optional[Dict[str, Any]] = None
     unified_patch: Optional[str] = None
+    trace_id: Optional[str] = Field(default=None, description="OpenTelemetry distributed trace ID")
 
 
 class BatchReviewRequest(BaseModel):
@@ -239,3 +241,67 @@ class HealthResponse(BaseModel):
     cache: str
     active_agents: List[str]
     uptime_seconds: float
+
+
+class GitHubPRReviewComment(BaseModel):
+    """Line-anchored GitHub Pull Request Review comment."""
+    path: str
+    line: int
+    body: str
+
+
+class GitHubPRReviewPayload(BaseModel):
+    """Official GitHub Pull Request Review submission payload."""
+    commit_id: Optional[str] = None
+    event: str = Field(default="COMMENT", description="APPROVE, REQUEST_CHANGES, or COMMENT")
+    body: str = Field(description="Markdown review summary body")
+    comments: List[GitHubPRReviewComment] = Field(default_factory=list)
+
+
+class GitHubPullRequestInfo(BaseModel):
+    """Parsed GitHub Pull Request event context."""
+    action: str
+    pr_number: int
+    repo_name: str
+    repo_owner: str
+    full_name: str
+    title: str
+    body: Optional[str] = None
+    head_sha: Optional[str] = None
+    head_ref: Optional[str] = None
+    base_ref: Optional[str] = None
+    diff_url: Optional[str] = None
+    patch_url: Optional[str] = None
+    html_url: Optional[str] = None
+
+
+class GitHubWebhookReviewResult(BaseModel):
+    """Result of automated GitHub pull_request.opened review."""
+    status: str
+    event: str
+    action: str
+    review_id: str
+    pr_number: int
+    repository: str
+    overall_score: int
+    verdict: str
+    pr_review_action: str
+    posted_to_github: bool
+    github_review_payload: GitHubPRReviewPayload
+    summary: str
+
+
+class AstAnalysisMetadata(BaseModel):
+    """Deep Tree-sitter AST structural metrics."""
+    language: str
+    parser_type: str = "tree_sitter"
+    node_count: int = 0
+    function_count: int = 0
+    functions: List[str] = Field(default_factory=list)
+    class_or_struct_count: int = 0
+    classes_or_structs: List[str] = Field(default_factory=list)
+    import_count: int = 0
+    imports: List[str] = Field(default_factory=list)
+    has_syntax_errors: bool = False
+    syntax_errors: List[str] = Field(default_factory=list)
+

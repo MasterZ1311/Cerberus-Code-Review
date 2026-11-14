@@ -53,6 +53,15 @@ class Settings(BaseSettings):
     # Database Settings
     DATABASE_URL: str = "sqlite+aiosqlite:///./cerberus.db"
 
+    # GitHub App & Webhook Settings
+    GITHUB_WEBHOOK_SECRET: Optional[str] = None
+    GITHUB_TOKEN: Optional[str] = None
+    GITHUB_APP_ID: Optional[str] = None
+    GITHUB_APP_PRIVATE_KEY: Optional[str] = None
+
+    # Tree-sitter Multi-Language AST Engine
+    ENABLE_TREE_SITTER: bool = True
+
     # Cache Settings
     REDIS_URL: str = "redis://localhost:6379/0"
     CACHE_ENABLED: bool = True
