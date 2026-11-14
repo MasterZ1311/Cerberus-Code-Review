@@ -3,11 +3,14 @@ Security, API Key Generation, Authentication, and Rate Limiting.
 """
 
 import hashlib
+import logging
 import secrets
 import time
 from collections import OrderedDict
 from typing import Dict, List, Optional, Tuple
 from cerberus.config import settings
+
+logger = logging.getLogger("cerberus.security")
 
 
 def generate_api_key(name: str = "default") -> Tuple[str, str, str]:
@@ -28,11 +31,46 @@ def hash_api_key(key: str) -> str:
 
 
 class RateLimiter:
-    """Sliding-window in-memory rate limiter with bounded storage."""
-    def __init__(self, limit_per_hour: int = 100, max_tracked: Optional[int] = None):
+    """
+    Two-Tier Sliding-Window Rate Limiter.
+    Supports atomic distributed sliding-window tracking via Redis Sorted Sets (ZADD, ZREMRANGEBYSCORE, ZCARD)
+    with seamless local bounded in-memory sliding-window fallback.
+    """
+    def __init__(self, limit_per_hour: int = 100, max_tracked: Optional[int] = None, redis_url: Optional[str] = None):
         self.limit = limit_per_hour
         self.max_tracked = max_tracked if max_tracked is not None else settings.RATE_LIMIT_MAX_TRACKED
         self.requests: OrderedDict[str, List[float]] = OrderedDict()
+        self.redis_url = redis_url or settings.REDIS_URL
+        self._redis_client = None
+
+    async def connect(self, redis_client=None) -> None:
+        """Connect to Redis for distributed multi-worker rate limiting."""
+        if redis_client is not None:
+            self._redis_client = redis_client
+            return
+
+        try:
+            import redis.asyncio as aioredis
+            client = aioredis.from_url(
+                self.redis_url,
+                decode_responses=True,
+                socket_connect_timeout=1.5
+            )
+            await client.ping()
+            self._redis_client = client
+            logger.info("Connected distributed Redis RateLimiter successfully.")
+        except Exception as e:
+            logger.debug(f"Distributed Redis rate limiting not available ({e}). Using robust in-memory sliding window.")
+            self._redis_client = None
+
+    async def close(self) -> None:
+        """Close connection to distributed Redis rate limiter."""
+        if self._redis_client:
+            try:
+                await self._redis_client.close()
+            except Exception:
+                pass
+            self._redis_client = None
 
     def purge_expired(self) -> int:
         """Purge all tracking keys that have no timestamps or whose timestamps are all expired."""
@@ -52,40 +90,82 @@ class RateLimiter:
                 purged += 1
         return purged
 
-    def is_allowed(self, identifier: str) -> Tuple[bool, int, int]:
+    def is_allowed(self, identifier: Optional[str] = None) -> Tuple[bool, int, int]:
         """
-        Check whether request is permitted.
+        Check whether request is permitted in local bounded in-memory sliding window.
         Returns: (allowed, remaining, retry_after_seconds)
         """
+        ident = str(identifier or "anonymous")
         now = time.time()
         one_hour_ago = now - 3600
 
         # Prune older timestamps
-        if identifier in self.requests:
-            self.requests[identifier] = [ts for ts in self.requests[identifier] if ts > one_hour_ago]
-            if len(self.requests[identifier]) == 0:
-                del self.requests[identifier]
+        if ident in self.requests:
+            self.requests[ident] = [ts for ts in self.requests[ident] if ts > one_hour_ago]
+            if len(self.requests[ident]) == 0:
+                del self.requests[ident]
 
         # If identifier not tracked yet and at capacity, run sweep and evict if needed
-        if identifier not in self.requests:
+        if ident not in self.requests:
             if len(self.requests) >= self.max_tracked:
                 self.purge_expired()
                 while len(self.requests) >= self.max_tracked and self.requests:
                     self.requests.popitem(last=False)
 
-        current_timestamps = self.requests.get(identifier, [])
+        current_timestamps = self.requests.get(ident, [])
         current_count = len(current_timestamps)
         if current_count >= self.limit:
             oldest_ts = current_timestamps[0]
             retry_after = int(oldest_ts + 3600 - now) + 1
             return False, 0, max(1, retry_after)
 
-        if identifier not in self.requests:
-            self.requests[identifier] = []
-        self.requests[identifier].append(now)
-        self.requests.move_to_end(identifier)
+        if ident not in self.requests:
+            self.requests[ident] = []
+        self.requests[ident].append(now)
+        self.requests.move_to_end(ident)
         remaining = self.limit - (current_count + 1)
         return True, remaining, 0
+
+    async def is_allowed_async(self, identifier: Optional[str] = None) -> Tuple[bool, int, int]:
+        """
+        Check rate limit. If distributed Redis client is available, executes atomic
+        sliding-window verification across all workers. Falls back gracefully to in-memory.
+        """
+        ident = str(identifier or "anonymous")
+        if self._redis_client:
+            try:
+                now = time.time()
+                one_hour_ago = now - 3600
+                key = f"cvai:ratelimit:{ident}"
+
+                pipe = self._redis_client.pipeline()
+                pipe.zremrangebyscore(key, 0, one_hour_ago)
+                pipe.zcard(key)
+                pipe.zrange(key, 0, 0, withscores=True)
+                results = await pipe.execute()
+
+                current_count = results[1]
+                oldest_entries = results[2]
+
+                if current_count >= self.limit:
+                    oldest_ts = oldest_entries[0][1] if oldest_entries else now
+                    retry_after = int(oldest_ts + 3600 - now) + 1
+                    return False, 0, max(1, retry_after)
+
+                # Add current request timestamp
+                pipe2 = self._redis_client.pipeline()
+                member_id = f"{now}:{secrets.token_hex(4)}"
+                pipe2.zadd(key, {member_id: now})
+                pipe2.expire(key, 3600)
+                await pipe2.execute()
+
+                remaining = self.limit - (current_count + 1)
+                return True, max(0, remaining), 0
+            except Exception as e:
+                logger.warning(f"Redis rate limit check failed ({e}); falling back to local memory.")
+
+        # Fallback to local in-memory sliding window
+        return self.is_allowed(identifier)
 
 
 # Singleton rate limiter

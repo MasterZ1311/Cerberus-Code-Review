@@ -50,7 +50,8 @@ class SecurityAgent(BaseAgent):
         start_time = time.perf_counter()
 
         # 1. Always execute baseline deterministic heuristic & AST rules
-        h_findings, h_score = HeuristicEngine.analyze_security(code, language=language)
+        filename = (context or {}).get("filename")
+        h_findings, h_score = HeuristicEngine.analyze_security(code, language=language, filename=filename)
 
         final_findings = h_findings
         final_score = h_score

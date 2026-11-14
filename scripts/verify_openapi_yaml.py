@@ -82,8 +82,13 @@ def validate_openapi():
         
         print("\n  Checking required endpoints against YAML paths:")
         for ep in required_endpoints:
-            # Handle possible prefix like /api/v1
-            matching = [p for p in paths if p == ep or p == f"/api/v1{ep}" or p.endswith(ep)]
+            # Handle possible prefix like /api/v1 or alternate path param names like {review_id}
+            alt_ep = ep.replace("{id}", "{review_id}")
+            matching = [
+                p for p in paths
+                if p in (ep, alt_ep, f"/api/v1{ep}", f"/api/v1{alt_ep}")
+                or p.endswith(ep) or p.endswith(alt_ep)
+            ]
             if matching:
                 methods = list(paths[matching[0]].keys())
                 print(f"    [FOUND] {ep} -> {matching[0]} ({methods})")

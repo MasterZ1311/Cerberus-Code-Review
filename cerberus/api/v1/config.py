@@ -2,7 +2,7 @@
 Configuration Management Endpoints.
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
 from cerberus.api.dependencies import verify_api_key
@@ -12,9 +12,9 @@ router = APIRouter(prefix="/api/v1/config", tags=["Configuration"])
 
 
 class ConfigUpdateModel(BaseModel):
-    enabled_agents: str = None
-    severity_threshold: str = None
-    blocking_mode: bool = None
+    enabled_agents: Optional[str] = None
+    severity_threshold: Optional[str] = None
+    blocking_mode: Optional[bool] = None
 
 
 @router.get("")

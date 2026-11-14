@@ -107,10 +107,12 @@ class ZipExtractionResult(BaseModel):
 def is_safe_zip_path(path_str: str) -> bool:
     """
     Guards against Zip Slip (directory traversal attacks).
-    Rejects absolute paths and paths containing '..' backtracking.
+    Rejects absolute paths, Windows drive references, and paths containing '..' backtracking.
     """
     clean = path_str.replace("\\", "/")
     if clean.startswith("/") or clean.startswith("\\"):
+        return False
+    if len(clean) >= 2 and clean[1] == ":":
         return False
     parts = clean.split("/")
     if ".." in parts:

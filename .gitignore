@@ -58,6 +58,7 @@ Desktop.ini
 *.log
 logs/
 tmp/
+scratch/
 
 # Subagent teamwork scratch artifacts
 .agents/

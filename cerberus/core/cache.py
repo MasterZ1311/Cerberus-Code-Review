@@ -47,11 +47,12 @@ class CacheManager:
         if self.redis_client:
             await self.redis_client.close()
 
-    def compute_cache_key(self, code: str, language: str = "python", agents: Optional[List[str]] = None) -> str:
+    def compute_cache_key(self, code: Optional[str], language: Optional[str] = "python", agents: Optional[List[str]] = None) -> str:
         """Generate deterministic SHA-256 fingerprint for code and execution parameters."""
-        normalized_code = code.strip().replace("\r\n", "\n")
+        normalized_code = (code or "").strip().replace("\r\n", "\n")
+        safe_lang = (language or "python").lower()
         agents_str = ",".join(sorted(agents or []))
-        payload = f"{language.lower()}:{agents_str}:{normalized_code}"
+        payload = f"{safe_lang}:{agents_str}:{normalized_code}"
         digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
         return f"cvai:cache:{digest}"
 

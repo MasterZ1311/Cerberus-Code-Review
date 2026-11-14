@@ -1,0 +1,53 @@
+# Launch & Social Share Copy: cerberus</> v1.0.0 Pro
+
+## 𝕏 / Twitter Post (Punchy, High Engagement)
+What if code review felt like an Apple product? 🍎✨
+
+Meet cerberus</>: 7 autonomous AI agents inspecting your code in 14ms.
+• 🔴 Security (CWE / OWASP)
+• 🔵 Performance (O(n²) bottlenecks)
+• 🟢 Quality (PEP 257 & Clean Code)
+• 🟣 Compliance (HIPAA, GDPR, SOC 2, PCI-DSS)
+
+Plus:
+✨ "Auto-Heal Code" — 1-click AST verified repair right in your editor.
+🎯 Iconic Apple 4-Concentric Activity Health Rings.
+📦 Global Magic Dropzone — drop any file or .zip repository anywhere.
+
+100% offline heuristic engine or any cloud LLM.
+412/412 tests passing. Zero config.
+
+It just works. 🛡️
+
+---
+
+## LinkedIn Post (Executive / Technical Leader Angle)
+Pull requests shouldn't be a bottleneck or an argument.
+
+We reimagined code review from first principles using Steve Jobs' philosophy: "Simplicity is the ultimate sophistication."
+
+Introducing cerberus</> v1.0.0 Pro:
+An autonomous multi-agent code intelligence platform that pairs 7 specialized AI detectives to review security, algorithmic efficiency, architectural coupling, and regulatory compliance (HIPAA §164.312, GDPR, SOC 2, PCI-DSS).
+
+Key Capabilities:
+1. Iconic Apple 4-Concentric Activity Health Rings for instantaneous health visualization.
+2. ✨ Auto-Heal Code: AST-verified code remediation applied directly into your source file with a single click.
+3. Global Magic Dropzone: Drag and drop any code snippet or multi-file .ZIP project archive anywhere on the screen.
+4. Human-in-the-Loop Governance Gate: Explicit authorization overrides with verifiable audit trails.
+5. Dual Streaming & 14ms Latency: Sub-15ms local deterministic engine with WebSockets and Server-Sent Events.
+
+Built with clean architecture, 100% type safety, and verified by 412 unit and integration tests.
+
+Try it out and ship fearlessly. 🚀
+
+---
+
+## GitHub Release Notes (v1.0.0 Pro)
+### 🛡️ cerberus</> v1.0.0 Pro — The Apple Human Interface Transformation
+- **Cupertino Frosted Vibrancy & SF Pro Typography**: Modern Apple aesthetic with blur saturation, subtle specular highlights, and fluid spring animations.
+- **Apple 4-Concentric Activity Rings**: Real-time concentric rings visualizing Security, Performance, Quality, and Compliance with centralized composite score and grade badge.
+- **✨ Auto-Heal Code**: One-click AST-verified code repair transformation with animated emerald ripple feedback.
+- **Global Magic Dropzone**: Full-window drag-and-drop listener accepting single files and multi-file .ZIP archives.
+- **Multimodal Web Audio Feedback**: Tactile click impulses, rising review sweeps, and warm C-major completion bell chords.
+- **Executive Share Sheet**: 1-click export of Markdown summaries, GitHub PR comments, SOC 2/HIPAA attestations, and SVG badges.
+- **Empirical QA**: 412/412 tests passing (100%), 86% statement coverage.

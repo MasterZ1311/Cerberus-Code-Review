@@ -42,7 +42,11 @@ async def validate_token_against_db(token: Optional[str]) -> bool:
                 return False
         return True
 
-    if settings.ENVIRONMENT == "development" and token == settings.DEFAULT_DEV_API_KEY:
+    if (
+        settings.ENVIRONMENT.lower() == "development"
+        and settings.DEFAULT_DEV_API_KEY
+        and token == settings.DEFAULT_DEV_API_KEY
+    ):
         return True
 
     return False
@@ -99,7 +103,11 @@ async def verify_api_key(
                 )
     else:
         # In development mode, provide fallback check for settings.DEFAULT_DEV_API_KEY if DB seed was not present
-        if settings.ENVIRONMENT == "development" and token == settings.DEFAULT_DEV_API_KEY:
+        if (
+            settings.ENVIRONMENT.lower() == "development"
+            and settings.DEFAULT_DEV_API_KEY
+            and token == settings.DEFAULT_DEV_API_KEY
+        ):
             pass
         else:
             raise HTTPException(
@@ -107,8 +115,8 @@ async def verify_api_key(
                 detail={"error": "invalid_api_key", "message": "API key is invalid or has expired"}
             )
 
-    # Check Rate Limit
-    allowed, remaining, retry_after = rate_limiter.is_allowed(token)
+    # Check Rate Limit (distributed Redis with automatic in-memory fallback)
+    allowed, remaining, retry_after = await rate_limiter.is_allowed_async(token)
     if not allowed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

@@ -48,7 +48,8 @@ class QualityAgent(BaseAgent):
         start_time = time.perf_counter()
 
         # 1. Baseline heuristic analysis
-        h_findings, h_score = HeuristicEngine.analyze_quality(code, language=language)
+        filename = (context or {}).get("filename")
+        h_findings, h_score = HeuristicEngine.analyze_quality(code, language=language, filename=filename)
 
         final_findings = h_findings
         final_score = h_score

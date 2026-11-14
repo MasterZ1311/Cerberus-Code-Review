@@ -154,7 +154,7 @@ def review(
     agents: Optional[str] = typer.Option(None, "--agents", "-a", help="Comma-separated agents to run"),
 ):
     """Run autonomous multi-agent review on a file, code snippet, or ZIP archive."""
-    agents_list = [a.strip() for a in agents.split(",")] if agents else None
+    agents_list = [a.strip() for a in agents.split(",") if a.strip()] if agents else None
 
     # Check for ZIP project review
     target_zip = zip_file or (file_path if file_path and file_path.suffix.lower() == ".zip" else None)
@@ -194,7 +194,7 @@ def review(
         console.print("[bold red]Error:[/bold red] Provide a code file, .zip archive, or --snippet.")
         raise typer.Exit(code=1)
 
-    agents_list = [a.strip() for a in agents.split(",")] if agents else None
+    agents_list = [a.strip() for a in agents.split(",") if a.strip()] if agents else None
 
     req = CodeReviewRequest(
         code=code,
@@ -314,6 +314,62 @@ def create_api_key(
         title="[bold cyan]cerberus</> Key Generator[/bold cyan]",
         border_style="green"
     ))
+
+
+@app.command()
+def list_api_keys():
+    """List all registered API keys and their active status."""
+    async def _query():
+        from cerberus.core.database import AsyncSessionLocal, init_db
+        from cerberus.models.database import ApiKeyRecord
+        from sqlalchemy import select
+
+        await init_db()
+        async with AsyncSessionLocal() as session:
+            stmt = select(ApiKeyRecord)
+            res = await session.execute(stmt)
+            return res.scalars().all()
+
+    keys = asyncio.run(_query())
+    table = Table(title="cerberus</> Registered API Keys", show_header=True, header_style="bold green")
+    table.add_column("Key Name", style="cyan")
+    table.add_column("Prefix", width=8)
+    table.add_column("Status", width=10)
+    table.add_column("Created", width=22)
+
+    for k in keys:
+        st = "[green]ACTIVE[/green]" if k.is_active else "[red]REVOKED[/red]"
+        table.add_row(k.name, k.prefix, st, str(k.created_at)[:19])
+
+    console.print(table)
+
+
+@app.command()
+def revoke_api_key(
+    name: str = typer.Argument(..., help="Name of the API key to revoke")
+):
+    """Revoke an active API key by its identifier name."""
+    async def _revoke():
+        from cerberus.core.database import AsyncSessionLocal, init_db
+        from cerberus.models.database import ApiKeyRecord
+        from sqlalchemy import select
+
+        await init_db()
+        async with AsyncSessionLocal() as session:
+            stmt = select(ApiKeyRecord).where(ApiKeyRecord.name == name)
+            res = await session.execute(stmt)
+            record = res.scalars().first()
+            if record:
+                record.is_active = False
+                await session.commit()
+                return True
+            return False
+
+    revoked = asyncio.run(_revoke())
+    if revoked:
+        console.print(f"[bold green]API key '{name}' has been successfully revoked.[/bold green]")
+    else:
+        console.print(f"[bold red]API key with name '{name}' not found.[/bold red]")
 
 
 @app.command()

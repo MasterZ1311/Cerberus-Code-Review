@@ -47,8 +47,8 @@ class CodeFixerAgent(BaseAgent):
 
     def _generate_unified_diff(self, original_code: str, repaired_code: str, filename: str = "repaired_code.py") -> str:
         """Generates standard git-compatible unified diff."""
-        orig_lines = original_code.splitlines(keepends=True)
-        repaired_lines = repaired_code.splitlines(keepends=True)
+        orig_lines = original_code.splitlines(keepends=False)
+        repaired_lines = repaired_code.splitlines(keepends=False)
         diff = difflib.unified_diff(
             orig_lines,
             repaired_lines,
@@ -56,12 +56,15 @@ class CodeFixerAgent(BaseAgent):
             tofile=f"b/{filename}",
             lineterm=""
         )
-        return "".join(diff)
+        diff_list = list(diff)
+        if not diff_list:
+            return ""
+        return "\n".join(diff_list) + "\n"
 
-    def _apply_heuristic_fixes(self, code: str, findings: List[Finding]) -> str:
+    def _apply_heuristic_fixes(self, code: str, findings: List[Finding], language: str = "python") -> str:
         """Applies deterministic code repairs using findings' suggested fixes."""
-        repaired = code
-        lines = repaired.split("\n")
+        is_python = (language or "python").lower() == "python"
+        lines = code.split("\n")
 
         # Sort findings with line numbers in reverse so editing lines does not offset earlier line indices
         line_findings = [f for f in findings if f.line is not None and f.suggestion]
@@ -74,10 +77,18 @@ class CodeFixerAgent(BaseAgent):
                 if f.code_snippet and f.code_snippet.strip() in lines[idx]:
                     indent = len(lines[idx]) - len(lines[idx].lstrip())
                     indent_str = " " * indent
-                    lines[idx] = indent_str + f.suggestion.strip()
+                    sugg_lines = f.suggestion.strip().splitlines()
+                    indented_sugg = [indent_str + sl for sl in sugg_lines]
+                    replacement = "\n".join(indented_sugg)
+
+                    # Incremental AST verification for Python
+                    temp_lines = list(lines)
+                    temp_lines[idx] = replacement
+                    if not is_python or self._verify_python_syntax("\n".join(temp_lines)):
+                        lines[idx] = replacement
 
         candidate = "\n".join(lines)
-        if self._verify_python_syntax(candidate):
+        if not is_python or self._verify_python_syntax(candidate):
             return candidate
 
         return code
@@ -96,7 +107,7 @@ class CodeFixerAgent(BaseAgent):
         unified_diff = ""
 
         # 1. First attempt heuristic fixes
-        heuristic_repaired = self._apply_heuristic_fixes(code, findings)
+        heuristic_repaired = self._apply_heuristic_fixes(code, findings, language=language)
         if heuristic_repaired != code:
             repaired_code = heuristic_repaired
 
@@ -192,7 +203,7 @@ class CodeFixerAgent(BaseAgent):
         language: str = "python"
     ) -> Dict[str, Any]:
         """Convenience method to synthesize repaired code, diff patch, and AST validity."""
-        heuristic_repaired = self._apply_heuristic_fixes(original_code, findings)
+        heuristic_repaired = self._apply_heuristic_fixes(original_code, findings, language=language)
         diff = ""
         repaired = original_code
         if heuristic_repaired != original_code:
@@ -216,7 +227,7 @@ class CodeFixerAgent(BaseAgent):
         res = await self.analyze(code, language=language, context={"findings": findings, "filename": filename})
         diff = ""
         repaired = code
-        heuristic_repaired = self._apply_heuristic_fixes(code, findings)
+        heuristic_repaired = self._apply_heuristic_fixes(code, findings, language=language)
         if heuristic_repaired != code:
             repaired = heuristic_repaired
             diff = self._generate_unified_diff(code, repaired, filename=filename)

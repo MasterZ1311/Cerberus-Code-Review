@@ -1,8 +1,7 @@
 """
-Collaborative Review & Consensus Agent (Agent 20).
-Synthesizes findings across all specialized review agents (Security, Performance, Quality,
-Architecture, Compliance) to resolve cross-domain trade-offs, compute overall merge readiness,
-and produce an executive collaborative consensus brief.
+Multi-Agent Collaborative Consensus Agent (Agent 5).
+Resolves cross-domain conflicts (e.g. Security vs. Performance trade-offs),
+synthesizes finding severities, and delivers a unified pull request verdict.
 """
 
 import json
@@ -21,18 +20,18 @@ logger = logging.getLogger("cerberus.agents.consensus")
 class ConsensusAgent(BaseAgent):
     name: str = "consensus"
     version: str = "1.0.0"
-    purpose: str = "Coordinate multi-agent consensus, resolve cross-domain conflicts, and determine merge readiness"
+    purpose = "Collaboratively resolve trade-offs, align multi-agent findings, and produce unified consensus"
 
     def __init__(self, provider: Optional[BaseLLMProvider] = None):
         self.provider = provider
 
     def get_capabilities(self) -> List[str]:
         return [
-            "Multi-Agent Finding Cross-Correlation",
-            "Cross-Domain Conflict & Trade-Off Resolution",
-            "Automated PR Merge Gate Decision (MERGE_READY, BLOCKED, NEEDS_REVISION)",
-            "Collaborative Multi-Agent Executive Brief Generation",
-            "Risk Interlock Detection (Security + Compliance + Performance)"
+            "Multi-Agent Finding Reconciliation & Cross-Domain Arbitration",
+            "Security vs. Performance Trade-off Optimization",
+            "Unified Merge Readiness Determination (MERGE_READY, NEEDS_REVISION, BLOCKED_ON_ISSUES)",
+            "Cross-Domain Vulnerability & Bottleneck Intersection Mapping",
+            "Autonomous Code Review Alignment"
         ]
 
     def _evaluate_heuristic_consensus(
@@ -40,33 +39,35 @@ class ConsensusAgent(BaseAgent):
         findings: List[Finding],
         agent_scores: Dict[str, float]
     ) -> Dict[str, Any]:
-        """Deterministic consensus evaluation when offline."""
+        """Calculates deterministic consensus metrics across all specialized agent reports."""
         critical_count = sum(1 for f in findings if f.severity == SeverityEnum.CRITICAL)
         high_count = sum(1 for f in findings if f.severity == SeverityEnum.HIGH)
         medium_count = sum(1 for f in findings if f.severity == SeverityEnum.MEDIUM)
 
-        # Detect line overlaps (same line flagged by multiple agents)
-        line_map: Dict[int, List[str]] = {}
+        # Cross-domain intersections: lines where multiple agents reported issues
+        line_map: Dict[int, List[Finding]] = {}
         for f in findings:
             if f.line is not None:
-                if f.line not in line_map:
-                    line_map[f.line] = []
-                line_map[f.line].append(f.category)
+                line_map.setdefault(f.line, []).append(f)
 
-        intersections = [
-            {"line": line, "categories": list(set(cats))}
-            for line, cats in line_map.items()
-            if len(set(cats)) > 1
-        ]
+        intersections = []
+        for line, line_findings in line_map.items():
+            categories = {f.category for f in line_findings}
+            if len(categories) > 1:
+                intersections.append({
+                    "line": line,
+                    "categories": list(categories),
+                    "finding_count": len(line_findings)
+                })
 
-        # Determine merge action
+        # PR action determination
         min_score = min(agent_scores.values()) if agent_scores else 100.0
         if critical_count > 0 or high_count >= 2 or min_score < 50.0:
             pr_action = "BLOCKED_ON_ISSUES"
             verdict = "Merge blocked due to critical / high severity issues."
         elif high_count > 0 or medium_count >= 1 or min_score < 80.0:
             pr_action = "NEEDS_REVISION"
-            verdict = "Revision required before pull request can be approved."
+            verdict = "Requires revision before merge."
         else:
             pr_action = "MERGE_READY"
             verdict = "Code meets multi-agent quality standards and is ready to merge."
@@ -135,26 +136,28 @@ class ConsensusAgent(BaseAgent):
                     "[FORMAT]:\n"
                     "{\n"
                     '  "pr_action": "MERGE_READY|BLOCKED_ON_ISSUES|NEEDS_REVISION",\n'
-                    '  "consensus_summary": "Concise executive brief of consensus recommendations",\n'
-                    '  "verdict": "Clear verdict explanation",\n'
-                    '  "priority_action_plan": ["Step 1...", "Step 2..."]\n'
+                    '  "consensus_summary": "Synthesized executive evaluation of code quality and risks",\n'
+                    '  "priority_action_plan": ["Specific prioritized remediation step 1", "Step 2"],\n'
+                    '  "verdict": "Clear final recommendation statement"\n'
                     "}"
                 )
 
                 user_prompt = (
                     f"Specialist Agent Scores: {json.dumps(agent_scores)}\n"
                     f"Agent Findings: {json.dumps(findings_summary)}\n"
-                    f"Source Code Excerpt:\n```{language}\n{code[:3000]}\n```"
+                    f"Language: {language}\n"
+                    f"Code excerpt:\n```{language}\n{code[:5000]}\n```"
                 )
 
                 raw_res = await provider.generate_response(system_prompt, user_prompt)
                 llm_parsed = parse_llm_json(raw_res)
                 if llm_parsed and isinstance(llm_parsed, dict):
+                    if "pr_action" in llm_parsed and llm_parsed["pr_action"] in ("MERGE_READY", "BLOCKED_ON_ISSUES", "NEEDS_REVISION"):
+                        consensus_data["pr_action"] = llm_parsed["pr_action"]
                     if "consensus_summary" in llm_parsed:
                         consensus_data["consensus_summary"] = llm_parsed["consensus_summary"]
-                    if "pr_action" in llm_parsed:
-                        consensus_data["pr_action"] = llm_parsed["pr_action"]
-                    if "priority_action_plan" in llm_parsed:
+                        consensus_data["summary"] = llm_parsed["consensus_summary"]
+                    if "priority_action_plan" in llm_parsed and isinstance(llm_parsed["priority_action_plan"], list):
                         consensus_data["priority_action_plan"] = llm_parsed["priority_action_plan"]
                     if "verdict" in llm_parsed:
                         consensus_data["verdict"] = llm_parsed["verdict"]
@@ -162,6 +165,9 @@ class ConsensusAgent(BaseAgent):
                 logger.warning(f"ConsensusAgent LLM synthesis failed; keeping heuristic consensus: {e}")
 
         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+
+        plan = consensus_data.get("priority_action_plan", [])
+        recommendation_str = " • ".join(plan) if plan else "Review and address the prioritized action items agreed upon by the multi-agent review team."
 
         # Create finding representing the consensus decision
         consensus_finding = Finding(
@@ -173,7 +179,7 @@ class ConsensusAgent(BaseAgent):
             title=f"Multi-Agent Consensus: {consensus_data['pr_action'].replace('_', ' ')}",
             message=consensus_data["consensus_summary"],
             explanation=consensus_data.get("verdict"),
-            recommendation="Review and address the prioritized action items agreed upon by the multi-agent review team."
+            recommendation=recommendation_str
         )
 
         score = 100.0 if consensus_data["pr_action"] == "MERGE_READY" else (

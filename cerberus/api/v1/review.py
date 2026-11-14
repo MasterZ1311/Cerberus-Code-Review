@@ -7,6 +7,7 @@ import base64
 import json
 import logging
 from pathlib import Path
+from datetime import datetime, timezone
 import uuid
 from collections import OrderedDict
 from typing import Dict, List, Optional
@@ -22,6 +23,7 @@ from fastapi import (
     WebSocketDisconnect,
     status,
 )
+from fastapi.responses import StreamingResponse
 from cerberus.agents.orchestrator import orchestrator
 from cerberus.api.dependencies import validate_token_against_db, verify_api_key
 from cerberus.config import settings
@@ -34,7 +36,10 @@ from cerberus.models.schemas import (
     CodeReviewResponse,
     FeedbackRequest,
     FeedbackResponse,
+    ReviewApproveRequest,
+    ReviewApproveResponse,
     ReviewConfig,
+    ReviewStatusResponse,
     ZipBase64ReviewRequest,
     ZipReviewResponse,
 )
@@ -47,6 +52,17 @@ REVIEWS_STORE_MAX_ITEMS = getattr(settings, "CACHE_MAX_ITEMS", 1000)
 reviews_store: OrderedDict[str, CodeReviewResponse] = OrderedDict()
 zip_reviews_store: OrderedDict[str, ZipReviewResponse] = OrderedDict()
 ws_connections: Dict[str, List[WebSocket]] = {}
+
+# Strong reference tracking for background tasks to prevent GC in Python 3.11+
+_background_tasks: set = set()
+
+
+def _create_background_task(coro) -> asyncio.Task:
+    """Creates a background task and retains a strong reference until completion."""
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    return task
 
 
 def _store_review(review_id: str, response: CodeReviewResponse) -> None:
@@ -83,8 +99,8 @@ async def submit_review(
     response = await orchestrator.execute_review(request)
     _store_review(response.review_id, response)
 
-    # Persist in background DB
-    asyncio.create_task(_persist_review_record(request, response))
+    # Persist in background DB with strong reference tracking
+    _create_background_task(_persist_review_record(request, response))
 
     # Notify connected WebSockets
     if response.review_id in ws_connections:
@@ -140,6 +156,105 @@ async def get_review_results(
 ):
     """Retrieve full synthesized results, agent findings, and remediation suggestions."""
     return await get_review_status(review_id, api_key)
+
+
+@router.get("/{review_id}/status", response_model=ReviewStatusResponse)
+async def get_review_status_only(
+    review_id: str,
+    api_key: str = Depends(verify_api_key)
+):
+    """Get lightweight status and blocking evaluation for automated gating."""
+    full = await get_review_status(review_id, api_key)
+    return ReviewStatusResponse(
+        review_id=full.review_id,
+        status=full.status,
+        overall_score=full.overall_score,
+        created_at=full.created_at,
+        completed_at=full.completed_at,
+        should_block=full.should_block,
+        block_reason=full.block_reason
+    )
+
+
+@router.post("/{review_id}/approve", response_model=ReviewApproveResponse)
+async def approve_review(
+    review_id: str,
+    payload: Optional[ReviewApproveRequest] = None,
+    api_key: str = Depends(verify_api_key)
+):
+    """
+    Human-in-the-Loop PR Approval Gate.
+    Allows engineers or technical leads to explicitly approve a review,
+    overriding automated blocking thresholds when deliberate exceptions are justified.
+    """
+    full = await get_review_status(review_id, api_key)
+    req = payload or ReviewApproveRequest()
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    # Update in-memory review state
+    if full.should_block and req.override_blocking:
+        full.should_block = False
+        full.block_reason = f"Manually approved by '{req.reviewer}'. Overrode blocking rule: {full.block_reason}"
+    full.status = "approved"
+    _store_review(review_id, full)
+
+    # Persist in DB if available
+    try:
+        async with AsyncSessionLocal() as session:
+            record = await session.get(CodeReviewRecord, review_id)
+            if record:
+                record.status = "approved"
+                if record.results_json and isinstance(record.results_json, dict):
+                    rec_data = dict(record.results_json)
+                    rec_data["status"] = "approved"
+                    rec_data["should_block"] = False
+                    record.results_json = rec_data
+                await session.commit()
+    except Exception as e:
+        logger.warning(f"Could not persist review approval to DB: {e}")
+
+    return ReviewApproveResponse(
+        review_id=review_id,
+        status="approved",
+        approved_by=req.reviewer,
+        approved_at=now_iso,
+        override_applied=req.override_blocking,
+        message=f"Review '{review_id}' successfully approved for merge by {req.reviewer}."
+    )
+
+
+@router.get("/{review_id}/stream")
+async def stream_review_sse(
+    review_id: str,
+    token: Optional[str] = Query(None)
+):
+    """
+    Server-Sent Events (SSE) progress and completion stream for CI/CD runners and dashboard.
+    """
+    is_valid = await validate_token_against_db(token)
+    if not is_valid:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key token")
+
+    async def event_generator():
+        # Yield connection event
+        yield f"event: connected\ndata: {json.dumps({'review_id': review_id, 'status': 'connected'})}\n\n"
+        
+        # Check if already completed
+        if review_id in reviews_store:
+            res = reviews_store[review_id]
+            yield f"event: completed\ndata: {json.dumps({'review_id': review_id, 'overall_score': res.overall_score, 'status': res.status})}\n\n"
+            return
+
+        # Poll briefly until completed
+        for _ in range(30):
+            await asyncio.sleep(0.5)
+            if review_id in reviews_store:
+                res = reviews_store[review_id]
+                yield f"event: completed\ndata: {json.dumps({'review_id': review_id, 'overall_score': res.overall_score, 'status': res.status})}\n\n"
+                return
+        yield f"event: ping\ndata: {json.dumps({'review_id': review_id, 'status': 'waiting'})}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @router.post("/batch", response_model=BatchReviewResponse)

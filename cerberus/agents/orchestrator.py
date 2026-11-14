@@ -3,6 +3,7 @@ Review Orchestrator: Multi-Agent Parallel Execution, Caching, and Report Synthes
 """
 
 import asyncio
+import hashlib
 import logging
 import time
 import uuid
@@ -85,6 +86,11 @@ class ReviewOrchestrator:
         if not active_agents:
             active_agents = ["security", "performance", "quality"]
 
+        # Separate primary analytical agents from post-processing collaborative synthesis agents
+        primary_agents = [a for a in active_agents if a not in ("consensus", "code_fixer")]
+        if not primary_agents:
+            primary_agents = [a for a in ["security", "performance", "quality"] if a in self.registry]
+
         # 2. Check Cache
         cache_key = cache_manager.compute_cache_key(
             code=request.code,
@@ -106,7 +112,11 @@ class ReviewOrchestrator:
 
         CACHE_MISSES_TOTAL.inc()
 
-        # 3. Execute Agents in Parallel
+        # 3. Execute Primary Agents in Parallel
+        agent_context = request.context.model_dump() if request.context else {}
+        if request.filename and not agent_context.get("filename"):
+            agent_context["filename"] = request.filename
+
         async def run_agent(agent_name: str) -> AgentResult:
             agent = self.registry[agent_name]
             a_start = time.perf_counter()
@@ -114,7 +124,7 @@ class ReviewOrchestrator:
                 res = await agent.analyze(
                     code=request.code,
                     language=request.language or "python",
-                    context=request.context.model_dump() if request.context else None,
+                    context=agent_context,
                 )
                 AGENT_EXECUTION_SECONDS.labels(agent_name=agent_name).observe(time.perf_counter() - a_start)
                 for f in res.findings:
@@ -130,7 +140,7 @@ class ReviewOrchestrator:
                     error=str(e),
                 )
 
-        tasks = [run_agent(agent_name) for agent_name in active_agents]
+        tasks = [run_agent(agent_name) for agent_name in primary_agents]
         agent_results: List[AgentResult] = await asyncio.gather(*tasks)
 
         # 4. Synthesize Findings and Scores
@@ -157,7 +167,7 @@ class ReviewOrchestrator:
         warnings = [f for f in all_findings if f.severity == SeverityEnum.MEDIUM]
         suggestions = [f for f in all_findings if f.severity in (SeverityEnum.LOW, SeverityEnum.INFO)]
 
-        # Calculate weighted overall score
+        # Calculate weighted overall score from primary diagnostic agents
         weights = {
             "security": 0.40,
             "performance": 0.25,
@@ -165,9 +175,10 @@ class ReviewOrchestrator:
             "architecture": 0.05,
             "compliance": 0.05,
         }
-        total_weight = sum(weights.get(name, 0.2) for name in scores)
+        diagnostic_scores = {k: v for k, v in scores.items() if k not in ("consensus", "code_fixer")}
+        total_weight = sum(weights.get(name, 0.2) for name in diagnostic_scores)
         if total_weight > 0:
-            overall_score = sum(scores[name] * weights.get(name, 0.2) for name in scores) / total_weight
+            overall_score = sum(diagnostic_scores[name] * weights.get(name, 0.2) for name in diagnostic_scores) / total_weight
         else:
             overall_score = 0.0 if failed_count > 0 else 100.0
         overall_score = round(max(0.0, min(100.0, overall_score)), 1)
@@ -202,7 +213,8 @@ class ReviewOrchestrator:
         unified_patch = None
         consensus_summary = None
 
-        if getattr(settings, "COLLABORATIVE_MODE", True) and ("consensus" in self.registry):
+        run_consensus = getattr(settings, "COLLABORATIVE_MODE", True) or ("consensus" in active_agents)
+        if run_consensus and ("consensus" in self.registry):
             try:
                 consensus_agent = self.registry["consensus"]
                 consensus_res = await consensus_agent.analyze(
@@ -213,18 +225,21 @@ class ReviewOrchestrator:
                 if consensus_res.findings:
                     cf = consensus_res.findings[0]
                     consensus_summary = cf.message
+                    plan_items = [p.strip() for p in cf.recommendation.split(" • ")] if cf.recommendation else []
                     collaborative_consensus = {
                         "status": "completed",
                         "summary": cf.message,
                         "pr_action": cf.title.replace("Multi-Agent Consensus: ", "").upper(),
                         "verdict": cf.explanation,
+                        "priority_action_plan": plan_items,
                     }
                     if "consensus" in active_agents:
                         agents_payload.append(consensus_res.model_dump())
             except Exception as e:
                 logger.warning(f"Collaborative consensus step failed: {e}")
 
-        if getattr(settings, "AUTO_GENERATE_FIXES", True) and ("code_fixer" in self.registry) and all_findings:
+        run_fixer = getattr(settings, "AUTO_GENERATE_FIXES", True) or ("code_fixer" in active_agents)
+        if run_fixer and ("code_fixer" in self.registry) and all_findings:
             try:
                 fixer_agent = self.registry["code_fixer"]
                 fixer_res = await fixer_agent.analyze(
@@ -273,11 +288,11 @@ class ReviewOrchestrator:
             unified_patch=unified_patch,
         )
 
-        # 5. Save to Cache only if all agents completed successfully (prevent cache poisoning)
+        # 6. Save to Cache only if all agents completed successfully (prevent cache poisoning)
         if review_status == "completed":
             await cache_manager.set(cache_key, response.model_dump())
 
-        # 6. Record Metrics
+        # 7. Record Metrics
         REVIEW_REQUESTS_TOTAL.labels(status=review_status, language=request.language or "python").inc()
         REVIEW_DURATION_SECONDS.observe(total_elapsed_ms / 1000.0)
 
@@ -299,6 +314,20 @@ class ReviewOrchestrator:
         start_time = time.perf_counter()
         project_review_id = f"zip_{uuid.uuid4().hex[:16]}"
         now_iso = datetime.now(timezone.utc).isoformat()
+
+        # Archive-level cache lookup if raw bytes supplied
+        zip_cache_key = None
+        if isinstance(zip_source, bytes):
+            agents_str = ",".join(sorted(agents or []))
+            digest = hashlib.sha256(zip_source).hexdigest()
+            zip_cache_key = f"cvai:zip_cache:{digest}:{agents_str}"
+            cached_zip = await cache_manager.get(zip_cache_key)
+            if cached_zip:
+                CACHE_HITS_TOTAL.inc()
+                REVIEW_REQUESTS_TOTAL.labels(status="completed", language="zip").inc()
+                cached_resp = ZipReviewResponse(**cached_zip)
+                cached_resp.review_id = project_review_id
+                return cached_resp
 
         # 1. Safely extract code files
         extraction = extract_code_from_zip(
@@ -433,7 +462,7 @@ class ReviewOrchestrator:
         total_elapsed_ms = int((time.perf_counter() - start_time) * 1000)
         completed_iso = datetime.now(timezone.utc).isoformat()
 
-        return ZipReviewResponse(
+        resp = ZipReviewResponse(
             project_name=extraction.project_name,
             review_id=project_review_id,
             status="completed",
@@ -452,6 +481,15 @@ class ReviewOrchestrator:
             collaborative_consensus=consensus_data,
             summary=project_summary,
         )
+
+        # 6. Cache zip project response and record metrics
+        if zip_cache_key:
+            await cache_manager.set(zip_cache_key, resp.model_dump())
+
+        REVIEW_REQUESTS_TOTAL.labels(status="completed", language="zip").inc()
+        REVIEW_DURATION_SECONDS.observe(total_elapsed_ms / 1000.0)
+
+        return resp
 
 
 # Singleton orchestrator

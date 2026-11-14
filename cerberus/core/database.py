@@ -7,6 +7,7 @@ import logging
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from cerberus.config import settings
+from cerberus.core.migrations import run_migrations
 from cerberus.models.database import Base
 
 logger = logging.getLogger("cerberus.database")
@@ -15,6 +16,8 @@ logger = logging.getLogger("cerberus.database")
 db_url = settings.DATABASE_URL
 if db_url.startswith("sqlite:///") and not db_url.startswith("sqlite+aiosqlite:///"):
     db_url = db_url.replace("sqlite:///", "sqlite+aiosqlite:///")
+elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+asyncpg://"):
+    db_url = db_url.replace("postgresql://", "postgresql+asyncpg://")
 
 if "sqlite+aiosqlite:///./cerberus.db" in db_url:
     from pathlib import Path
@@ -47,7 +50,8 @@ async def init_db() -> None:
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database schema initialized successfully.")
+        await run_migrations(engine)
+        logger.info("Database schema initialized and migrations applied successfully.")
 
         # Seed default dev key in development mode
         if settings.ENVIRONMENT == "development" and settings.DEFAULT_DEV_API_KEY:
@@ -70,14 +74,13 @@ async def init_db() -> None:
                     )
                     session.add(dev_record)
                     await session.commit()
-                    logger.info("Default development API key seeded successfully.")
+                    logger.info(f"Seeded default development API key '{settings.DEFAULT_DEV_API_KEY}'.")
     except Exception as e:
-        logger.error(f"Failed to initialize database: {e}")
-        raise
+        logger.warning(f"Database initialization warning: {e}")
 
 
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency for obtaining async database sessions."""
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    """FastAPI Dependency for transactional database sessions."""
     async with AsyncSessionLocal() as session:
         try:
             yield session

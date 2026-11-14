@@ -26,12 +26,12 @@ def parse_llm_json(raw_text: Optional[str]) -> Optional[Dict[str, Any]]:
     fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
     if fence_match:
         text = fence_match.group(1).strip()
-    else:
-        # Find outermost { and }
-        start = text.find("{")
-        end = text.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            text = text[start : end + 1]
+
+    # Find outermost { and } to isolate JSON object from any surrounding commentary
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        text = text[start : end + 1]
 
     # 2. First attempt standard json.loads
     try:

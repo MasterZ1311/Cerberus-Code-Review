@@ -4,6 +4,7 @@ Includes Prometheus Metrics, CORS, and Embedded Web Dashboard.
 """
 
 from contextlib import asynccontextmanager
+import logging
 from pathlib import Path
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +15,8 @@ from cerberus.api.v1 import agents, analytics, config, health, review
 from cerberus.config import settings
 from cerberus.core.cache import cache_manager
 from cerberus.core.database import init_db
+from cerberus.core.security import rate_limiter
+from cerberus.core.security_headers import SecurityHeadersMiddleware, SensitiveDataMaskingFilter
 from cerberus.core.telemetry import get_prometheus_metrics
 
 
@@ -22,15 +25,23 @@ async def lifespan(app: FastAPI):
     # Startup
     await init_db()
     await cache_manager.connect()
+    await rate_limiter.connect()
     yield
-    # Shutdown — close all provider clients
+    # Shutdown — close all provider clients and resources
     from cerberus.agents.orchestrator import orchestrator
+    from cerberus.core.database import engine
     from cerberus.providers import close_all_providers
     for agent in orchestrator.registry.values():
         if hasattr(agent, "provider") and hasattr(agent.provider, "close") and agent.provider:
             await agent.provider.close()
     await close_all_providers()
+    await rate_limiter.close()
     await cache_manager.close()
+    if engine:
+        try:
+            await engine.dispose()
+        except Exception:
+            pass
 
 
 def create_app() -> FastAPI:
@@ -40,6 +51,13 @@ def create_app() -> FastAPI:
         version=__version__,
         lifespan=lifespan,
     )
+
+    # Attach Sensitive Data Masking Log Filter
+    for handler in logging.root.handlers:
+        handler.addFilter(SensitiveDataMaskingFilter())
+
+    # Security Headers Middleware
+    app.add_middleware(SecurityHeadersMiddleware)
 
     # CORS Configuration
     allowed_origins = settings.cors_origins_list

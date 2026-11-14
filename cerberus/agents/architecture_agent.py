@@ -35,6 +35,9 @@ class ArchitectureAgent(BaseAgent):
             "Cyclic Dependency Risk Analysis",
             "Single Responsibility Principle (SRP) Verification",
             "Architectural Modularity Scoring",
+            "God Object & Low Cohesion Class Detection",
+            "High Fan-Out & External Coupling Analysis",
+            "Excessive Function Parameters (Tramp Data)",
         ]
 
     async def analyze(
@@ -46,7 +49,8 @@ class ArchitectureAgent(BaseAgent):
         start_time = time.perf_counter()
 
         # 1. Baseline heuristic analysis
-        h_findings, h_score = HeuristicEngine.analyze_architecture(code, language=language)
+        filename = (context or {}).get("filename")
+        h_findings, h_score = HeuristicEngine.analyze_architecture(code, language=language, filename=filename)
 
         final_findings = h_findings
         final_score = h_score

@@ -19,6 +19,13 @@ INSECURE_DEFAULT_SECRETS = {
     "admin",
 }
 
+INSECURE_DEFAULT_DEV_KEYS = {
+    "cvai_dev_key_123",
+    "dev_key",
+    "test_key",
+    "default",
+}
+
 _ENV_FALLBACK = str(Path(__file__).resolve().parent.parent / ".env")
 
 
@@ -40,7 +47,7 @@ class Settings(BaseSettings):
     API_KEY_PREFIX: str = "cvai_"
     RATE_LIMIT_PER_HOUR: int = 100
     RATE_LIMIT_MAX_TRACKED: int = 10000
-    DEFAULT_DEV_API_KEY: str = "cvai_dev_key_123"
+    DEFAULT_DEV_API_KEY: Optional[str] = "cvai_dev_key_123"
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8000,http://127.0.0.1:8000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173"
 
     # Database Settings
@@ -127,6 +134,12 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "Production configuration error: SECRET_KEY must be at least 32 characters long in production."
                 )
+            # In production, automatically nullify default dev key to ensure dev fallback is disabled
+            if self.DEFAULT_DEV_API_KEY and (
+                self.DEFAULT_DEV_API_KEY in INSECURE_DEFAULT_DEV_KEYS
+                or "dev_key" in self.DEFAULT_DEV_API_KEY.lower()
+            ):
+                self.DEFAULT_DEV_API_KEY = None
         return self
 
 

@@ -4,7 +4,7 @@ Pydantic Schemas for API Requests, Responses, and Agent Data Models.
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, Field
 
 
@@ -84,6 +84,21 @@ class CodeReviewRequest(BaseModel):
     async_mode: Optional[bool] = Field(default=False, description="Whether to queue review asynchronously")
 
 
+class ReviewResults(BaseModel):
+    """Synthesized container for multi-agent findings, scores, and collaborative artifacts."""
+    overall_score: float = Field(default=100.0, description="Overall weighted score")
+    severity_summary: Dict[str, int] = Field(default_factory=dict, description="Summary counts by severity")
+    agents: List[Dict[str, Any]] = Field(default_factory=list, description="Agent execution outputs")
+    collaborative_consensus: Optional[Dict[str, Any]] = Field(default=None, description="Consensus agent details")
+    unified_patch: Optional[str] = Field(default=None, description="AST-verified Git diff patch")
+
+    def __getitem__(self, item: str) -> Any:
+        return getattr(self, item)
+
+    def get(self, item: str, default: Any = None) -> Any:
+        return getattr(self, item, default)
+
+
 class CodeReviewResponse(BaseModel):
     """Standard response containing review status and prioritized multi-agent findings."""
     review_id: str = Field(description="Unique review identifier, e.g. rev_8f7e6d5c4b3a2918")
@@ -96,7 +111,10 @@ class CodeReviewResponse(BaseModel):
     block_reason: Optional[str] = None
     overall_score: Optional[float] = None
     processing_time_ms: Optional[int] = None
-    results: Optional[Dict[str, Any]] = None
+    results: Optional[Union[ReviewResults, Dict[str, Any]]] = Field(
+        default=None,
+        description="Structured multi-agent review results and synthesized findings"
+    )
     critical_issues: List[Finding] = Field(default_factory=list)
     warnings: List[Finding] = Field(default_factory=list)
     suggestions: List[Finding] = Field(default_factory=list)
@@ -177,6 +195,31 @@ class FeedbackRequest(BaseModel):
 class FeedbackResponse(BaseModel):
     status: str = "success"
     message: str = "Feedback recorded successfully"
+
+
+class ReviewStatusResponse(BaseModel):
+    review_id: str
+    status: str
+    overall_score: Optional[float] = None
+    created_at: str
+    completed_at: Optional[str] = None
+    should_block: bool = False
+    block_reason: Optional[str] = None
+
+
+class ReviewApproveRequest(BaseModel):
+    reviewer: str = Field(default="engineer", description="Name or identifier of reviewer approving the PR")
+    reason: Optional[str] = Field(default=None, description="Optional override rationale or note")
+    override_blocking: bool = Field(default=True, description="Whether this approval overrides automated blocking gates")
+
+
+class ReviewApproveResponse(BaseModel):
+    review_id: str
+    status: str = "approved"
+    approved_by: str
+    approved_at: str
+    override_applied: bool = True
+    message: str = "Review manually approved for merge"
 
 
 class AgentInfo(BaseModel):

@@ -339,6 +339,36 @@ paths:
         '400':
           $ref: '#/components/responses/400Problem'
 
+  /reviews/{review_id}/stream:
+    get:
+      tags:
+        - Reviews
+      summary: Stream review lifecycle events via Server-Sent Events (SSE)
+      description: Real-time SSE event stream broadcasting agent findings and completion.
+      operationId: streamReviewEvents
+      security:
+        - BearerAuth: [review:read]
+      parameters:
+        - name: review_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: token
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Event stream established
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/401Problem'
+
   /analytics/trends:
     get:
       tags:
