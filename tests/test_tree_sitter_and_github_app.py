@@ -26,6 +26,7 @@ from cerberus.models.schemas import (
 client = TestClient(app)
 
 
+@pytest.mark.skipif(not SyntaxVerifier.is_tree_sitter_supported("typescript"), reason="tree-sitter typescript grammar not installed")
 def test_tree_sitter_typescript_syntax():
     """Verify Tree-sitter TypeScript AST validation and error detection."""
     valid_ts = """
@@ -54,6 +55,7 @@ def test_tree_sitter_typescript_syntax():
     assert "line 1" in err
 
 
+@pytest.mark.skipif(not SyntaxVerifier.is_tree_sitter_supported("tsx"), reason="tree-sitter tsx grammar not installed")
 def test_tree_sitter_tsx_syntax():
     """Verify Tree-sitter TSX React JSX syntax validation."""
     valid_tsx = """
@@ -73,9 +75,10 @@ def test_tree_sitter_tsx_syntax():
     assert err is None
 
 
+@pytest.mark.skipif(not SyntaxVerifier.is_tree_sitter_supported("go"), reason="tree-sitter go grammar not installed")
 def test_tree_sitter_go_syntax():
     """Verify Tree-sitter Go AST validation and error detection."""
-    valid_go = """
+    valid_go = r"""
     package main
 
     import (
@@ -91,7 +94,7 @@ def test_tree_sitter_go_syntax():
         if w.ID <= 0 {
             return errors.New("invalid ID")
         }
-        fmt.Printf("Worker %d processing\\n", w.ID)
+        fmt.Printf("Worker %d processing\n", w.ID)
         return nil
     }
     """
@@ -106,6 +109,7 @@ def test_tree_sitter_go_syntax():
     assert "SyntaxError" in err
 
 
+@pytest.mark.skipif(not SyntaxVerifier.is_tree_sitter_supported("rust"), reason="tree-sitter rust grammar not installed")
 def test_tree_sitter_rust_syntax():
     """Verify Tree-sitter Rust AST validation and error detection."""
     valid_rs = """
@@ -134,6 +138,7 @@ def test_tree_sitter_rust_syntax():
     assert "SyntaxError" in err
 
 
+@pytest.mark.skipif(not SyntaxVerifier.is_tree_sitter_supported("typescript"), reason="tree-sitter not installed")
 def test_ast_metadata_extraction():
     """Verify deep AST symbol extraction for TypeScript, Go, and Rust."""
     # TypeScript

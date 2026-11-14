@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     # Server Settings
     HOST: str = "0.0.0.0"
-    PORT: int = 5173
+    PORT: int = 8000
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"
 
