@@ -53,8 +53,8 @@ async def init_db() -> None:
         await run_migrations(engine)
         logger.info("Database schema initialized and migrations applied successfully.")
 
-        # Seed default dev key in development mode
-        if settings.ENVIRONMENT == "development" and settings.DEFAULT_DEV_API_KEY:
+        # Seed default dev key in non-production mode
+        if settings.ENVIRONMENT.lower() not in ("production", "prod") and settings.DEFAULT_DEV_API_KEY:
             async with AsyncSessionLocal() as session:
                 from sqlalchemy import select
                 from cerberus.core.security import hash_api_key

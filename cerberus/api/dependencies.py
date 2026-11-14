@@ -43,7 +43,7 @@ async def validate_token_against_db(token: Optional[str]) -> bool:
         return True
 
     if (
-        settings.ENVIRONMENT.lower() == "development"
+        settings.ENVIRONMENT.lower() not in ("production", "prod")
         and settings.DEFAULT_DEV_API_KEY
         and token == settings.DEFAULT_DEV_API_KEY
     ):
@@ -102,9 +102,9 @@ async def verify_api_key(
                     detail={"error": "invalid_api_key", "message": "API key is invalid or has expired"}
                 )
     else:
-        # In development mode, provide fallback check for settings.DEFAULT_DEV_API_KEY if DB seed was not present
+        # In non-production mode, provide fallback check for settings.DEFAULT_DEV_API_KEY if DB seed was not present
         if (
-            settings.ENVIRONMENT.lower() == "development"
+            settings.ENVIRONMENT.lower() not in ("production", "prod")
             and settings.DEFAULT_DEV_API_KEY
             and token == settings.DEFAULT_DEV_API_KEY
         ):

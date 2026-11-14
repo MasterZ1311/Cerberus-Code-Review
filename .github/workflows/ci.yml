@@ -30,6 +30,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-asyncio pytest-cov httpx
+          pip install -e .
 
       - name: Syntax & Import Sanity Check
         run: |
@@ -39,6 +40,7 @@ jobs:
         env:
           ENVIRONMENT: testing
           LLM_PROVIDER: heuristic
+          PYTHONPATH: .
         run: |
           python -m pytest tests/ -v --tb=short
 
