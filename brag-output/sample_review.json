@@ -1,0 +1,205 @@
+{
+  "review_id": "rev_f42e7249541749b4",
+  "status": "completed",
+  "created_at": "2026-11-14T14:20:14.114229+00:00",
+  "completed_at": "2026-11-14T14:20:14.410382+00:00",
+  "cache_hit": false,
+  "blocking": false,
+  "should_block": false,
+  "block_reason": null,
+  "overall_score": 97.2,
+  "processing_time_ms": 295,
+  "results": {
+    "overall_score": 97.2,
+    "severity_summary": {
+      "critical": 1,
+      "high": 0,
+      "medium": 1,
+      "low": 0,
+      "info": 1
+    },
+    "agents": [
+      {
+        "name": "security",
+        "status": "completed",
+        "score": 100.0,
+        "execution_time_ms": 3,
+        "findings": [],
+        "error": null
+      },
+      {
+        "name": "performance",
+        "status": "completed",
+        "score": 100.0,
+        "execution_time_ms": 0,
+        "findings": [],
+        "error": null
+      },
+      {
+        "name": "quality",
+        "status": "completed",
+        "score": 97.0,
+        "execution_time_ms": 0,
+        "findings": [
+          {
+            "id": "QUAL-DOC-1",
+            "severity": "info",
+            "category": "documentation",
+            "title": "Missing Docstring on 'get_user_profile'",
+            "message": "Public function/class 'get_user_profile' lacks documentation docstring.",
+            "line": 1,
+            "column": null,
+            "code_snippet": "def get_user_profile(user_id):",
+            "explanation": "Clear docstrings communicate expected arguments, return types, and side effects to other engineers.",
+            "recommendation": "Add a descriptive triple-quoted docstring explaining the component.",
+            "suggestion": "def get_user_profile():\n    \"\"\"Brief description of get_user_profile.\"\"\"\n    pass",
+            "cwe_id": null,
+            "cvss_score": null,
+            "exploitability": null,
+            "false_positive_probability": 0.02
+          }
+        ],
+        "error": null
+      },
+      {
+        "name": "architecture",
+        "status": "completed",
+        "score": 100.0,
+        "execution_time_ms": 0,
+        "findings": [],
+        "error": null
+      },
+      {
+        "name": "compliance",
+        "status": "completed",
+        "score": 60.0,
+        "execution_time_ms": 21,
+        "findings": [
+          {
+            "id": "GDPR-MIN-3",
+            "severity": "medium",
+            "category": "compliance",
+            "title": "GDPR Data Minimization Violation (Unbounded 'SELECT *')",
+            "message": "Query fetches all personal columns ('SELECT *') from a user-related table.",
+            "line": 3,
+            "column": null,
+            "code_snippet": "query = \"SELECT * FROM users WHERE id = '%s'\" % user_id",
+            "explanation": "GDPR Article 5(1)(c) mandates that personal data shall be adequate, relevant, and limited to what is necessary in relation to the purposes for which they are processed.",
+            "recommendation": "Explicitly enumerate only the specific columns required for this operation.",
+            "suggestion": "SELECT id, email, created_at FROM users WHERE id = :id",
+            "cwe_id": "CWE-200",
+            "cvss_score": null,
+            "exploitability": null,
+            "false_positive_probability": 0.02
+          },
+          {
+            "id": "SOC2-KEY-5",
+            "severity": "critical",
+            "category": "compliance",
+            "title": "SOC 2 CC6.1 Violation: Hardcoded Master Secret or Private Key",
+            "message": "Hardcoded Master Secret or Private Key identified in source code repository.",
+            "line": 5,
+            "column": null,
+            "code_snippet": "AWS_SECRET_KEY = \"AKIAIOSFODNN7EXAMPLE\"",
+            "explanation": "SOC 2 Trust Services Criterion CC6.1 mandates that logical access to system components must be secured via dynamic secret vaults (e.g. AWS Secrets Manager, HashiCorp Vault).",
+            "recommendation": "Store secrets outside version control and load via secure environment variables or vault clients.",
+            "suggestion": "SECRET_KEY = os.environ['APP_SECRET_KEY']",
+            "cwe_id": "CWE-798",
+            "cvss_score": null,
+            "exploitability": null,
+            "false_positive_probability": 0.02
+          }
+        ],
+        "error": null
+      }
+    ],
+    "collaborative_consensus": {
+      "status": "completed",
+      "summary": "Multi-Agent Review Panel consensus: BLOCKED_ON_ISSUES. Flagged 1 critical, 0 high, and 1 medium issues. Merge blocked due to critical / high severity issues.",
+      "pr_action": "BLOCKED ON ISSUES",
+      "verdict": "Merge blocked due to critical / high severity issues.",
+      "priority_action_plan": [
+        "Fix 1 critical severity issue(s) immediately",
+        "Address 1 medium severity issue(s)"
+      ]
+    },
+    "unified_patch": "--- a/snippet.py\n+++ b/snippet.py\n@@ -1,6 +1,8 @@\n-def get_user_profile(user_id):\n+def get_user_profile():\n+    \"\"\"Brief description of get_user_profile.\"\"\"\n+    pass\n     # Vulnerable to SQL injection\n     query = \"SELECT * FROM users WHERE id = '%s'\" % user_id\n     cursor.execute(query)\n-    AWS_SECRET_KEY = \"AKIAIOSFODNN7EXAMPLE\"\n+    SECRET_KEY = os.environ['APP_SECRET_KEY']\n     return cursor.fetchall()\n"
+  },
+  "critical_issues": [
+    {
+      "id": "SOC2-KEY-5",
+      "severity": "critical",
+      "category": "compliance",
+      "title": "SOC 2 CC6.1 Violation: Hardcoded Master Secret or Private Key",
+      "message": "Hardcoded Master Secret or Private Key identified in source code repository.",
+      "line": 5,
+      "column": null,
+      "code_snippet": "AWS_SECRET_KEY = \"AKIAIOSFODNN7EXAMPLE\"",
+      "explanation": "SOC 2 Trust Services Criterion CC6.1 mandates that logical access to system components must be secured via dynamic secret vaults (e.g. AWS Secrets Manager, HashiCorp Vault).",
+      "recommendation": "Store secrets outside version control and load via secure environment variables or vault clients.",
+      "suggestion": "SECRET_KEY = os.environ['APP_SECRET_KEY']",
+      "cwe_id": "CWE-798",
+      "cvss_score": null,
+      "exploitability": null,
+      "false_positive_probability": 0.02
+    }
+  ],
+  "warnings": [
+    {
+      "id": "GDPR-MIN-3",
+      "severity": "medium",
+      "category": "compliance",
+      "title": "GDPR Data Minimization Violation (Unbounded 'SELECT *')",
+      "message": "Query fetches all personal columns ('SELECT *') from a user-related table.",
+      "line": 3,
+      "column": null,
+      "code_snippet": "query = \"SELECT * FROM users WHERE id = '%s'\" % user_id",
+      "explanation": "GDPR Article 5(1)(c) mandates that personal data shall be adequate, relevant, and limited to what is necessary in relation to the purposes for which they are processed.",
+      "recommendation": "Explicitly enumerate only the specific columns required for this operation.",
+      "suggestion": "SELECT id, email, created_at FROM users WHERE id = :id",
+      "cwe_id": "CWE-200",
+      "cvss_score": null,
+      "exploitability": null,
+      "false_positive_probability": 0.02
+    }
+  ],
+  "suggestions": [
+    {
+      "id": "QUAL-DOC-1",
+      "severity": "info",
+      "category": "documentation",
+      "title": "Missing Docstring on 'get_user_profile'",
+      "message": "Public function/class 'get_user_profile' lacks documentation docstring.",
+      "line": 1,
+      "column": null,
+      "code_snippet": "def get_user_profile(user_id):",
+      "explanation": "Clear docstrings communicate expected arguments, return types, and side effects to other engineers.",
+      "recommendation": "Add a descriptive triple-quoted docstring explaining the component.",
+      "suggestion": "def get_user_profile():\n    \"\"\"Brief description of get_user_profile.\"\"\"\n    pass",
+      "cwe_id": null,
+      "cvss_score": null,
+      "exploitability": null,
+      "false_positive_probability": 0.02
+    }
+  ],
+  "agents_scheduled": [
+    "security",
+    "performance",
+    "quality",
+    "architecture",
+    "compliance"
+  ],
+  "webhook_url": null,
+  "summary": "Multi-Agent Review Panel consensus: BLOCKED_ON_ISSUES. Flagged 1 critical, 0 high, and 1 medium issues. Merge blocked due to critical / high severity issues.",
+  "collaborative_consensus": {
+    "status": "completed",
+    "summary": "Multi-Agent Review Panel consensus: BLOCKED_ON_ISSUES. Flagged 1 critical, 0 high, and 1 medium issues. Merge blocked due to critical / high severity issues.",
+    "pr_action": "BLOCKED ON ISSUES",
+    "verdict": "Merge blocked due to critical / high severity issues.",
+    "priority_action_plan": [
+      "Fix 1 critical severity issue(s) immediately",
+      "Address 1 medium severity issue(s)"
+    ]
+  },
+  "unified_patch": "--- a/snippet.py\n+++ b/snippet.py\n@@ -1,6 +1,8 @@\n-def get_user_profile(user_id):\n+def get_user_profile():\n+    \"\"\"Brief description of get_user_profile.\"\"\"\n+    pass\n     # Vulnerable to SQL injection\n     query = \"SELECT * FROM users WHERE id = '%s'\" % user_id\n     cursor.execute(query)\n-    AWS_SECRET_KEY = \"AKIAIOSFODNN7EXAMPLE\"\n+    SECRET_KEY = os.environ['APP_SECRET_KEY']\n     return cursor.fetchall()\n"
+}

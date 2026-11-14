@@ -27,9 +27,9 @@ A deep Cupertino midnight glass interface with glowing ambient blur spheres, bol
 *"cerberus</> — It just works. 412/412 tests verified. Ship with fearless confidence."*
 
 ## Format & Timing
-- **Format:** Widescreen Landscape (1080x608), 80 deterministic frames at 4.0 fps.
-- **Duration:** Exactly 20.0 seconds.
-- **Size:** 0.62 MB (ultra-lightweight for fast GitHub README loading).
+- **Format:** Widescreen Landscape (1120x700), 90 high-definition frames at 10.0 fps.
+- **Duration:** Smooth 9-second looping product walkthrough.
+- **Size:** 1.13 MB (ultra-lightweight with optimal 256-color median-cut palette for instant GitHub README loading).
 
 ## Visual Identity
 - **Background:** `#000000` (Cupertino Pro Midnight) with ambient blue, purple, and green blur orbs.

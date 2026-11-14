@@ -12,7 +12,7 @@
 
 ---
 
-## 🎬 Product Demo (20-Second Cinematic Overview)
+## 🎬 Product Walkthrough
 
 ![cerberus</> Autonomous Multi-Agent Code Review Demo](assets/cerberus_demo.gif)
 
