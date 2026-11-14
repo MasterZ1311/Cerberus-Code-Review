@@ -120,7 +120,7 @@ def _render_zip_review_cli(res: ZipReviewResponse, blocking: bool = False) -> No
     # Consensus
     if res.collaborative_consensus:
         cc = res.collaborative_consensus
-        pr_action = cc.get("pr_action", "MERGE_READY")
+        pr_action = cc.get("pr_action", "MERGE_READY").replace(" ", "_").upper()
         action_color = "green" if pr_action == "MERGE_READY" else ("yellow" if pr_action == "NEEDS_REVISION" else "red")
         plans = [_safe_text(p) for p in cc.get('priority_action_plan', [])] if cc.get('priority_action_plan') else []
         console.print(Panel(
@@ -256,7 +256,7 @@ def review(
     # Multi-Agent Collaborative Consensus
     if response.collaborative_consensus:
         cc = response.collaborative_consensus
-        pr_action = cc.get("pr_action", "MERGE_READY")
+        pr_action = cc.get("pr_action", "MERGE_READY").replace(" ", "_").upper()
         action_color = "green" if pr_action == "MERGE_READY" else ("yellow" if pr_action == "NEEDS_REVISION" else "red")
         safe_summary = _safe_text(cc.get('summary'))
         safe_plan = [_safe_text(p) for p in cc.get('priority_action_plan', [])]

@@ -2708,6 +2708,16 @@
       }
     }
 
+    function extractErrorMessage(errData, status) {
+      if (!errData) return `HTTP ${status}`;
+      if (typeof errData.detail === 'string') return errData.detail;
+      if (errData.detail && typeof errData.detail === 'object') {
+        return errData.detail.message || errData.detail.error || JSON.stringify(errData.detail);
+      }
+      if (errData.message) return errData.message;
+      return `HTTP ${status}`;
+    }
+
     function openApiKeyModal() {
       SoundEngine.click();
       document.getElementById('modal-api-key-input').value = getApiKey();
@@ -3105,7 +3115,7 @@
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.detail || `HTTP ${res.status}`);
+          throw new Error(extractErrorMessage(errData, res.status));
         }
 
         const data = await res.json();
@@ -3173,7 +3183,7 @@
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.detail || `HTTP ${res.status}`);
+          throw new Error(extractErrorMessage(errData, res.status));
         }
 
         const data = await res.json();
@@ -4014,7 +4024,10 @@
             comments: comments
           })
         });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(extractErrorMessage(errData, res.status));
+        }
         SoundEngine.success();
         showToast('Thank you! Feedback recorded successfully.', 'success');
         switchResultTab('findings');
@@ -4063,7 +4076,10 @@
           })
         });
 
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(extractErrorMessage(errData, res.status));
+        }
 
         closeApprovalModal();
         SoundEngine.success();

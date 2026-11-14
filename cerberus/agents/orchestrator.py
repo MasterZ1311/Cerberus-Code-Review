@@ -229,7 +229,7 @@ class ReviewOrchestrator:
                     collaborative_consensus = {
                         "status": "completed",
                         "summary": cf.message,
-                        "pr_action": cf.title.replace("Multi-Agent Consensus: ", "").upper(),
+                        "pr_action": cf.title.replace("Multi-Agent Consensus: ", "").strip().upper().replace(" ", "_"),
                         "verdict": cf.explanation,
                         "priority_action_plan": plan_items,
                     }
