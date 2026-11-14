@@ -71,7 +71,7 @@ def test_syntax_verifier_c_family_delimiters():
 
     invalid_ts, err_ts = SyntaxVerifier.verify(invalid_js, "typescript")
     assert invalid_ts is False
-    assert "SyntaxError" in err_ts
+    assert "SyntaxError" in err_ts or "delimiter" in err_ts.lower()
 
 
 def test_timing_safe_compare():

@@ -238,7 +238,10 @@ class SyntaxVerifier:
             valid, err, _ = cls.verify_tree_sitter(code, lang)
             if not valid:
                 return valid, err
-        return cls.verify_balanced_delimiters(code)
+        valid, err = cls.verify_balanced_delimiters(code)
+        if not valid:
+            return valid, f"TypeScript SyntaxError: {err}"
+        return True, None
 
     @classmethod
     def verify_go(cls, code: str) -> Tuple[bool, Optional[str]]:
@@ -247,7 +250,10 @@ class SyntaxVerifier:
             valid, err, _ = cls.verify_tree_sitter(code, "go")
             if not valid:
                 return valid, err
-        return cls.verify_balanced_delimiters(code)
+        valid, err = cls.verify_balanced_delimiters(code)
+        if not valid:
+            return valid, f"Go SyntaxError: {err}"
+        return True, None
 
     @classmethod
     def verify_rust(cls, code: str) -> Tuple[bool, Optional[str]]:
@@ -256,7 +262,10 @@ class SyntaxVerifier:
             valid, err, _ = cls.verify_tree_sitter(code, "rust")
             if not valid:
                 return valid, err
-        return cls.verify_balanced_delimiters(code)
+        valid, err = cls.verify_balanced_delimiters(code)
+        if not valid:
+            return valid, f"Rust SyntaxError: {err}"
+        return True, None
 
     @staticmethod
     def verify_json(code: str) -> Tuple[bool, Optional[str]]:
