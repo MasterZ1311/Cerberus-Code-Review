@@ -1,15 +1,23 @@
 """
-generate_peak_gif.py
-Produces a world-class, high-fidelity animated product demonstration GIF for cerberus</>.
+generate_brag_gif.py
+Produces a world-class, ultra-smooth 25 FPS animated product demonstration GIF for Cerberus.
 Directly drives the live Cupertino web application (cerberus/web/index.html) via Playwright,
-orchestrating authentic user interactions with smooth custom cursor animations:
+orchestrating authentic user interactions with high-fidelity, fluid cursor animations:
+
 1. Cupertino Dark Mode interface with live health beacon and agent registry.
 2. 1-Click scenario preset loading (SQL & Secrets) into VS Code Dark+ editor.
 3. Multi-Agent collaborative execution stepper with concurrent diagnostic agents.
 4. Animated 4-Concentric Activity Rings (🔴 Security, 🔵 Performance, 🟢 Quality, 🟣 Compliance) and Score Gauge.
 5. The Magic Climax: "✨ Auto-Heal Code" AST repair with emerald ripple wave and live code transformation.
-6. VS Code Dark+ Diff inspection.
+6. VS Code Dark+ Unified Patch Diff inspection.
 7. Cupertino Executive Share Sheet modal.
+8. Seamless, continuous infinite loop closure (modal close & smooth cursor return to origin).
+
+Specs:
+- Framerate: 25 FPS (40ms per frame) for cinema-grade fluidity (zero sluggishness).
+- Resolution: 1120x700 viewport, crystal-clear typography.
+- Color Quantization: Optimal 256-color master palette with Floyd-Steinberg dithering for banding-free dark glassmorphism.
+- Loop: Netscape 2.0 infinite loop (loop=0).
 """
 
 import sys
@@ -98,51 +106,36 @@ REVIEW_DATA = {
     ],
     "suggestions": [
         {
-            "id": "QUAL-TYP-01",
-            "agent_name": "quality",
+            "id": "COMP-HIPAA-01",
+            "agent_name": "compliance",
             "severity": "medium",
-            "category": "quality",
-            "title": "Missing Type Annotations on Public Endpoint",
-            "message": "Function arguments and returns lack static type hints.",
-            "line": 5,
-            "code_snippet": "def get_user_profile(user_id):",
-            "explanation": "Explicit type hints prevent runtime regressions and enable mypy validation.",
-            "recommendation": "Add typing signatures.",
-            "suggestion": "def get_user_profile(user_id: int) -> dict:",
+            "category": "compliance",
+            "title": "Unencrypted Sensitive Data Retrieval (HIPAA §164.312)",
+            "message": "User entity queried without explicit data classification masking.",
+            "line": 7,
+            "code_snippet": 'db.execute(query)',
+            "explanation": "HIPAA requires encrypted transit and strict column masking for protected health data.",
+            "recommendation": "Ensure row-level filtering and encrypted field attributes.",
+            "suggestion": 'db.execute_safe_select("users", user_id=user_id, masked=True)',
+            "cwe_id": "CWE-312",
+            "cvss_score": 5.3,
             "false_positive_probability": 0.05
         }
     ],
-    "consensus": {
-        "verdict": "APPROVED_WITH_FIXES",
-        "explanation": "Critical SQL injection (CWE-89) and hardcoded secret flagged. Automated AST patch synthesized and verified by Code Fixer Agent.",
-        "actionable_steps": [
-            "Apply automated AST patch into editor",
-            "Rotate exposed API token in credential manager",
-            "Verify parameterized query execution in CI pipeline"
-        ]
-    },
-    "unified_patch": (
-        "--- a/vulnerable_snippet.py\n"
-        "+++ b/vulnerable_snippet.py\n"
-        "@@ -1,9 +1,9 @@\n"
-        " import os\n"
-        " \n"
-        "-API_KEY = \"sk-live-98213847291038291029381\"\n"
-        "+API_KEY = os.environ.get(\"APP_API_KEY\", \"\")\n"
-        " \n"
-        "-def get_user_profile(user_id):\n"
-        "-    # Critical: SQL Injection flaw\n"
-        "-    query = \"SELECT * FROM users WHERE id = \" + user_id\n"
-        "-    db.execute(query)\n"
-        "+def get_user_profile(user_id: int):\n"
-        "+    \"\"\"Retrieve user record safely using parameterized query.\"\"\"\n"
-        "+    db.execute(\"SELECT * FROM users WHERE id = %s\", (user_id,))\n"
-    )
+    "fixes": {
+        "SEC-SQLI-01": {
+            "type": "parameterized_sql",
+            "original_code": 'query = "SELECT * FROM users WHERE id = " + user_id\n    db.execute(query)',
+            "fixed_code": 'query = "SELECT * FROM users WHERE id = %s"\n    db.execute(query, (user_id,))',
+            "diff": '@@ -6,2 +6,2 @@\n-    query = "SELECT * FROM users WHERE id = " + user_id\n-    db.execute(query)\n+    query = "SELECT * FROM users WHERE id = %s"\n+    db.execute(query, (user_id,))'
+        }
+    }
 }
 
 CURSOR_SCRIPT = """
 (function() {
-  if (document.getElementById('cinematic-cursor')) return;
+  const existing = document.getElementById('cinematic-cursor');
+  if (existing) existing.remove();
 
   const cur = document.createElement('div');
   cur.id = 'cinematic-cursor';
@@ -161,7 +154,7 @@ CURSOR_SCRIPT = """
       opacity: 0;
       transform: scale(0.3);
       pointer-events: none;
-      transition: transform 0.25s ease-out, opacity 0.25s ease-out;
+      transition: transform 0.2s ease-out, opacity 0.2s ease-out;
     "></div>
   `;
   cur.style.cssText = `
@@ -170,14 +163,14 @@ CURSOR_SCRIPT = """
     pointer-events: none;
     top: 0;
     left: 0;
-    transform: translate(800px, 500px);
+    transform: translate(850px, 480px);
     will-change: transform;
-    transition: transform 0.05s linear;
+    transition: transform 0.02s linear;
   `;
   document.body.appendChild(cur);
 
-  window.__cursorX = 800;
-  window.__cursorY = 500;
+  window.__cursorX = 850;
+  window.__cursorY = 480;
 
   window.setCursorPos = function(x, y) {
     window.__cursorX = x;
@@ -194,8 +187,8 @@ CURSOR_SCRIPT = """
       ring.style.borderColor = '#2997ff';
       setTimeout(() => {
         ring.style.opacity = '0';
-        ring.style.transform = 'scale(1.5)';
-      }, 50);
+        ring.style.transform = 'scale(1.4)';
+      }, 40);
     }
   };
 
@@ -216,7 +209,7 @@ def ease_in_out(t: float) -> float:
     return 3 * t * t - 2 * t * t * t
 
 def record_peak_walkthrough():
-    print("🎬 Initializing Playwright with Google Chrome...")
+    print("🎬 Initializing Playwright at Ultra-Smooth 25 FPS (40ms per frame)...")
     frames = []
 
     with sync_playwright() as p:
@@ -266,15 +259,15 @@ def record_peak_walkthrough():
 
         # Inject cinematic cursor
         page.evaluate(CURSOR_SCRIPT)
-        page.wait_for_timeout(200)
+        page.wait_for_timeout(100)
 
         def capture_frame(repeat=1):
+            buf = page.screenshot(type="png")
+            img = Image.open(io.BytesIO(buf)).convert("RGB")
             for _ in range(repeat):
-                buf = page.screenshot(type="png")
-                img = Image.open(io.BytesIO(buf))
-                frames.append(img.convert("RGB"))
+                frames.append(img)
 
-        def glide_cursor(from_x, from_y, to_x, to_y, steps=8):
+        def glide_cursor(from_x, from_y, to_x, to_y, steps=14):
             for i in range(1, steps + 1):
                 t = ease_in_out(i / steps)
                 cx = from_x + (to_x - from_x) * t
@@ -282,19 +275,19 @@ def record_peak_walkthrough():
                 page.evaluate(f"setCursorPos({cx}, {cy})")
                 capture_frame(1)
 
-        print("Phase 1: Cupertino Interface Intro & Glide to Preset...")
-        # Start at (850, 480) and glide to [ 🔴 SQL & Secrets ]
+        print("Phase 1: Starting neutral view & smooth glide to preset...")
+        capture_frame(4)
         preset_coords = page.evaluate("getElementCenter('#preset-vulnerable')") or {"x": 260, "y": 168}
-        glide_cursor(850, 480, preset_coords["x"], preset_coords["y"], steps=10)
+        glide_cursor(850, 480, preset_coords["x"], preset_coords["y"], steps=14)
 
         print("Phase 2: Clicking Scenario Preset [ 🔴 SQL & Secrets ]...")
         page.evaluate("triggerCursorClick()")
         page.evaluate("loadPreset('vulnerable')")
-        capture_frame(4)
+        capture_frame(6)
 
         print("Phase 3: Glide to [ Execute Multi-Agent Review ]...")
         review_btn_coords = page.evaluate("getElementCenter('#btn-review')") or {"x": 240, "y": 660}
-        glide_cursor(preset_coords["x"], preset_coords["y"], review_btn_coords["x"], review_btn_coords["y"], steps=9)
+        glide_cursor(preset_coords["x"], preset_coords["y"], review_btn_coords["x"], review_btn_coords["y"], steps=14)
 
         print("Phase 4: Click Execute & Stepper in Motion...")
         page.evaluate("triggerCursorClick()")
@@ -307,22 +300,23 @@ def record_peak_walkthrough():
             btnText.innerText = 'Agents Inspecting Snippet...';
             renderProgressiveLoadingState();
         """)
-        capture_frame(3)
+        capture_frame(5)
 
-        # Advance stepper steps
+        # Stepper step 2: Security & Analysis
         page.evaluate("""
             const s1 = document.getElementById('step-1');
             const s2 = document.getElementById('step-2');
             if (s1 && s2) { s1.className = 'stepper-step done'; s2.className = 'stepper-step active'; }
         """)
-        capture_frame(3)
+        capture_frame(5)
 
+        # Stepper step 3: Consensus & Auto-Healer
         page.evaluate("""
             const s2 = document.getElementById('step-2');
             const s3 = document.getElementById('step-3');
             if (s2 && s3) { s2.className = 'stepper-step done'; s3.className = 'stepper-step active'; }
         """)
-        capture_frame(3)
+        capture_frame(5)
 
         print("Phase 5: Rendering Results & Animated 4-Concentric Activity Rings...")
         page.evaluate(f"""
@@ -339,8 +333,9 @@ def record_peak_walkthrough():
             if (autoHealBtn) autoHealBtn.style.display = 'inline-flex';
         """)
 
-        # Wind up score gauge & activity rings smoothly across frames
-        for pct in [0.25, 0.55, 0.85, 1.0]:
+        # 10-step fluid sweep of activity rings & score gauge
+        for i in range(1, 11):
+            pct = ease_in_out(i / 10)
             sub_score = 93.8 * pct
             page.evaluate(f"""
                 animateActivityRings({{
@@ -350,67 +345,79 @@ def record_peak_walkthrough():
                     compliance: Math.round(90 * {pct})
                 }}, {sub_score});
             """)
-            capture_frame(2)
+            capture_frame(1)
 
-        # Hold on full results
-        capture_frame(5)
+        # Brief hold on full scorecard results
+        capture_frame(8)
 
         print("Phase 6: The Magic Climax — '✨ Auto-Heal Code' AST Repair...")
         autoheal_coords = page.evaluate("getElementCenter('#btn-editor-autoheal')") or {"x": 450, "y": 168}
-        glide_cursor(review_btn_coords["x"], review_btn_coords["y"], autoheal_coords["x"], autoheal_coords["y"], steps=9)
+        glide_cursor(review_btn_coords["x"], review_btn_coords["y"], autoheal_coords["x"], autoheal_coords["y"], steps=14)
 
         # Hover & Click AutoHeal
         page.evaluate("triggerCursorClick()")
         page.evaluate("triggerAutoHealCode()")
         # Emerald glow ripple wave active!
-        capture_frame(6)
-
-        # Hold on healed state
-        capture_frame(6)
+        capture_frame(12)
 
         print("Phase 7: Inspecting Unified Patch Diff...")
         patch_tab_coords = page.evaluate("getElementCenter('#res-tab-patch')") or {"x": 830, "y": 168}
-        glide_cursor(autoheal_coords["x"], autoheal_coords["y"], patch_tab_coords["x"], patch_tab_coords["y"], steps=7)
+        glide_cursor(autoheal_coords["x"], autoheal_coords["y"], patch_tab_coords["x"], patch_tab_coords["y"], steps=12)
         page.evaluate("triggerCursorClick()")
         page.evaluate("switchResultTab('patch')")
-        capture_frame(7)
+        capture_frame(14)
 
         print("Phase 8: Cupertino Executive Share Sheet...")
         share_btn_coords = page.evaluate("getElementCenter('button[onclick=\"openShareSheetModal()\"]')") or {"x": 1000, "y": 28}
-        glide_cursor(patch_tab_coords["x"], patch_tab_coords["y"], share_btn_coords["x"], share_btn_coords["y"], steps=8)
+        glide_cursor(patch_tab_coords["x"], patch_tab_coords["y"], share_btn_coords["x"], share_btn_coords["y"], steps=12)
         page.evaluate("triggerCursorClick()")
         page.evaluate("openShareSheetModal()")
-        capture_frame(8)
+        capture_frame(14)
 
-        # Smooth cursor retreat
-        glide_cursor(share_btn_coords["x"], share_btn_coords["y"], 880, 500, steps=5)
+        print("Phase 9: Seamless Infinite Loop Closure — Closing Modal & Returning to Origin...")
+        close_btn_coords = page.evaluate("getElementCenter('.btn-close-modal')") or {"x": 780, "y": 140}
+        glide_cursor(share_btn_coords["x"], share_btn_coords["y"], close_btn_coords["x"], close_btn_coords["y"], steps=10)
+        page.evaluate("triggerCursorClick()")
+        page.evaluate("document.getElementById('share-modal').classList.remove('active')")
+        capture_frame(4)
+
+        # Clean reset of UI back to pristine preset-loaded baseline
+        page.evaluate("""
+            loadPreset('vulnerable');
+            switchResultTab('issues');
+            const autoHealBtn = document.getElementById('btn-editor-autoheal');
+            if (autoHealBtn) autoHealBtn.style.display = 'none';
+        """)
         capture_frame(3)
+
+        # Smooth glide back to initial resting coordinates (850, 480)
+        glide_cursor(close_btn_coords["x"], close_btn_coords["y"], 850, 480, steps=12)
+        capture_frame(4)
 
         browser.close()
 
-    print(f"Captured {len(frames)} frames. Synthesizing master color palette & compiling animated GIF...")
+    print(f"Captured {len(frames)} frames @ 25 FPS. Synthesizing master color palette & compiling animated GIF...")
 
-    # High-quality palette generation to completely eliminate color banding
-    # Sample every 2nd frame for palette construction
-    sample_img = Image.new("RGB", (frames[0].width, frames[0].height * min(15, len(frames))))
-    for idx, f in enumerate(frames[::max(1, len(frames) // 15)][:15]):
-        sample_img.paste(f, (0, idx * frames[0].height))
+    # High-quality palette generation using MAXCOVERAGE on a composite sample of keyframes
+    sample_indices = list(range(0, len(frames), max(1, len(frames) // 20)))[:20]
+    sample_img = Image.new("RGB", (frames[0].width, frames[0].height * len(sample_indices)))
+    for idx, s_idx in enumerate(sample_indices):
+        sample_img.paste(frames[s_idx], (0, idx * frames[0].height))
 
-    # Generate optimal 256-color palette
-    palette_master = sample_img.quantize(colors=256, method=Image.Quantize.MEDIANCUT)
+    # Generate optimal 256-color palette with MAXCOVERAGE for rich glassmorphism gradients
+    palette_master = sample_img.quantize(colors=256, method=Image.Quantize.MAXCOVERAGE)
 
-    print("Quantizing frames against optimal master palette...")
+    print("Quantizing all frames against optimal master palette with Floyd-Steinberg dithering...")
     palette_frames = []
     for f in frames:
-        # Quantize each frame against master palette with Floyd-Steinberg dithering for smooth gradients
         q = f.quantize(palette=palette_master, dither=Image.Dither.FLOYDSTEINBERG)
         palette_frames.append(q)
 
     gif_assets = ASSETS_DIR / "cerberus_demo.gif"
     gif_brag = OUTPUT_DIR / "cerberus_demo.gif"
-    frame_duration = 100  # 10 fps = 100ms per frame
+    frame_duration = 40  # 25 fps = 40ms per frame
 
-    print(f"Saving animated GIF to {gif_assets}...")
+    print(f"Saving ultra-smooth 25 FPS animated GIF to {gif_assets}...")
     palette_frames[0].save(
         gif_assets,
         save_all=True,
@@ -430,13 +437,13 @@ def record_peak_walkthrough():
     )
 
     # Save high-res poster frame (Apple Rings & Scorecard reveal)
-    poster_idx = min(len(frames) - 1, 45)
+    poster_idx = min(len(frames) - 1, 75)
     poster = frames[poster_idx]
     poster.save(OUTPUT_DIR / "brag.jpg", quality=95)
     poster.save(ASSETS_DIR / "cerberus_poster.jpg", quality=95)
 
     size_mb = gif_assets.stat().st_size / (1024 * 1024)
-    print(f"✨ SUCCESS! Peak GIF generated: {gif_assets} ({size_mb:.2f} MB, {len(frames)} frames @ 10fps)")
+    print(f"✨ SUCCESS! Peak GIF generated: {gif_assets} ({size_mb:.2f} MB, {len(frames)} frames @ 25fps [40ms])")
     print(f"Poster frame saved: {OUTPUT_DIR / 'brag.jpg'}")
 
 if __name__ == "__main__":
