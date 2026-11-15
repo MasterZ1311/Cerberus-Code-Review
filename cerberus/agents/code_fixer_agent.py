@@ -4,16 +4,16 @@ Synthesizes AST-verified unified diff patches (.patch) resolving findings flagge
 all specialized agents (Security, Performance, Quality, Architecture, Compliance).
 """
 
-import ast
 import difflib
 import json
 import logging
 import re
 import time
 from typing import Any, Dict, List, Optional
+
 from cerberus.agents.ai_helper import parse_llm_json
 from cerberus.agents.base import BaseAgent
-from cerberus.core.patch_verifier import PatchVerificationPipeline, PatchVerificationStage
+from cerberus.core.patch_verifier import PatchVerificationPipeline
 from cerberus.core.syntax_verifier import SyntaxVerifier
 from cerberus.models.schemas import AgentResult, Finding, SeverityEnum
 from cerberus.providers import get_llm_provider
@@ -36,7 +36,7 @@ class CodeFixerAgent(BaseAgent):
             "Automated Code Repair & Refactoring",
             "AST Syntactic Validity Verification",
             "Cross-Domain Issue Remediation (Security + Performance + Quality + Compliance)",
-            "Git-Compatible Unified Diff Emission"
+            "Git-Compatible Unified Diff Emission",
         ]
 
     def _verify_syntax(self, code: str, language: str = "python") -> bool:
@@ -53,18 +53,16 @@ class CodeFixerAgent(BaseAgent):
         orig_lines = original_code.splitlines(keepends=False)
         repaired_lines = repaired_code.splitlines(keepends=False)
         diff = difflib.unified_diff(
-            orig_lines,
-            repaired_lines,
-            fromfile=f"a/{filename}",
-            tofile=f"b/{filename}",
-            lineterm=""
+            orig_lines, repaired_lines, fromfile=f"a/{filename}", tofile=f"b/{filename}", lineterm=""
         )
         diff_list = list(diff)
         if not diff_list:
             return ""
         return "\n".join(diff_list) + "\n"
 
-    def _apply_language_specific_repairs(self, code: str, language: str = "python", findings: Optional[List[Finding]] = None) -> str:
+    def _apply_language_specific_repairs(
+        self, code: str, language: str = "python", findings: Optional[List[Finding]] = None
+    ) -> str:
         """Applies multi-language AST-guided code transformations for Python, TypeScript, Go, and Rust."""
         lang = (language or "python").lower()
         repaired = code
@@ -72,13 +70,20 @@ class CodeFixerAgent(BaseAgent):
         # 1. Python AST / Pattern Transformations
         if lang in ("python", "py"):
             # Transform bare except: -> except Exception:
-            repaired = re.sub(r"^\s*except\s*:", lambda m: m.group(0).replace("except:", "except Exception:"), repaired, flags=re.MULTILINE)
+            repaired = re.sub(
+                r"^\s*except\s*:",
+                lambda m: m.group(0).replace("except:", "except Exception:"),
+                repaired,
+                flags=re.MULTILINE,
+            )
 
         # 2. TypeScript & JavaScript Transformations
         elif lang in ("typescript", "ts", "tsx", "javascript", "js", "jsx"):
             # Transform loose equality == / != to strict === / !== where appropriate
-            for f in (findings or []):
-                if f.category in ("quality", "security") and ("equality" in f.title.lower() or "===" in (f.suggestion or "")):
+            for f in findings or []:
+                if f.category in ("quality", "security") and (
+                    "equality" in f.title.lower() or "===" in (f.suggestion or "")
+                ):
                     if f.line and f.line <= len(repaired.split("\n")):
                         lines = repaired.split("\n")
                         target_line = lines[f.line - 1]
@@ -91,7 +96,7 @@ class CodeFixerAgent(BaseAgent):
 
         # 3. Go Error Handling Transformations
         elif lang in ("go", "golang"):
-            for f in (findings or []):
+            for f in findings or []:
                 if "error" in f.title.lower() and f.suggestion and f.line:
                     lines = repaired.split("\n")
                     if 0 < f.line <= len(lines):
@@ -105,7 +110,7 @@ class CodeFixerAgent(BaseAgent):
 
         # 4. Rust Panic / Unwrap Safety Transformations
         elif lang in ("rust", "rs"):
-            for f in (findings or []):
+            for f in findings or []:
                 if "unwrap" in f.title.lower() and f.suggestion and f.line:
                     lines = repaired.split("\n")
                     if 0 < f.line <= len(lines):
@@ -130,7 +135,7 @@ class CodeFixerAgent(BaseAgent):
             if 0 <= idx < len(lines):
                 indent = len(lines[idx]) - len(lines[idx].lstrip())
                 indent_str = " " * indent
-                sugg_lines = f.suggestion.strip().splitlines()
+                sugg_lines = (f.suggestion or "").strip().splitlines()
                 indented_sugg = [indent_str + sl for sl in sugg_lines]
                 replacement = "\n".join(indented_sugg)
 
@@ -180,7 +185,7 @@ class CodeFixerAgent(BaseAgent):
                         "line": f.line,
                         "code_snippet": f.code_snippet,
                         "recommendation": f.recommendation,
-                        "suggestion": f.suggestion
+                        "suggestion": f.suggestion,
                     }
                     for f in findings[:15]
                 ]
@@ -228,11 +233,13 @@ class CodeFixerAgent(BaseAgent):
             repaired_code=repaired_code,
             language=language,
             filename=filename,
-            original_findings=findings
+            original_findings=findings,
         )
 
         if not verification.is_valid:
-            logger.warning(f"Patch verification failed at stage '{verification.stage}': {verification.explanation}. Reverting to safe code.")
+            logger.warning(
+                f"Patch verification failed at stage '{verification.stage}': {verification.explanation}. Reverting to safe code."
+            )
             repaired_code = code
             unified_diff = ""
         else:
@@ -248,10 +255,11 @@ class CodeFixerAgent(BaseAgent):
             message=(
                 f"Collaborative patch synthesized and verified (Stage: {verification.stage.value}). "
                 f"{verification.explanation}"
-                if unified_diff else "Code is either clean or no safe automated fix could be determined."
+                if unified_diff
+                else "Code is either clean or no safe automated fix could be determined."
             ),
             suggestion=unified_diff if unified_diff else None,
-            recommendation="Review the unified diff patch generated by the Code Fixer Agent before applying."
+            recommendation="Review the unified diff patch generated by the Code Fixer Agent before applying.",
         )
 
         return AgentResult(
@@ -259,13 +267,11 @@ class CodeFixerAgent(BaseAgent):
             status="completed",
             score=100.0 if unified_diff else 95.0,
             execution_time_ms=elapsed_ms,
-            findings=[fix_finding]
+            findings=[fix_finding],
         )
 
     def generate_pr_review_comments(
-        self,
-        findings: List[Finding],
-        filename: str = "snippet.py"
+        self, findings: List[Finding], filename: str = "snippet.py"
     ) -> List[Dict[str, Any]]:
         """
         Formats findings into standard GitHub Pull Request review comment payloads.
@@ -281,20 +287,18 @@ class CodeFixerAgent(BaseAgent):
                     body += f"\n\n> 💡 **Recommendation:** {f.recommendation}"
                 if f.suggestion:
                     body += f"\n\n```suggestion\n{f.suggestion}\n```"
-                comments.append({
-                    "path": filename,
-                    "line": f.line,
-                    "side": "RIGHT",
-                    "body": body,
-                })
+                comments.append(
+                    {
+                        "path": filename,
+                        "line": f.line,
+                        "side": "RIGHT",
+                        "body": body,
+                    }
+                )
         return comments
 
     async def synthesize_fixes(
-        self,
-        original_code: str,
-        findings: List[Finding],
-        filename: str = "snippet.py",
-        language: str = "python"
+        self, original_code: str, findings: List[Finding], filename: str = "snippet.py", language: str = "python"
     ) -> Dict[str, Any]:
         """Convenience method to synthesize repaired code, diff patch, and syntactic validity."""
         heuristic_repaired = self._apply_heuristic_fixes(original_code, findings, language=language)
@@ -311,22 +315,14 @@ class CodeFixerAgent(BaseAgent):
         }
 
     async def generate_patch(
-        self,
-        code: str,
-        findings: List[Finding],
-        filename: str = "snippet.py",
-        language: str = "python"
+        self, code: str, findings: List[Finding], filename: str = "snippet.py", language: str = "python"
     ) -> Dict[str, Any]:
         """Convenience method to generate patch and repaired code."""
-        res = await self.analyze(code, language=language, context={"findings": findings, "filename": filename})
+        _ = await self.analyze(code, language=language, context={"findings": findings, "filename": filename})
         diff = ""
         repaired = code
         heuristic_repaired = self._apply_heuristic_fixes(code, findings, language=language)
         if heuristic_repaired != code:
             repaired = heuristic_repaired
             diff = self._generate_unified_diff(code, repaired, filename=filename)
-        return {
-            "unified_diff": diff,
-            "repaired_code": repaired,
-            "has_patch": bool(diff)
-        }
+        return {"unified_diff": diff, "repaired_code": repaired, "has_patch": bool(diff)}

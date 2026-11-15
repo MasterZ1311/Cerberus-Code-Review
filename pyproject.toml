@@ -29,8 +29,7 @@ dependencies = [
     "httpx>=0.27.0,<1.0.0",
     "pyyaml>=6.0.1,<7.0.0",
     "python-dotenv>=1.0.1,<2.0.0",
-    "python-jose[cryptography]>=3.3.0,<4.0.0",
-    "websockets>=12.0,<15.0",
+    "websockets>=12.0,<18.0",
     "python-multipart>=0.0.9,<1.0.0",
     "tree-sitter>=0.21.0",
     "tree-sitter-typescript>=0.21.0; python_version < '3.13'",
@@ -44,7 +43,12 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",
-    "httpx2>=0.1.0",
+    "ruff>=0.4.0",
+    "bandit>=1.7.0",
+    "mypy>=1.10.0",
+    "pip-audit>=2.7.0",
+    "types-requests>=2.31.0",
+    "types-PyYAML>=6.0.12",
 ]
 
 [project.scripts]
@@ -62,4 +66,81 @@ asyncio_default_fixture_loop_scope = "function"
 filterwarnings = [
     "ignore:.*'click\\.utils.*' is deprecated.*:DeprecationWarning",
     "ignore:.*'click\\.utils.*' is deprecated.*:PendingDeprecationWarning",
+    "ignore:.*Using `httpx` with `starlette\\.testclient` is deprecated.*:Warning",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    "assets",
+    "brag-output",
+    "demo",
+    "cerberus/web",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function calls in argument defaults (FastAPI Depends)
+    "UP006", # use dict instead of Dict (type annotations compatibility)
+    "UP035", # deprecated imports from typing
+    "UP042", # class inherits from both str and enum.Enum
+    "UP045", # Optional[T] vs T | None
+]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = false
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = [
+    "^cerberus/web/",
+    "^demo/",
+    "^assets/",
+]
+
+[tool.bandit]
+exclude_dirs = [
+    "tests",
+    "cerberus/web",
+    "demo",
+    "assets",
+]
+skips = [
+    "B101", # assert
+    "B104", # hardcoded_bind_all_interfaces (needed for container serve)
+    "B110", # try_except_pass
+]
+
+[tool.coverage.run]
+branch = true
+source = ["cerberus"]
+omit = [
+    "cerberus/web/*",
+    "cerberus/__main__.py",
+    "tests/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 85
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
 ]

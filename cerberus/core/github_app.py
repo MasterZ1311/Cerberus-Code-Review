@@ -5,15 +5,16 @@ automated GitHub PR Review creation, and line-anchored review comment posting.
 """
 
 import logging
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Any, Dict, List, Optional, Tuple
+
 import httpx
 
 from cerberus.config import settings
 from cerberus.models.schemas import (
     CodeReviewResponse,
-    GitHubPullRequestInfo,
     GitHubPRReviewComment,
     GitHubPRReviewPayload,
+    GitHubPullRequestInfo,
 )
 
 logger = logging.getLogger("cerberus.core.github_app")
@@ -52,14 +53,12 @@ def parse_pull_request_event(payload: Dict[str, Any]) -> Optional[GitHubPullRequ
         base_ref=base.get("ref"),
         diff_url=pr.get("diff_url"),
         patch_url=pr.get("patch_url"),
-        html_url=pr.get("html_url")
+        html_url=pr.get("html_url"),
     )
 
 
 def build_pr_review_payload(
-    review: CodeReviewResponse,
-    pr_info: GitHubPullRequestInfo,
-    filename: Optional[str] = None
+    review: CodeReviewResponse, pr_info: GitHubPullRequestInfo, filename: Optional[str] = None
 ) -> GitHubPRReviewPayload:
     """
     Constructs an official GitHub Pull Request Review payload with summary body
@@ -78,26 +77,32 @@ def build_pr_review_payload(
         event = "COMMENT"
         verdict_badge = "🟡 **COMMENT**"
 
-    score_display = int(review.overall_score) if (review.overall_score is not None and float(review.overall_score).is_integer()) else review.overall_score
+    score_display = (
+        int(review.overall_score)
+        if (review.overall_score is not None and float(review.overall_score).is_integer())
+        else review.overall_score
+    )
 
     # Build Markdown Body
     body_lines = [
-        f"## 🛡️ cerberus</> Autonomous Multi-Agent Code Review",
-        f"",
-        f"| Quality Score | Verdict | Status | Review ID |",
-        f"| :---: | :---: | :---: | :---: |",
+        "## 🛡️ cerberus</> Autonomous Multi-Agent Code Review",
+        "",
+        "| Quality Score | Verdict | Status | Review ID |",
+        "| :---: | :---: | :---: | :---: |",
         f"| **{score_display} / 100** | {verdict_badge} | `{review.status.upper()}` | `{review.review_id}` |",
-        f"",
+        "",
     ]
 
     if review.collaborative_consensus:
         cc = review.collaborative_consensus
-        body_lines.extend([
-            f"### 🤝 Project Consensus",
-            f"- **Consensus Verdict:** `{cc.get('pr_action', 'N/A')}`",
-            f"- **Synthesis:** {cc.get('summary', 'All agents completed analysis.')}",
-            f""
-        ])
+        body_lines.extend(
+            [
+                "### 🤝 Project Consensus",
+                f"- **Consensus Verdict:** `{cc.get('pr_action', 'N/A')}`",
+                f"- **Synthesis:** {cc.get('summary', 'All agents completed analysis.')}",
+                "",
+            ]
+        )
 
     all_findings = review.critical_issues + review.warnings + review.suggestions
     if all_findings:
@@ -112,13 +117,7 @@ def build_pr_review_payload(
         body_lines.append("")
 
     if review.unified_patch:
-        body_lines.extend([
-            f"### 🔧 Automated Multi-Agent Git Patch",
-            f"```diff",
-            review.unified_patch,
-            f"```",
-            f""
-        ])
+        body_lines.extend(["### 🔧 Automated Multi-Agent Git Patch", "```diff", review.unified_patch, "```", ""])
 
     body_lines.append("---")
     body_lines.append("*Automated review conducted by cerberus</> multi-agent engine.*")
@@ -131,24 +130,13 @@ def build_pr_review_payload(
             c_body = f"**[{f.severity.value.upper()}] {f.title}**\n\n{f.message}"
             if f.recommendation:
                 c_body += f"\n\n**Suggested Fix:**\n```suggestion\n{f.suggestion or f.recommendation}\n```"
-            comments.append(GitHubPRReviewComment(
-                path=target_path,
-                line=f.line,
-                body=c_body
-            ))
+            comments.append(GitHubPRReviewComment(path=target_path, line=f.line, body=c_body))
 
-    return GitHubPRReviewPayload(
-        commit_id=pr_info.head_sha,
-        event=event,
-        body=markdown_body,
-        comments=comments
-    )
+    return GitHubPRReviewPayload(commit_id=pr_info.head_sha, event=event, body=markdown_body, comments=comments)
 
 
 async def post_pr_review_to_github(
-    pr_info: GitHubPullRequestInfo,
-    review_payload: GitHubPRReviewPayload,
-    token: Optional[str] = None
+    pr_info: GitHubPullRequestInfo, review_payload: GitHubPRReviewPayload, token: Optional[str] = None
 ) -> Tuple[bool, Optional[str]]:
     """
     Submits the automated review to the GitHub Pull Request Review API.
@@ -164,13 +152,13 @@ async def post_pr_review_to_github(
         "Authorization": f"Bearer {auth_token}",
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "cerberus-code-review-app"
+        "User-Agent": "cerberus-code-review-app",
     }
 
     payload_dict = {
         "body": review_payload.body,
         "event": review_payload.event,
-        "comments": [c.model_dump() for c in review_payload.comments]
+        "comments": [c.model_dump() for c in review_payload.comments],
     }
     if review_payload.commit_id:
         payload_dict["commit_id"] = review_payload.commit_id
@@ -192,31 +180,36 @@ async def post_pr_review_to_github(
 
 
 def build_github_check_run_payload(
-    review: CodeReviewResponse,
-    pr_info: GitHubPullRequestInfo,
-    filename: Optional[str] = None
+    review: CodeReviewResponse, pr_info: GitHubPullRequestInfo, filename: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Constructs an official GitHub Check Run payload (GitHub Checks API).
     Includes line-level annotations for inline visual status badges on PR checks.
     """
     from cerberus.models.schemas import SeverityEnum
+
     target_path = filename or "main.py"
     all_findings = review.critical_issues + review.warnings + review.suggestions
     is_blocked = review.should_block or (review.overall_score or 0) < 60
 
     annotations = []
     for f in all_findings[:50]:  # GitHub Checks API caps annotations at 50 per batch
-        level = "failure" if f.severity in (SeverityEnum.CRITICAL, SeverityEnum.HIGH) else ("warning" if f.severity == SeverityEnum.MEDIUM else "notice")
-        annotations.append({
-            "path": target_path,
-            "start_line": f.line or 1,
-            "end_line": f.line or 1,
-            "annotation_level": level,
-            "message": f.message or f.title,
-            "title": f.title,
-            "raw_details": f.explanation or f.recommendation or ""
-        })
+        level = (
+            "failure"
+            if f.severity in (SeverityEnum.CRITICAL, SeverityEnum.HIGH)
+            else ("warning" if f.severity == SeverityEnum.MEDIUM else "notice")
+        )
+        annotations.append(
+            {
+                "path": target_path,
+                "start_line": f.line or 1,
+                "end_line": f.line or 1,
+                "annotation_level": level,
+                "message": f.message or f.title,
+                "title": f.title,
+                "raw_details": f.explanation or f.recommendation or "",
+            }
+        )
 
     return {
         "name": "cerberus</> Autonomous Multi-Agent QA",
@@ -225,17 +218,16 @@ def build_github_check_run_payload(
         "conclusion": "failure" if is_blocked else "success",
         "output": {
             "title": f"Cerberus Score: {review.overall_score}/100 — {'Blocked on Issues' if is_blocked else 'Approved'}",
-            "summary": review.summary or "Multi-agent review completed across Security, Performance, Quality, Architecture, and Compliance.",
+            "summary": review.summary
+            or "Multi-agent review completed across Security, Performance, Quality, Architecture, and Compliance.",
             "text": f"### Review ID: `{review.review_id}`\n\nTotal findings: {len(all_findings)}",
-            "annotations": annotations
-        }
+            "annotations": annotations,
+        },
     }
 
 
 async def post_check_run_to_github(
-    pr_info: GitHubPullRequestInfo,
-    check_run_payload: Dict[str, Any],
-    token: Optional[str] = None
+    pr_info: GitHubPullRequestInfo, check_run_payload: Dict[str, Any], token: Optional[str] = None
 ) -> Tuple[bool, Optional[str]]:
     """
     Submits the automated review to the GitHub Checks API (POST /repos/{owner}/{repo}/check-runs).
@@ -251,7 +243,7 @@ async def post_check_run_to_github(
         "Authorization": f"Bearer {auth_token}",
         "Accept": "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
-        "User-Agent": "cerberus-code-review-app"
+        "User-Agent": "cerberus-code-review-app",
     }
 
     try:

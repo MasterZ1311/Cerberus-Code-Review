@@ -9,7 +9,7 @@ import ast
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger("cerberus.core.syntax_verifier")
 
@@ -18,11 +18,11 @@ _TREE_SITTER_AVAILABLE = False
 _LANGUAGE_FACTORIES: Dict[str, Any] = {}
 
 try:
-    from tree_sitter import Language, Parser
-    import tree_sitter_python
-    import tree_sitter_typescript
     import tree_sitter_go
+    import tree_sitter_python
     import tree_sitter_rust
+    import tree_sitter_typescript
+    from tree_sitter import Language, Parser
 
     _LANGUAGE_FACTORIES = {
         "python": tree_sitter_python.language,
@@ -45,7 +45,7 @@ except Exception as e:
 _PARSER_CACHE: Dict[str, Any] = {}
 
 
-def detect_language_from_path(filepath: Union[str, Path]) -> str:
+def detect_language_from_path(filepath: str | Path) -> str:
     """Detects target programming language from file path extension."""
     ext = Path(filepath).suffix.lower()
     mapping = {
@@ -150,8 +150,14 @@ class SyntaxVerifier:
                 if node.type == "ERROR" or node.is_missing:
                     line = node.start_point.row + 1
                     col = node.start_point.column + 1
-                    snippet = code_bytes[max(0, node.start_byte - 15):min(len(code_bytes), node.end_byte + 15)].decode("utf-8", errors="replace").strip()
-                    desc = "missing required syntax element" if node.is_missing else f"unexpected syntax near '{snippet}'"
+                    snippet = (
+                        code_bytes[max(0, node.start_byte - 15) : min(len(code_bytes), node.end_byte + 15)]
+                        .decode("utf-8", errors="replace")
+                        .strip()
+                    )
+                    desc = (
+                        "missing required syntax element" if node.is_missing else f"unexpected syntax near '{snippet}'"
+                    )
                     errors.append(f"{language.capitalize()} Tree-sitter SyntaxError at line {line}, col {col}: {desc}")
                 for child in node.children:
                     if child.has_error:
@@ -175,16 +181,14 @@ class SyntaxVerifier:
         node_count = 0
 
         func_types = {
-            "function_declaration", "method_definition", "arrow_function",
-            "function_item", "method_declaration"
+            "function_declaration",
+            "method_definition",
+            "arrow_function",
+            "function_item",
+            "method_declaration",
         }
-        class_types = {
-            "class_declaration", "interface_declaration", "struct_item",
-            "enum_item", "type_spec"
-        }
-        import_types = {
-            "import_statement", "use_declaration", "import_spec", "import_declaration"
-        }
+        class_types = {"class_declaration", "interface_declaration", "struct_item", "enum_item", "type_spec"}
+        import_types = {"import_statement", "use_declaration", "import_spec", "import_declaration"}
 
         def _traverse(node: Any):
             nonlocal node_count
@@ -193,7 +197,7 @@ class SyntaxVerifier:
             if node.type in func_types:
                 for child in node.children:
                     if child.type in ("identifier", "property_identifier", "name"):
-                        name = code_bytes[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
+                        name = code_bytes[child.start_byte : child.end_byte].decode("utf-8", errors="replace")
                         if name and name not in functions:
                             functions.append(name)
                         break
@@ -201,13 +205,13 @@ class SyntaxVerifier:
             elif node.type in class_types:
                 for child in node.children:
                     if child.type in ("type_identifier", "identifier", "name"):
-                        name = code_bytes[child.start_byte:child.end_byte].decode("utf-8", errors="replace")
+                        name = code_bytes[child.start_byte : child.end_byte].decode("utf-8", errors="replace")
                         if name and name not in classes_or_structs:
                             classes_or_structs.append(name)
                         break
 
             elif node.type in import_types:
-                raw_imp = code_bytes[node.start_byte:node.end_byte].decode("utf-8", errors="replace").strip()
+                raw_imp = code_bytes[node.start_byte : node.end_byte].decode("utf-8", errors="replace").strip()
                 if raw_imp and raw_imp not in imports:
                     imports.append(raw_imp)
 
@@ -227,7 +231,7 @@ class SyntaxVerifier:
             "import_count": len(imports),
             "imports": imports,
             "has_syntax_errors": False,
-            "syntax_errors": []
+            "syntax_errors": [],
         }
 
     @classmethod
@@ -281,6 +285,7 @@ class SyntaxVerifier:
         """Verifies YAML format validity if pyyaml is installed."""
         try:
             import yaml
+
             yaml.safe_load(code)
             return True, None
         except ImportError:
@@ -295,7 +300,7 @@ class SyntaxVerifier:
         for C-family languages. Ignores comments and strings.
         """
         stack = []
-        matching = {')': '(', '}': '{', ']': '['}
+        matching = {")": "(", "}": "{", "]": "["}
         in_single_quote = False
         in_double_quote = False
         in_backtick = False
@@ -316,19 +321,19 @@ class SyntaxVerifier:
                 i += 1
                 continue
 
-            if ch == '\\':
+            if ch == "\\":
                 escaped = True
                 i += 1
                 continue
 
             if in_line_comment:
-                if ch == '\n':
+                if ch == "\n":
                     in_line_comment = False
                 i += 1
                 continue
 
             if in_block_comment:
-                if ch == '*' and next_ch == '/':
+                if ch == "*" and next_ch == "/":
                     in_block_comment = False
                     i += 2
                     continue
@@ -348,21 +353,21 @@ class SyntaxVerifier:
                 continue
 
             if in_backtick:
-                if ch == '`':
+                if ch == "`":
                     in_backtick = False
                 i += 1
                 continue
 
             # Comments
-            if ch == '/' and next_ch == '/':
+            if ch == "/" and next_ch == "/":
                 in_line_comment = True
                 i += 2
                 continue
-            if ch == '/' and next_ch == '*':
+            if ch == "/" and next_ch == "*":
                 in_block_comment = True
                 i += 2
                 continue
-            if ch == '#' and (i == 0 or chars[i - 1] in (' ', '\t', '\n')):
+            if ch == "#" and (i == 0 or chars[i - 1] in (" ", "\t", "\n")):
                 in_line_comment = True
                 i += 1
                 continue
@@ -376,15 +381,15 @@ class SyntaxVerifier:
                 in_double_quote = True
                 i += 1
                 continue
-            if ch == '`':
+            if ch == "`":
                 in_backtick = True
                 i += 1
                 continue
 
             # Delimiters
-            if ch in ('(', '{', '['):
+            if ch in ("(", "{", "["):
                 stack.append((ch, i))
-            elif ch in (')', '}', ']'):
+            elif ch in (")", "}", "]"):
                 if not stack:
                     return False, f"Unmatched closing delimiter '{ch}' at position {i}"
                 top, _ = stack.pop()
@@ -431,6 +436,7 @@ class SyntaxVerifier:
     def _extract_regex_symbols(code: str, language: str) -> Dict[str, Any]:
         """Extracts functions, classes, and imports for Java, C++, and C# using AST regex patterns."""
         import re
+
         lang = language.lower()
         classes: List[str] = []
         functions: List[str] = []
@@ -438,10 +444,16 @@ class SyntaxVerifier:
 
         if lang == "java":
             # Extract classes, interfaces, records, enums
-            for m in re.finditer(r"\b(?:public\s+|private\s+|protected\s+|static\s+|final\s+|abstract\s+)*(?:class|interface|enum|record)\s+([A-Za-z0-9_]+)", code):
+            for m in re.finditer(
+                r"\b(?:public\s+|private\s+|protected\s+|static\s+|final\s+|abstract\s+)*(?:class|interface|enum|record)\s+([A-Za-z0-9_]+)",
+                code,
+            ):
                 classes.append(m.group(1))
             # Extract methods
-            for m in re.finditer(r"\b(?:public|protected|private|static|final|\s)+[\w\<\>\[\]]+\s+([A-Za-z0-9_]+)\s*\([^)]*\)\s*(?:throws\s+[\w,\s]+)?\s*\{", code):
+            for m in re.finditer(
+                r"\b(?:public|protected|private|static|final|\s)+[\w\<\>\[\]]+\s+([A-Za-z0-9_]+)\s*\([^)]*\)\s*(?:throws\s+[\w,\s]+)?\s*\{",
+                code,
+            ):
                 m_name = m.group(1)
                 if m_name not in ("if", "for", "while", "switch", "catch") and m_name not in classes:
                     functions.append(m_name)
@@ -464,10 +476,16 @@ class SyntaxVerifier:
 
         elif lang in ("csharp", "cs"):
             # Extract classes, interfaces, structs, records
-            for m in re.finditer(r"\b(?:public\s+|private\s+|protected\s+|internal\s+|static\s+|abstract\s+|sealed\s+)*(?:class|interface|struct|record)\s+([A-Za-z0-9_]+)", code):
+            for m in re.finditer(
+                r"\b(?:public\s+|private\s+|protected\s+|internal\s+|static\s+|abstract\s+|sealed\s+)*(?:class|interface|struct|record)\s+([A-Za-z0-9_]+)",
+                code,
+            ):
                 classes.append(m.group(1))
             # Extract methods
-            for m in re.finditer(r"\b(?:public|protected|private|internal|static|async|\s)+[\w\<\>\[\]\?]+\s+([A-Za-z0-9_]+)\s*\([^)]*\)\s*\{", code):
+            for m in re.finditer(
+                r"\b(?:public|protected|private|internal|static|async|\s)+[\w\<\>\[\]\?]+\s+([A-Za-z0-9_]+)\s*\([^)]*\)\s*\{",
+                code,
+            ):
                 m_name = m.group(1)
                 if m_name not in ("if", "for", "while", "switch", "catch") and m_name not in classes:
                     functions.append(m_name)
@@ -485,7 +503,7 @@ class SyntaxVerifier:
             "import_count": len(imports),
             "imports": list(dict.fromkeys(imports)),
             "has_syntax_errors": False,
-            "syntax_errors": []
+            "syntax_errors": [],
         }
 
     @classmethod
@@ -505,7 +523,7 @@ class SyntaxVerifier:
                 tree = ast.parse(code)
                 funcs = [n.name for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
                 classes = [n.name for n in ast.walk(tree) if isinstance(n, ast.ClassDef)]
-                imports = []
+                imports: List[str] = []
                 for n in ast.walk(tree):
                     if isinstance(n, ast.Import):
                         imports.extend(alias.name for alias in n.names)
@@ -522,26 +540,21 @@ class SyntaxVerifier:
                     "import_count": len(imports),
                     "imports": imports,
                     "has_syntax_errors": False,
-                    "syntax_errors": []
+                    "syntax_errors": [],
                 }
             except Exception as e:
                 return {
                     "language": "python",
                     "parser_type": "python_ast",
                     "has_syntax_errors": True,
-                    "syntax_errors": [str(e)]
+                    "syntax_errors": [str(e)],
                 }
 
         # Java, C++, C# structured extraction
         if lang in ("java", "cpp", "c", "cxx", "csharp", "cs"):
             return cls._extract_regex_symbols(code, lang)
 
-        return {
-            "language": lang,
-            "parser_type": "delimiter",
-            "has_syntax_errors": False,
-            "syntax_errors": []
-        }
+        return {"language": lang, "parser_type": "delimiter", "has_syntax_errors": False, "syntax_errors": []}
 
     @classmethod
     def verify(cls, code: str, language: Optional[str] = "python") -> Tuple[bool, Optional[str]]:

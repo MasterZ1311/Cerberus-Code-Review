@@ -472,10 +472,16 @@ async def test_api_endpoints_full_lifecycle():
         assert zip_b64_resp.json()["project_name"] == "api_test_project"
 
         # 11. GitHub Webhook Ping & PR
+        webhook_body = json.dumps({"hook_id": 999}).encode("utf-8")
+        webhook_sig = generate_webhook_signature(webhook_body, settings.GITHUB_WEBHOOK_SECRET or settings.SECRET_KEY)
         ping_resp = await ac.post(
             "/api/v1/review/webhooks/github",
-            json={"hook_id": 999},
-            headers={"X-GitHub-Event": "ping"}
+            content=webhook_body,
+            headers={
+                "X-GitHub-Event": "ping",
+                "X-Hub-Signature-256": webhook_sig,
+                "Content-Type": "application/json",
+            },
         )
         assert ping_resp.status_code == 200
         assert ping_resp.json()["status"] == "pong"

@@ -4,8 +4,10 @@ Supports HIPAA, GDPR, SOC 2, PCI-DSS, and CCPA regulatory frameworks.
 """
 
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List
+
 from pydantic import BaseModel, Field
+
 from cerberus.models.schemas import Finding, SeverityEnum
 
 
@@ -25,6 +27,7 @@ class ComplianceStatus(str, Enum):
 
 class ComplianceCheck(BaseModel):
     """Definition of an individual regulatory compliance rule."""
+
     id: str
     framework: FrameworkType
     standard_clause: str
@@ -37,6 +40,7 @@ class ComplianceCheck(BaseModel):
 
 class FrameworkScore(BaseModel):
     """Compliance score and statistics for a specific regulatory framework."""
+
     framework: FrameworkType
     score: float = Field(default=100.0, ge=0.0, le=100.0)
     status: ComplianceStatus = ComplianceStatus.COMPLIANT
@@ -50,6 +54,7 @@ class FrameworkScore(BaseModel):
 
 class RemediationTimeline(BaseModel):
     """Estimated compliance resolution SLA timeline."""
+
     critical_sla: str = "Immediate (24 hours)"
     high_sla: str = "7 business days"
     medium_sla: str = "30 calendar days"
@@ -59,6 +64,7 @@ class RemediationTimeline(BaseModel):
 
 class ComplianceReport(BaseModel):
     """Full comprehensive compliance audit report across all frameworks."""
+
     overall_compliance_score: float = 100.0
     overall_status: ComplianceStatus = ComplianceStatus.COMPLIANT
     frameworks: Dict[str, FrameworkScore] = Field(default_factory=dict)

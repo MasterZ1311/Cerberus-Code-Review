@@ -6,6 +6,7 @@ Enables access to hundreds of open-source and proprietary models via OpenRouter'
 import logging
 import os
 from typing import Optional
+
 from cerberus.config import settings
 from cerberus.providers.openai_provider import OpenAIProvider
 
@@ -17,29 +18,23 @@ class OpenRouterProvider(OpenAIProvider):
     OpenRouter unified model provider.
     Inherits from OpenAIProvider with OpenRouter-specific endpoints, default models, and attribution headers.
     """
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        model: Optional[str] = None,
-        base_url: Optional[str] = None
-    ):
+
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, base_url: Optional[str] = None):
         super().__init__(
             api_key=api_key or settings.OPENROUTER_API_KEY,
             model=model or settings.OPENROUTER_MODEL,
-            base_url=base_url or "https://openrouter.ai/api/v1"
+            base_url=base_url or "https://openrouter.ai/api/v1",
         )
 
     @property
     def effective_api_key(self) -> Optional[str]:
-        return (
-            self.api_key
-            or settings.OPENROUTER_API_KEY
-            or os.getenv("OPENROUTER_API_KEY")
-        )
+        return self.api_key or settings.OPENROUTER_API_KEY or os.getenv("OPENROUTER_API_KEY")
 
     @property
     def effective_model(self) -> str:
-        model = self.model or settings.OPENROUTER_MODEL or os.getenv("OPENROUTER_MODEL") or "anthropic/claude-3.5-sonnet"
+        model = (
+            self.model or settings.OPENROUTER_MODEL or os.getenv("OPENROUTER_MODEL") or "anthropic/claude-3.5-sonnet"
+        )
         if model.lower() == "auto":
             return "anthropic/claude-3.5-sonnet"
         return model
@@ -61,10 +56,7 @@ class OpenRouterProvider(OpenAIProvider):
             }
             payload = {
                 "model": self.effective_model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
+                "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
                 "temperature": 0.1,
                 "max_tokens": 2048,
             }

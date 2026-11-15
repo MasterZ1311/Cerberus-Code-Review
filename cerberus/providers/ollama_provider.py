@@ -5,7 +5,7 @@ Local Ollama LLM Provider for Air-Gapped & Privacy-Preserving Deployments.
 import logging
 import os
 from typing import Optional
-import httpx
+
 from cerberus.config import settings
 from cerberus.providers.base import BaseLLMProvider
 
@@ -36,11 +36,7 @@ class OllamaProvider(BaseLLMProvider):
 
     async def generate_response(self, system_prompt: str, user_prompt: str) -> Optional[str]:
         try:
-            payload = {
-                "model": self.effective_model,
-                "prompt": f"{system_prompt}\n\n{user_prompt}",
-                "stream": False
-            }
+            payload = {"model": self.effective_model, "prompt": f"{system_prompt}\n\n{user_prompt}", "stream": False}
             client = await self.get_client()
             res = await client.post(f"{self.effective_base_url}/api/generate", json=payload, timeout=30.0)
             if res.status_code == 200:

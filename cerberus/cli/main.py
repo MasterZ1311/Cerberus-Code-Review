@@ -5,18 +5,20 @@ Supports on-demand code reviews, server launch, agent inspection, and API key ge
 
 import asyncio
 import json
-import os
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import Optional
+
 import typer
 import uvicorn
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+
 from cerberus import __version__
 from cerberus.agents.orchestrator import orchestrator
 from cerberus.config import settings
+from cerberus.core.github_app import GitHubPullRequestInfo, build_github_check_run_payload
 from cerberus.core.sarif import (
     review_response_to_gitlab_code_quality,
     review_response_to_sarif,
@@ -25,16 +27,18 @@ from cerberus.core.sarif import (
     zip_review_response_to_sarif,
     zip_review_response_to_sonarqube,
 )
-from cerberus.core.github_app import build_github_check_run_payload, GitHubPullRequestInfo
 from cerberus.core.security import generate_api_key
 from cerberus.core.zip_processor import detect_language_from_path
 from cerberus.models.schemas import CodeReviewRequest, ReviewConfig, ZipReviewResponse
 
 # Reconfigure stdout/stderr to utf-8 safely
-if hasattr(sys.stdout, "reconfigure"):
+reconf = getattr(sys.stdout, "reconfigure", None)
+if callable(reconf):
     try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        reconf(encoding="utf-8", errors="replace")
+        err_reconf = getattr(sys.stderr, "reconfigure", None)
+        if callable(err_reconf):
+            err_reconf(encoding="utf-8", errors="replace")
     except Exception:
         pass
 
@@ -63,27 +67,35 @@ def _safe_text(val: Optional[str]) -> str:
 
 def _render_zip_review_cli(res: ZipReviewResponse, blocking: bool = False) -> None:
     """Renders comprehensive project archive review to CLI."""
-    score_color = "green" if res.overall_project_score >= 80 else ("yellow" if res.overall_project_score >= 60 else "red")
+    score_color = (
+        "green" if res.overall_project_score >= 80 else ("yellow" if res.overall_project_score >= 60 else "red")
+    )
     summary = res.severity_summary
 
-    console.print(Panel(
-        f"[bold]Project Name:[/bold] {res.project_name}\n"
-        f"[bold]Overall Project Score:[/bold] [{score_color}]{res.overall_project_score} / 100[/{score_color}]\n"
-        f"[bold]Files Reviewed:[/bold] {res.reviewed_files_count} / {res.total_files_discovered} files ({res.total_lines_of_code:,} LOC)\n"
-        f"[bold]Skipped Files:[/bold] {res.skipped_files_count}\n"
-        f"[bold]Languages:[/bold] {', '.join(f'{k} ({v})' for k, v in res.language_distribution.items()) if res.language_distribution else 'None'}\n"
-        f"[bold]Critical:[/bold] [red]{summary.critical}[/red] | "
-        f"[bold]High:[/bold] [yellow]{summary.high}[/yellow] | "
-        f"[bold]Medium:[/bold] {summary.medium} | "
-        f"[bold]Low/Info:[/bold] {summary.low + summary.info}\n"
-        f"[bold]Latency:[/bold] {res.processing_time_ms}ms",
-        title="[bold cyan]Project Archive Review Summary[/bold cyan]",
-        border_style="cyan"
-    ))
+    console.print(
+        Panel(
+            f"[bold]Project Name:[/bold] {res.project_name}\n"
+            f"[bold]Overall Project Score:[/bold] [{score_color}]{res.overall_project_score} / 100[/{score_color}]\n"
+            f"[bold]Files Reviewed:[/bold] {res.reviewed_files_count} / {res.total_files_discovered} files ({res.total_lines_of_code:,} LOC)\n"
+            f"[bold]Skipped Files:[/bold] {res.skipped_files_count}\n"
+            f"[bold]Languages:[/bold] {', '.join(f'{k} ({v})' for k, v in res.language_distribution.items()) if res.language_distribution else 'None'}\n"
+            f"[bold]Critical:[/bold] [red]{summary.critical}[/red] | "
+            f"[bold]High:[/bold] [yellow]{summary.high}[/yellow] | "
+            f"[bold]Medium:[/bold] {summary.medium} | "
+            f"[bold]Low/Info:[/bold] {summary.low + summary.info}\n"
+            f"[bold]Latency:[/bold] {res.processing_time_ms}ms",
+            title="[bold cyan]Project Archive Review Summary[/bold cyan]",
+            border_style="cyan",
+        )
+    )
 
     # File breakdown table
     if res.file_reviews:
-        table = Table(title=f"File-by-File Quality Breakdown ({len(res.file_reviews)} files)", show_header=True, header_style="bold magenta")
+        table = Table(
+            title=f"File-by-File Quality Breakdown ({len(res.file_reviews)} files)",
+            show_header=True,
+            header_style="bold magenta",
+        )
         table.add_column("File Path", style="cyan")
         table.add_column("Lang", width=10)
         table.add_column("LOC", width=6, justify="right")
@@ -105,14 +117,18 @@ def _render_zip_review_cli(res: ZipReviewResponse, blocking: bool = False) -> No
                 crit_str,
                 high_str,
                 str(fr.medium_count),
-                "[green]PASS[/green]" if (fr.critical_count == 0 and fr.high_count == 0) else "[red]ISSUES[/red]"
+                "[green]PASS[/green]" if (fr.critical_count == 0 and fr.high_count == 0) else "[red]ISSUES[/red]",
             )
 
         console.print(table)
 
     # Top critical findings
     if res.top_critical_findings:
-        crit_table = Table(title=f"Top Project Vulnerabilities & Critical Issues ({len(res.top_critical_findings)})", show_header=True, header_style="bold red")
+        crit_table = Table(
+            title=f"Top Project Vulnerabilities & Critical Issues ({len(res.top_critical_findings)})",
+            show_header=True,
+            header_style="bold red",
+        )
         crit_table.add_column("Sev", width=10)
         crit_table.add_column("Category", width=14)
         crit_table.add_column("Issue & Context")
@@ -124,7 +140,7 @@ def _render_zip_review_cli(res: ZipReviewResponse, blocking: bool = False) -> No
             crit_table.add_row(
                 f"[{sev_col}]{f.severity.value.upper()}[/{sev_col}]",
                 _safe_text(f.category),
-                f"[bold]{safe_title}[/bold]\n[dim]{safe_msg}[/dim]"
+                f"[bold]{safe_title}[/bold]\n[dim]{safe_msg}[/dim]",
             )
         console.print(crit_table)
 
@@ -133,24 +149,28 @@ def _render_zip_review_cli(res: ZipReviewResponse, blocking: bool = False) -> No
         cc = res.collaborative_consensus
         pr_action = cc.get("pr_action", "MERGE_READY").replace(" ", "_").upper()
         action_color = "green" if pr_action == "MERGE_READY" else ("yellow" if pr_action == "NEEDS_REVISION" else "red")
-        plans = [_safe_text(p) for p in cc.get('priority_action_plan', [])] if cc.get('priority_action_plan') else []
-        console.print(Panel(
-            f"[bold]Project Consensus Verdict:[/bold] [{action_color}]{pr_action.replace('_', ' ')}[/{action_color}]\n"
-            f"[bold]Summary:[/bold] {_safe_text(cc.get('summary'))}\n"
-            + (f"[dim]Plan: {', '.join(plans)}[/dim]" if plans else ""),
-            title="[bold cyan][PROJECT CONSENSUS] Multi-Agent Alignment[/bold cyan]",
-            border_style=action_color
-        ))
+        plans = [_safe_text(p) for p in cc.get("priority_action_plan", [])] if cc.get("priority_action_plan") else []
+        console.print(
+            Panel(
+                f"[bold]Project Consensus Verdict:[/bold] [{action_color}]{pr_action.replace('_', ' ')}[/{action_color}]\n"
+                f"[bold]Summary:[/bold] {_safe_text(cc.get('summary'))}\n"
+                + (f"[dim]Plan: {', '.join(plans)}[/dim]" if plans else ""),
+                title="[bold cyan][PROJECT CONSENSUS] Multi-Agent Alignment[/bold cyan]",
+                border_style=action_color,
+            )
+        )
 
     if blocking and (summary.critical > 0 or summary.high > 0):
-        console.print(f"[bold red][BLOCKED] Project failed blocking threshold with {summary.critical} critical and {summary.high} high issues.[/bold red]")
+        console.print(
+            f"[bold red][BLOCKED] Project failed blocking threshold with {summary.critical} critical and {summary.high} high issues.[/bold red]"
+        )
         raise typer.Exit(code=1)
 
 
 app = typer.Typer(
     name="cerberus",
     help="cerberus</> - Autonomous Multi-Agent Code Review & Quality Assurance Platform",
-    add_completion=False
+    add_completion=False,
 )
 console = Console()
 
@@ -161,7 +181,9 @@ def review(
     snippet: Optional[str] = typer.Option(None, "--snippet", "-s", help="Direct code snippet to review"),
     zip_file: Optional[Path] = typer.Option(None, "--zip", "-z", help="Direct path to ZIP project archive to review"),
     language: str = typer.Option("python", "--language", "-l", help="Language of code"),
-    blocking: bool = typer.Option(False, "--blocking", "-b", help="Block with exit code 1 if critical/high flaws found"),
+    blocking: bool = typer.Option(
+        False, "--blocking", "-b", help="Block with exit code 1 if critical/high flaws found"
+    ),
     agents: Optional[str] = typer.Option(None, "--agents", "-a", help="Comma-separated agents to run"),
     format: str = typer.Option("text", "--format", "-F", help="Output format: text, json, sarif, markdown"),
     output: Optional[Path] = typer.Option(None, "--output", "-o", help="File path to save results"),
@@ -208,18 +230,22 @@ def review(
             raise typer.Exit(code=1)
 
         if format.lower() == "text":
-            console.print(f"[bold cyan]cerberus</>[/bold cyan] [dim]v{__version__}[/dim] extracting and reviewing project archive: [bold]{target_zip.name}[/bold]...")
+            console.print(
+                f"[bold cyan]cerberus</>[/bold cyan] [dim]v{__version__}[/dim] extracting and reviewing project archive: [bold]{target_zip.name}[/bold]..."
+            )
 
         try:
-            zip_response = asyncio.run(orchestrator.execute_zip_review(
-                zip_source=target_zip,
-                project_name=target_zip.stem,
-                agents=agents_list,
-                config=ReviewConfig(blocking_mode=blocking)
-            ))
+            zip_response = asyncio.run(
+                orchestrator.execute_zip_review(
+                    zip_source=target_zip,
+                    project_name=target_zip.stem,
+                    agents=agents_list,
+                    config=ReviewConfig(blocking_mode=blocking),
+                )
+            )
         except Exception as e:
             console.print(f"[bold red]Extraction/Review Error:[/bold red] {e}")
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from e
 
         if format.lower() == "sarif":
             sarif_data = zip_review_response_to_sarif(zip_response)
@@ -279,15 +305,13 @@ def review(
         raise typer.Exit(code=1)
 
     req = CodeReviewRequest(
-        code=code,
-        language=language,
-        filename=filename,
-        agents=agents_list,
-        config=ReviewConfig(blocking_mode=blocking)
+        code=code, language=language, filename=filename, agents=agents_list, config=ReviewConfig(blocking_mode=blocking)
     )
 
     if format.lower() == "text":
-        console.print(f"[bold cyan]cerberus</>[/bold cyan] [dim]v{__version__}[/dim] analyzing [bold]{filename}[/bold]...")
+        console.print(
+            f"[bold cyan]cerberus</>[/bold cyan] [dim]v{__version__}[/dim] analyzing [bold]{filename}[/bold]..."
+        )
 
     # Execute orchestrator asynchronously
     response = asyncio.run(orchestrator.execute_review(req))
@@ -328,7 +352,7 @@ def review(
             repo_name="local-repo",
             repo_owner="local-owner",
             full_name="local-owner/local-repo",
-            head_sha="HEAD"
+            head_sha="HEAD",
         )
         checks_data = build_github_check_run_payload(response, fake_pr, filename=filename)
         checks_str = json.dumps(checks_data, indent=2)
@@ -366,20 +390,24 @@ def review(
         return
 
     # Display Results
-    score_color = "green" if (response.overall_score or 0) >= 80 else ("yellow" if (response.overall_score or 0) >= 60 else "red")
+    score_color = (
+        "green" if (response.overall_score or 0) >= 80 else ("yellow" if (response.overall_score or 0) >= 60 else "red")
+    )
     summary = response.results.get("severity_summary", {}) if response.results else {}
 
-    console.print(Panel(
-        f"[bold]Overall Quality Score:[/bold] [{score_color}]{response.overall_score} / 100[/{score_color}]\n"
-        f"[bold]Latency:[/bold] {response.processing_time_ms}ms "
-        f"{'[bold green][Cache Hit][/bold green]' if response.cache_hit else ''}\n"
-        f"[bold]Critical:[/bold] [red]{summary.get('critical', 0)}[/red] | "
-        f"[bold]High:[/bold] [yellow]{summary.get('high', 0)}[/yellow] | "
-        f"[bold]Medium:[/bold] {summary.get('medium', 0)} | "
-        f"[bold]Low/Info:[/bold] {summary.get('low', 0) + summary.get('info', 0)}",
-        title="[bold cyan]Review Summary[/bold cyan]",
-        border_style="cyan"
-    ))
+    console.print(
+        Panel(
+            f"[bold]Overall Quality Score:[/bold] [{score_color}]{response.overall_score} / 100[/{score_color}]\n"
+            f"[bold]Latency:[/bold] {response.processing_time_ms}ms "
+            f"{'[bold green][Cache Hit][/bold green]' if response.cache_hit else ''}\n"
+            f"[bold]Critical:[/bold] [red]{summary.get('critical', 0)}[/red] | "
+            f"[bold]High:[/bold] [yellow]{summary.get('high', 0)}[/yellow] | "
+            f"[bold]Medium:[/bold] {summary.get('medium', 0)} | "
+            f"[bold]Low/Info:[/bold] {summary.get('low', 0) + summary.get('info', 0)}",
+            title="[bold cyan]Review Summary[/bold cyan]",
+            border_style="cyan",
+        )
+    )
 
     all_findings = response.critical_issues + response.warnings + response.suggestions
 
@@ -393,7 +421,11 @@ def review(
         table.add_column("Title & Suggested Remediation")
 
         for f in all_findings:
-            sev_color = "red" if f.severity.value in ("critical", "high") else ("yellow" if f.severity.value == "medium" else "blue")
+            sev_color = (
+                "red"
+                if f.severity.value in ("critical", "high")
+                else ("yellow" if f.severity.value == "medium" else "blue")
+            )
             safe_title = _safe_text(f.title)
             safe_msg = _safe_text(f.message)
             safe_fix = _safe_text(f.suggestion)
@@ -404,7 +436,7 @@ def review(
                 f"[{sev_color}]{f.severity.value.upper()}[/{sev_color}]",
                 str(f.line or "-"),
                 _safe_text(f.category),
-                details
+                details,
             )
 
         console.print(table)
@@ -414,23 +446,27 @@ def review(
         cc = response.collaborative_consensus
         pr_action = cc.get("pr_action", "MERGE_READY").replace(" ", "_").upper()
         action_color = "green" if pr_action == "MERGE_READY" else ("yellow" if pr_action == "NEEDS_REVISION" else "red")
-        safe_summary = _safe_text(cc.get('summary'))
-        safe_plan = [_safe_text(p) for p in cc.get('priority_action_plan', [])]
-        console.print(Panel(
-            f"[bold]Consensus Verdict:[/bold] [{action_color}]{pr_action.replace('_', ' ')}[/{action_color}]\n"
-            f"[bold]Summary:[/bold] {safe_summary}\n"
-            + (f"[dim]Plan: {', '.join(safe_plan)}[/dim]" if safe_plan else ""),
-            title="[bold cyan][COLLABORATIVE CONSENSUS] Multi-Agent Alignment[/bold cyan]",
-            border_style=action_color
-        ))
+        safe_summary = _safe_text(cc.get("summary"))
+        safe_plan = [_safe_text(p) for p in cc.get("priority_action_plan", [])]
+        console.print(
+            Panel(
+                f"[bold]Consensus Verdict:[/bold] [{action_color}]{pr_action.replace('_', ' ')}[/{action_color}]\n"
+                f"[bold]Summary:[/bold] {safe_summary}\n"
+                + (f"[dim]Plan: {', '.join(safe_plan)}[/dim]" if safe_plan else ""),
+                title="[bold cyan][COLLABORATIVE CONSENSUS] Multi-Agent Alignment[/bold cyan]",
+                border_style=action_color,
+            )
+        )
 
     # Multi-Agent Automated Unified Patch
     if response.unified_patch:
-        console.print(Panel(
-            f"[green]{_safe_text(response.unified_patch)}[/green]",
-            title="[bold green][AUTOMATED PATCH] Multi-Agent Consolidated Fix (Git Unified Diff)[/bold green]",
-            border_style="green"
-        ))
+        console.print(
+            Panel(
+                f"[green]{_safe_text(response.unified_patch)}[/green]",
+                title="[bold green][AUTOMATED PATCH] Multi-Agent Consolidated Fix (Git Unified Diff)[/bold green]",
+                border_style="green",
+            )
+        )
 
     if blocking and response.should_block:
         console.print(f"[bold red][BLOCKED] Blocking Commit/Push:[/bold red] {response.block_reason}")
@@ -451,13 +487,12 @@ def apply_fix_command(
     original_code = file.read_text(encoding="utf-8", errors="replace")
     detected_lang = language or detect_language_from_path(file.name) or "python"
 
-    console.print(f"[bold cyan]cerberus</>[/bold cyan] analyzing and synthesizing repairs for [bold]{file.name}[/bold]...")
+    console.print(
+        f"[bold cyan]cerberus</>[/bold cyan] analyzing and synthesizing repairs for [bold]{file.name}[/bold]..."
+    )
 
     req = CodeReviewRequest(
-        code=original_code,
-        language=detected_lang,
-        filename=file.name,
-        config=ReviewConfig(blocking_mode=False)
+        code=original_code, language=detected_lang, filename=file.name, config=ReviewConfig(blocking_mode=False)
     )
     response = asyncio.run(orchestrator.execute_review(req))
 
@@ -471,12 +506,14 @@ def apply_fix_command(
         console.print("[bold red]Code Fixer Agent unavailable.[/bold red]")
         raise typer.Exit(code=1)
 
-    synthesis = asyncio.run(fixer.synthesize_fixes(
-        original_code=original_code,
-        findings=all_findings,
-        filename=file.name,
-        language=detected_lang
-    ))
+    synth_fn = getattr(fixer, "synthesize_fixes", None)
+    if not callable(synth_fn):
+        console.print("[bold red]Code Fixer Agent does not support automated repairs.[/bold red]")
+        raise typer.Exit(code=1)
+
+    synthesis = asyncio.run(
+        synth_fn(original_code=original_code, findings=all_findings, filename=file.name, language=detected_lang)
+    )
 
     if not synthesis.get("patch_applied"):
         console.print("[bold yellow]No safe automated fixes could be synthesized for the flagged issues.[/bold yellow]")
@@ -490,13 +527,15 @@ def apply_fix_command(
         console.print(f"[dim]Backup created: {backup_path.name}[/dim]")
 
     file.write_text(repaired_code, encoding="utf-8")
-    console.print(Panel(
-        f"[bold green]Repairs successfully applied to {file.name}![/bold green]\n\n"
-        f"[cyan]Diff Summary:[/cyan]\n"
-        f"{_safe_text(synthesis['unified_diff'])}",
-        title="[bold green]Code Repair Summary[/bold green]",
-        border_style="green"
-    ))
+    console.print(
+        Panel(
+            f"[bold green]Repairs successfully applied to {file.name}![/bold green]\n\n"
+            f"[cyan]Diff Summary:[/cyan]\n"
+            f"{_safe_text(synthesis['unified_diff'])}",
+            title="[bold green]Code Repair Summary[/bold green]",
+            border_style="green",
+        )
+    )
 
 
 @app.command(name="export-sarif")
@@ -506,48 +545,35 @@ def export_sarif_command(
     language: str = typer.Option("python", "--language", "-l", help="Language of code"),
 ):
     """Analyze file or ZIP archive and export findings to OASIS SARIF v2.1.0 format."""
-    review(
-        file_path=file,
-        format="sarif",
-        output=output,
-        language=language
-    )
+    review(file_path=file, format="sarif", output=output, language=language)
 
 
 @app.command(name="export-sonarqube")
 def export_sonarqube_command(
     file: Path = typer.Option(..., "--file", "-f", help="Target source code or ZIP archive to analyze"),
-    output: Path = typer.Option(Path("sonar-generic-issues.json"), "--output", "-o", help="Destination SonarQube JSON file"),
+    output: Path = typer.Option(
+        Path("sonar-generic-issues.json"), "--output", "-o", help="Destination SonarQube JSON file"
+    ),
     language: str = typer.Option("python", "--language", "-l", help="Language of code"),
 ):
     """Analyze file or ZIP archive and export findings to SonarQube Generic Issue Import format."""
-    review(
-        file_path=file,
-        format="sonarqube",
-        output=output,
-        language=language
-    )
+    review(file_path=file, format="sonarqube", output=output, language=language)
 
 
 @app.command(name="export-gitlab")
 def export_gitlab_command(
     file: Path = typer.Option(..., "--file", "-f", help="Target source code or ZIP archive to analyze"),
-    output: Path = typer.Option(Path("gl-code-quality-report.json"), "--output", "-o", help="Destination GitLab CI JSON file"),
+    output: Path = typer.Option(
+        Path("gl-code-quality-report.json"), "--output", "-o", help="Destination GitLab CI JSON file"
+    ),
     language: str = typer.Option("python", "--language", "-l", help="Language of code"),
 ):
     """Analyze file or ZIP archive and export findings to GitLab CI Code Quality JSON format."""
-    review(
-        file_path=file,
-        format="gitlab",
-        output=output,
-        language=language
-    )
+    review(file_path=file, format="gitlab", output=output, language=language)
 
 
 @app.command()
-def create_api_key(
-    name: str = typer.Option("default", "--name", "-n", help="Name or label for the API key")
-):
+def create_api_key(name: str = typer.Option("default", "--name", "-n", help="Name or label for the API key")):
     """Generate a cryptographically secure cerberus API key."""
     raw_key, key_hash, prefix = generate_api_key(name=name)
 
@@ -569,23 +595,27 @@ def create_api_key(
 
     asyncio.run(_persist_key())
 
-    console.print(Panel(
-        f"[bold green]API Key created successfully![/bold green]\n\n"
-        f"[bold]Key:[/bold] [yellow]{raw_key}[/yellow]\n"
-        f"[bold]Name:[/bold] {name}\n"
-        f"[dim]Store this key safely; use in Authorization: Bearer {raw_key}[/dim]",
-        title="[bold cyan]cerberus</> Key Generator[/bold cyan]",
-        border_style="green"
-    ))
+    console.print(
+        Panel(
+            f"[bold green]API Key created successfully![/bold green]\n\n"
+            f"[bold]Key:[/bold] [yellow]{raw_key}[/yellow]\n"
+            f"[bold]Name:[/bold] {name}\n"
+            f"[dim]Store this key safely; use in Authorization: Bearer {raw_key}[/dim]",
+            title="[bold cyan]cerberus</> Key Generator[/bold cyan]",
+            border_style="green",
+        )
+    )
 
 
 @app.command()
 def list_api_keys():
     """List all registered API keys and their active status."""
+
     async def _query():
+        from sqlalchemy import select
+
         from cerberus.core.database import AsyncSessionLocal, init_db
         from cerberus.models.database import ApiKeyRecord
-        from sqlalchemy import select
 
         await init_db()
         async with AsyncSessionLocal() as session:
@@ -608,14 +638,14 @@ def list_api_keys():
 
 
 @app.command()
-def revoke_api_key(
-    name: str = typer.Argument(..., help="Name of the API key to revoke")
-):
+def revoke_api_key(name: str = typer.Argument(..., help="Name of the API key to revoke")):
     """Revoke an active API key by its identifier name."""
+
     async def _revoke():
+        from sqlalchemy import select
+
         from cerberus.core.database import AsyncSessionLocal, init_db
         from cerberus.models.database import ApiKeyRecord
-        from sqlalchemy import select
 
         await init_db()
         async with AsyncSessionLocal() as session:
@@ -659,6 +689,7 @@ def list_agents():
 def health():
     """Check system health, cache status, and active configuration."""
     from cerberus.providers import resolve_auto_provider
+
     active_prov = resolve_auto_provider() if settings.LLM_PROVIDER in ("auto", "detect", "") else settings.LLM_PROVIDER
 
     configured_keys = []
@@ -675,28 +706,34 @@ def health():
     if getattr(settings, "WATSONX_API_KEY", None):
         configured_keys.append("Watsonx (Legacy)")
 
-    keys_status = f"[green]{', '.join(configured_keys)}[/green]" if configured_keys else "[dim]None (Running Heuristic Engine)[/dim]"
+    keys_status = (
+        f"[green]{', '.join(configured_keys)}[/green]"
+        if configured_keys
+        else "[dim]None (Running Heuristic Engine)[/dim]"
+    )
     prov_display = f"{active_prov.upper()} (Active)" if active_prov != "heuristic" else "Heuristic (Offline AST Engine)"
 
-    console.print(Panel(
-        f"[bold]Status:[/bold] [green]HEALTHY[/green]\n"
-        f"[bold]Version:[/bold] {__version__}\n"
-        f"[bold]Active LLM Provider:[/bold] {prov_display}\n"
-        f"[bold]Detected API Keys:[/bold] {keys_status}\n"
-        f"[bold]Multi-Agent Collaboration:[/bold] [green]Active[/green] (Consensus + Code Fixer)\n"
-        f"[bold]Active Agents:[/bold] {', '.join(settings.enabled_agents_list)}\n"
-        f"[bold]Cache Enabled:[/bold] {settings.CACHE_ENABLED} (TTL: {settings.CACHE_TTL_SECONDS}s)\n"
-        f"[bold]Web Dashboard:[/bold] http://{settings.HOST}:{settings.PORT}/",
-        title="[bold cyan]cerberus</> System Status[/bold cyan]",
-        border_style="cyan"
-    ))
+    console.print(
+        Panel(
+            f"[bold]Status:[/bold] [green]HEALTHY[/green]\n"
+            f"[bold]Version:[/bold] {__version__}\n"
+            f"[bold]Active LLM Provider:[/bold] {prov_display}\n"
+            f"[bold]Detected API Keys:[/bold] {keys_status}\n"
+            f"[bold]Multi-Agent Collaboration:[/bold] [green]Active[/green] (Consensus + Code Fixer)\n"
+            f"[bold]Active Agents:[/bold] {', '.join(settings.enabled_agents_list)}\n"
+            f"[bold]Cache Enabled:[/bold] {settings.CACHE_ENABLED} (TTL: {settings.CACHE_TTL_SECONDS}s)\n"
+            f"[bold]Web Dashboard:[/bold] http://{settings.HOST}:{settings.PORT}/",
+            title="[bold cyan]cerberus</> System Status[/bold cyan]",
+            border_style="cyan",
+        )
+    )
 
 
 @app.command()
 def serve(
     host: str = typer.Option("0.0.0.0", "--host", "-h", help="Bind host"),
     port: int = typer.Option(settings.PORT, "--port", "-p", help="Bind port"),
-    reload: bool = typer.Option(False, "--reload", "-r", help="Auto-reload on changes")
+    reload: bool = typer.Option(False, "--reload", "-r", help="Auto-reload on changes"),
 ):
     """Launch the FastAPI server and visual Web Dashboard."""
     console.print(f"[bold cyan]Launching cerberus</> Server on http://{host}:{port}...[/bold cyan]")
@@ -706,10 +743,11 @@ def serve(
 @app.command()
 def doctor():
     """Run comprehensive environmental and dependency health diagnostics."""
-    from cerberus.core.syntax_verifier import SyntaxVerifier
-    from cerberus.core.security import verify_key_entropy
-    from cerberus.providers import resolve_auto_provider
     import sys
+
+    from cerberus.core.security import verify_key_entropy
+    from cerberus.core.syntax_verifier import SyntaxVerifier
+    from cerberus.providers import resolve_auto_provider
 
     table = Table(title="cerberus</> System & Dependency Diagnostics", show_header=True, header_style="bold cyan")
     table.add_column("Diagnostic Check", style="bold")
@@ -719,50 +757,91 @@ def doctor():
     # 1. Python Version
     py_ver = sys.version_info
     if py_ver >= (3, 11):
-        table.add_row("Python Runtime", "[green]PASS[/green]", f"Python {py_ver.major}.{py_ver.minor}.{py_ver.micro} (Supported: >= 3.11)")
+        table.add_row(
+            "Python Runtime",
+            "[green]PASS[/green]",
+            f"Python {py_ver.major}.{py_ver.minor}.{py_ver.micro} (Supported: >= 3.11)",
+        )
     else:
-        table.add_row("Python Runtime", "[red]FAIL[/red]", f"Python {py_ver.major}.{py_ver.minor} detected. Python 3.11+ is strongly recommended.")
+        table.add_row(
+            "Python Runtime",
+            "[red]FAIL[/red]",
+            f"Python {py_ver.major}.{py_ver.minor} detected. Python 3.11+ is strongly recommended.",
+        )
 
     # 2. Tree-sitter AST Engines
-    ts_supported = [lang for lang in ("python", "typescript", "go", "rust") if SyntaxVerifier.is_tree_sitter_supported(lang)]
+    ts_supported = [
+        lang for lang in ("python", "typescript", "go", "rust") if SyntaxVerifier.is_tree_sitter_supported(lang)
+    ]
     if len(ts_supported) >= 4:
-        table.add_row("Tree-sitter AST", "[green]PASS[/green]", f"Native C-bindings active for {', '.join(ts_supported)}")
+        table.add_row(
+            "Tree-sitter AST", "[green]PASS[/green]", f"Native C-bindings active for {', '.join(ts_supported)}"
+        )
     elif ts_supported:
-        table.add_row("Tree-sitter AST", "[yellow]PARTIAL[/yellow]", f"Active: {', '.join(ts_supported)}. Install tree-sitter packages for complete coverage.")
+        table.add_row(
+            "Tree-sitter AST",
+            "[yellow]PARTIAL[/yellow]",
+            f"Active: {', '.join(ts_supported)}. Install tree-sitter packages for complete coverage.",
+        )
     else:
-        table.add_row("Tree-sitter AST", "[yellow]WARN[/yellow]", "Tree-sitter bindings not detected. Running balanced delimiter fallback engine.")
+        table.add_row(
+            "Tree-sitter AST",
+            "[yellow]WARN[/yellow]",
+            "Tree-sitter bindings not detected. Running balanced delimiter fallback engine.",
+        )
 
     # 3. Database Connectivity
     async def _check_db():
         from cerberus.core.database import warm_connection_pool
+
         return await warm_connection_pool()
 
     db_ok = asyncio.run(_check_db())
     if db_ok:
         table.add_row("Database Engine", "[green]PASS[/green]", f"Connected: {settings.DATABASE_URL.split('@')[-1]}")
     else:
-        table.add_row("Database Engine", "[red]FAIL[/red]", f"Cannot connect to {settings.DATABASE_URL}. Check permissions or server status.")
+        table.add_row(
+            "Database Engine",
+            "[red]FAIL[/red]",
+            f"Cannot connect to {settings.DATABASE_URL}. Check permissions or server status.",
+        )
 
     # 4. Cache System
-    table.add_row("Cache Subsystem", "[green]PASS[/green]", f"Enabled: {settings.CACHE_ENABLED} (TTL: {settings.CACHE_TTL_SECONDS}s, In-Memory LRU + Redis)")
+    table.add_row(
+        "Cache Subsystem",
+        "[green]PASS[/green]",
+        f"Enabled: {settings.CACHE_ENABLED} (TTL: {settings.CACHE_TTL_SECONDS}s, In-Memory LRU + Redis)",
+    )
 
     # 5. Security & Secret Key
     has_safe_key = verify_key_entropy(settings.SECRET_KEY, min_entropy=3.0) and len(settings.SECRET_KEY) >= 32
     if has_safe_key:
         table.add_row("Security Config", "[green]PASS[/green]", "High-entropy SECRET_KEY configured (>= 32 chars).")
     else:
-        table.add_row("Security Config", "[yellow]WARN[/yellow]", "Default or low-entropy SECRET_KEY in use. Set unique SECRET_KEY for production.")
+        table.add_row(
+            "Security Config",
+            "[yellow]WARN[/yellow]",
+            "Default or low-entropy SECRET_KEY in use. Set unique SECRET_KEY for production.",
+        )
 
     # 6. Active LLM Provider
     prov = resolve_auto_provider() if settings.LLM_PROVIDER in ("auto", "detect", "") else settings.LLM_PROVIDER
-    table.add_row("LLM Provider", "[green]PASS[/green]", f"Resolved to '{prov.upper()}'. Zero-latency HeuristicEngine ready as fallback.")
+    table.add_row(
+        "LLM Provider",
+        "[green]PASS[/green]",
+        f"Resolved to '{prov.upper()}'. Zero-latency HeuristicEngine ready as fallback.",
+    )
 
     # 7. Git Hooks
     hooks_installed = (Path(".git/hooks/pre-commit").exists()) if Path(".git").exists() else False
     if hooks_installed:
         table.add_row("Git Hooks", "[green]PASS[/green]", "Pre-commit hook installed in .git/hooks/pre-commit")
     elif Path(".git").exists():
-        table.add_row("Git Hooks", "[yellow]NOTICE[/yellow]", "Hooks not installed. Run 'cerberus hooks install' for zero-click reviews.")
+        table.add_row(
+            "Git Hooks",
+            "[yellow]NOTICE[/yellow]",
+            "Hooks not installed. Run 'cerberus hooks install' for zero-click reviews.",
+        )
     else:
         table.add_row("Git Hooks", "[dim]SKIP[/dim]", "Not in a Git repository root.")
 
@@ -770,9 +849,7 @@ def doctor():
 
 
 @app.command()
-def init(
-    repo_dir: Path = typer.Option(Path("."), "--repo-dir", "-d", help="Path to project directory to initialize")
-):
+def init(repo_dir: Path = typer.Option(Path("."), "--repo-dir", "-d", help="Path to project directory to initialize")):
     """Bootstrap cerberus in current repository (.env, database schema, and git hooks)."""
     env_file = repo_dir / ".env"
     env_example = repo_dir / ".env.example"
@@ -786,47 +863,51 @@ def init(
         else:
             content = "SECRET_KEY=change_me_in_production\nLLM_PROVIDER=auto\nCACHE_ENABLED=true\n"
         import secrets
+
         new_secret = f"cvai_sec_{secrets.token_hex(24)}"
         content = content.replace("cerberus_dev_secret_key_change_in_production_32chars", new_secret)
         env_file.write_text(content, encoding="utf-8")
-        console.print(f"[bold green]Created .env configuration file with high-entropy SECRET_KEY.[/bold green]")
+        console.print("[bold green]Created .env configuration file with high-entropy SECRET_KEY.[/bold green]")
     else:
-        console.print(f"[dim].env configuration file already exists.[/dim]")
+        console.print("[dim].env configuration file already exists.[/dim]")
 
     # 2. Initialize database
     async def _init():
         from cerberus.core.database import init_db
+
         await init_db()
 
     asyncio.run(_init())
-    console.print(f"[bold green]Database schema initialized and connection pool warmed.[/bold green]")
+    console.print("[bold green]Database schema initialized and connection pool warmed.[/bold green]")
 
     # 3. Install Git hooks if inside git repo
     if (repo_dir / ".git").exists():
         install_git_hooks(repo_dir=repo_dir)
 
-    console.print(Panel(
-        f"[bold green]cerberus</> initialized successfully![/bold green]\n\n"
-        f"Quick Start Commands:\n"
-        f"  - Review snippet: [yellow]python -m cerberus.cli review -s 'import os; os.system(\"ls\")'[/yellow]\n"
-        f"  - Start Dashboard: [yellow]python -m cerberus.cli serve[/yellow] (http://localhost:8000)\n"
-        f"  - Environment Doctor: [yellow]python -m cerberus.cli doctor[/yellow]",
-        title="[bold green]Ready to Review[/bold green]",
-        border_style="green"
-    ))
+    console.print(
+        Panel(
+            "[bold green]cerberus</> initialized successfully![/bold green]\n\n"
+            "Quick Start Commands:\n"
+            "  - Review snippet: [yellow]python -m cerberus.cli review -s 'import os; os.system(\"ls\")'[/yellow]\n"
+            "  - Start Dashboard: [yellow]python -m cerberus.cli serve[/yellow] (http://localhost:8000)\n"
+            "  - Environment Doctor: [yellow]python -m cerberus.cli doctor[/yellow]",
+            title="[bold green]Ready to Review[/bold green]",
+            border_style="green",
+        )
+    )
 
 
 hooks_app = typer.Typer(name="hooks", help="Manage automated zero-click Git hooks (pre-commit, pre-push)")
 
 
 @hooks_app.command(name="install")
-def install_git_hooks(
-    repo_dir: Path = typer.Option(Path("."), "--repo-dir", "-d", help="Path to Git repository root")
-):
+def install_git_hooks(repo_dir: Path = typer.Option(Path("."), "--repo-dir", "-d", help="Path to Git repository root")):
     """Install automated pre-commit and pre-push quality review hooks into .git/hooks."""
     hooks_dir = repo_dir / ".git" / "hooks"
     if not (repo_dir / ".git").exists():
-        console.print(f"[bold red]Error:[/bold red] Directory '{repo_dir}' is not a valid Git repository (.git not found).")
+        console.print(
+            f"[bold red]Error:[/bold red] Directory '{repo_dir}' is not a valid Git repository (.git not found)."
+        )
         raise typer.Exit(code=1)
     hooks_dir.mkdir(parents=True, exist_ok=True)
 
@@ -850,18 +931,20 @@ exit $?
     (hooks_dir / "pre-commit").write_text(pre_commit_script, encoding="utf-8")
     (hooks_dir / "pre-push").write_text(pre_push_script, encoding="utf-8")
 
-    console.print(Panel(
-        f"[bold green]Successfully installed Git hooks into {hooks_dir}![/bold green]\n\n"
-        f"- [cyan]pre-commit[/cyan]: Blocks commits containing critical security or quality issues.\n"
-        f"- [cyan]pre-push[/cyan]: Verifies multi-agent consensus before pushing upstream.",
-        title="[bold green]cerberus</> Git Hooks Installed[/bold green]",
-        border_style="green"
-    ))
+    console.print(
+        Panel(
+            f"[bold green]Successfully installed Git hooks into {hooks_dir}![/bold green]\n\n"
+            f"- [cyan]pre-commit[/cyan]: Blocks commits containing critical security or quality issues.\n"
+            f"- [cyan]pre-push[/cyan]: Verifies multi-agent consensus before pushing upstream.",
+            title="[bold green]cerberus</> Git Hooks Installed[/bold green]",
+            border_style="green",
+        )
+    )
 
 
 @hooks_app.command(name="uninstall")
 def uninstall_git_hooks(
-    repo_dir: Path = typer.Option(Path("."), "--repo-dir", "-d", help="Path to Git repository root")
+    repo_dir: Path = typer.Option(Path("."), "--repo-dir", "-d", help="Path to Git repository root"),
 ):
     """Remove cerberus automated pre-commit and pre-push hooks."""
     hooks_dir = repo_dir / ".git" / "hooks"

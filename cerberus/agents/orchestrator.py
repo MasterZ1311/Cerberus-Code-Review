@@ -7,7 +7,7 @@ import hashlib
 import logging
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Dict, List, Optional
 
 from cerberus.agents.architecture_agent import ArchitectureAgent
@@ -82,7 +82,12 @@ class ReviewOrchestrator:
                 "version": agent.version,
                 "purpose": agent.purpose,
                 "capabilities": agent.get_capabilities(),
-                "status": "active" if (agent_id in settings.enabled_agents_list or (settings.COLLABORATIVE_MODE and agent_id in ("consensus", "code_fixer"))) else "disabled",
+                "status": "active"
+                if (
+                    agent_id in settings.enabled_agents_list
+                    or (settings.COLLABORATIVE_MODE and agent_id in ("consensus", "code_fixer"))
+                )
+                else "disabled",
             }
             for agent_id, agent in self.registry.items()
         ]
@@ -106,7 +111,7 @@ class ReviewOrchestrator:
 
         start_time = time.perf_counter()
         review_id = f"rev_{uuid.uuid4().hex[:16]}"
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
 
         # Start OpenTelemetry-compatible distributed trace
         root_span = tracer.start_trace(
@@ -115,7 +120,7 @@ class ReviewOrchestrator:
                 "review.id": review_id,
                 "review.language": request.language or "python",
                 "review.filename": request.filename or "snippet.py",
-            }
+            },
         )
 
         # 1. Determine which agents to execute
@@ -143,7 +148,7 @@ class ReviewOrchestrator:
             CACHE_HITS_TOTAL.inc()
             REVIEW_REQUESTS_TOTAL.labels(status="completed", language=request.language or "python").inc()
             logger.info(f"Cache hit for review: {review_id}")
-            
+
             cached_resp = CodeReviewResponse(**cached_data)
             cached_resp.review_id = review_id
             cached_resp.cache_hit = True
@@ -164,216 +169,248 @@ class ReviewOrchestrator:
 
         CACHE_MISSES_TOTAL.inc()
 
-        # 3. Execute Primary Agents in Parallel
-        agent_context = request.context.model_dump() if request.context else {}
-        if request.filename and not agent_context.get("filename"):
-            agent_context["filename"] = request.filename
+        async def _compute_review() -> CodeReviewResponse:
+            # 3. Execute Primary Agents in Parallel
+            agent_context = request.context.model_dump() if request.context else {}
+            if request.filename and not agent_context.get("filename"):
+                agent_context["filename"] = request.filename
 
-        async def run_agent(agent_name: str) -> AgentResult:
-            agent = self.registry[agent_name]
-            a_start = time.perf_counter()
-            async with tracer.async_span(f"agent.{agent_name}", parent=root_span, attributes={"agent.name": agent_name}) as a_span:
+            async def run_agent(agent_name: str) -> AgentResult:
+                agent = self.registry[agent_name]
+                a_start = time.perf_counter()
+                async with tracer.async_span(
+                    f"agent.{agent_name}", parent=root_span, attributes={"agent.name": agent_name}
+                ) as a_span:
+                    try:
+                        res = await agent.analyze(
+                            code=request.code,
+                            language=request.language or "python",
+                            context=agent_context,
+                        )
+                        AGENT_EXECUTION_SECONDS.labels(agent_name=agent_name).observe(time.perf_counter() - a_start)
+                        for f in res.findings:
+                            FINDINGS_DETECTED_TOTAL.labels(agent_name=agent_name, severity=f.severity.value).inc()
+                        a_span.set_attribute("agent.score", res.score)
+                        a_span.set_attribute("agent.findings_count", len(res.findings))
+                        return res
+                    except Exception as e:
+                        logger.error(f"Agent '{agent_name}' failed during review: {e}")
+                        a_span.record_exception(e)
+                        return AgentResult(
+                            name=agent_name,
+                            status="failed",
+                            score=0.0,
+                            execution_time_ms=int((time.perf_counter() - a_start) * 1000),
+                            error=str(e),
+                        )
+
+            tasks = [run_agent(agent_name) for agent_name in primary_agents]
+            agent_results: List[AgentResult] = await asyncio.gather(*tasks)
+
+            # 4. Synthesize Findings and Scores
+            all_findings: List[Finding] = []
+            scores: Dict[str, float] = {}
+            agents_payload: List[Dict[str, Any]] = []
+
+            for res in agent_results:
+                scores[res.name] = res.score
+                all_findings.extend(res.findings)
+                agents_payload.append(res.model_dump())
+
+            # Deduplicate identical findings across agents or passes (line, category, cwe, title)
+            seen_sigs = set()
+            deduped_findings: List[Finding] = []
+            for f in all_findings:
+                sig = (f.line, str(f.category).lower(), str(f.cwe_id or "").lower(), f.title.lower().strip())
+                if sig not in seen_sigs:
+                    seen_sigs.add(sig)
+                    deduped_findings.append(f)
+            all_findings = deduped_findings
+
+            # Determine review status
+            failed_count = sum(1 for res in agent_results if res.status == "failed")
+            if failed_count == len(agent_results) and len(agent_results) > 0:
+                review_status = "failed"
+            elif failed_count > 0:
+                review_status = "degraded"
+            else:
+                review_status = "completed"
+
+            # Categorize findings by urgency
+            critical_issues = [f for f in all_findings if f.severity in (SeverityEnum.CRITICAL, SeverityEnum.HIGH)]
+            warnings = [f for f in all_findings if f.severity == SeverityEnum.MEDIUM]
+            suggestions = [f for f in all_findings if f.severity in (SeverityEnum.LOW, SeverityEnum.INFO)]
+
+            # Calculate weighted overall score from primary diagnostic agents
+            weights = {
+                "security": 0.40,
+                "performance": 0.25,
+                "quality": 0.25,
+                "architecture": 0.05,
+                "compliance": 0.05,
+            }
+            diagnostic_scores = {k: v for k, v in scores.items() if k not in ("consensus", "code_fixer")}
+            total_weight = sum(weights.get(name, 0.2) for name in diagnostic_scores)
+            if total_weight > 0:
+                overall_score = (
+                    sum(diagnostic_scores[name] * weights.get(name, 0.2) for name in diagnostic_scores) / total_weight
+                )
+            else:
+                overall_score = 0.0 if failed_count > 0 else 100.0
+            overall_score = round(max(0.0, min(100.0, overall_score)), 1)
+
+            # Severity Summary
+            summary = {
+                "critical": sum(1 for f in all_findings if f.severity == SeverityEnum.CRITICAL),
+                "high": sum(1 for f in all_findings if f.severity == SeverityEnum.HIGH),
+                "medium": sum(1 for f in all_findings if f.severity == SeverityEnum.MEDIUM),
+                "low": sum(1 for f in all_findings if f.severity == SeverityEnum.LOW),
+                "info": sum(1 for f in all_findings if f.severity == SeverityEnum.INFO),
+            }
+
+            # Blocking determination
+            blocking_mode = (
+                request.config.blocking_mode
+                if (request.config and request.config.blocking_mode is not None)
+                else settings.BLOCKING_MODE
+            )
+            should_block = False
+            block_reason = None
+            if blocking_mode:
+                if summary["critical"] > 0 or summary["high"] > 0:
+                    should_block = True
+                    block_reason = f"Blocking threshold triggered: Found {summary['critical']} critical and {summary['high']} high issues."
+
+            total_elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+            completed_iso = datetime.now(UTC).isoformat()
+
+            # 5. Multi-Agent Collaborative Consensus & Patch Generation
+            collaborative_consensus = None
+            unified_patch = None
+            consensus_summary = None
+
+            run_consensus = getattr(settings, "COLLABORATIVE_MODE", True) or ("consensus" in active_agents)
+            if run_consensus and ("consensus" in self.registry):
                 try:
-                    res = await agent.analyze(
+                    consensus_agent = self.registry["consensus"]
+                    consensus_res = await consensus_agent.analyze(
                         code=request.code,
                         language=request.language or "python",
-                        context=agent_context,
+                        context={"findings": all_findings, "agent_scores": scores},
                     )
-                    AGENT_EXECUTION_SECONDS.labels(agent_name=agent_name).observe(time.perf_counter() - a_start)
-                    for f in res.findings:
-                        FINDINGS_DETECTED_TOTAL.labels(agent_name=agent_name, severity=f.severity.value).inc()
-                    a_span.set_attribute("agent.score", res.score)
-                    a_span.set_attribute("agent.findings_count", len(res.findings))
-                    return res
+                    if consensus_res.findings:
+                        cf = consensus_res.findings[0]
+                        consensus_summary = cf.message
+                        plan_items = [p.strip() for p in cf.recommendation.split(" • ")] if cf.recommendation else []
+                        collaborative_consensus = {
+                            "status": "completed",
+                            "summary": cf.message,
+                            "pr_action": cf.title.replace("Multi-Agent Consensus: ", "")
+                            .strip()
+                            .upper()
+                            .replace(" ", "_"),
+                            "verdict": cf.explanation,
+                            "priority_action_plan": plan_items,
+                        }
+                        if "consensus" in active_agents:
+                            agents_payload.append(consensus_res.model_dump())
                 except Exception as e:
-                    logger.error(f"Agent '{agent_name}' failed during review: {e}")
-                    a_span.record_exception(e)
-                    return AgentResult(
-                        name=agent_name,
-                        status="failed",
-                        score=0.0,
-                        execution_time_ms=int((time.perf_counter() - a_start) * 1000),
-                        error=str(e),
+                    logger.warning(f"Collaborative consensus step failed: {e}")
+
+            run_fixer = getattr(settings, "AUTO_GENERATE_FIXES", True) or ("code_fixer" in active_agents)
+            if run_fixer and ("code_fixer" in self.registry) and all_findings:
+                try:
+                    fixer_agent = self.registry["code_fixer"]
+                    fixer_res = await fixer_agent.analyze(
+                        code=request.code,
+                        language=request.language or "python",
+                        context={"findings": all_findings, "filename": request.filename or "snippet.py"},
                     )
+                    if fixer_res.findings and fixer_res.findings[0].suggestion:
+                        unified_patch = fixer_res.findings[0].suggestion
+                    if "code_fixer" in active_agents:
+                        agents_payload.append(fixer_res.model_dump())
+                except Exception as e:
+                    logger.warning(f"Collaborative code fixer step failed: {e}")
 
-        tasks = [run_agent(agent_name) for agent_name in primary_agents]
-        agent_results: List[AgentResult] = await asyncio.gather(*tasks)
+            # Finalize root OpenTelemetry span
+            root_span.set_attribute("review.overall_score", overall_score)
+            root_span.set_attribute("review.status", review_status)
+            root_span.finish()
 
-        # 4. Synthesize Findings and Scores
-        all_findings: List[Finding] = []
-        scores: Dict[str, float] = {}
-        agents_payload: List[Dict[str, Any]] = []
+            trace_payload = {
+                "trace_id": root_span.trace_id,
+                "span_id": root_span.span_id,
+                "traceparent": root_span.to_w3c_traceparent(),
+                "spans": tracer.get_trace_spans(root_span.trace_id),
+            }
 
-        for res in agent_results:
-            scores[res.name] = res.score
-            all_findings.extend(res.findings)
-            agents_payload.append(res.model_dump())
+            results_data = {
+                "overall_score": overall_score,
+                "severity_summary": summary,
+                "agents": agents_payload,
+                "collaborative_consensus": collaborative_consensus,
+                "unified_patch": unified_patch,
+                "trace": trace_payload,
+            }
 
-        # Deduplicate identical findings across agents or passes (line, category, cwe, title)
-        seen_sigs = set()
-        deduped_findings: List[Finding] = []
-        for f in all_findings:
-            sig = (f.line, str(f.category).lower(), str(f.cwe_id or "").lower(), f.title.lower().strip())
-            if sig not in seen_sigs:
-                seen_sigs.add(sig)
-                deduped_findings.append(f)
-        all_findings = deduped_findings
+            response = CodeReviewResponse(
+                review_id=review_id,
+                status=review_status,
+                created_at=now_iso,
+                completed_at=completed_iso,
+                cache_hit=False,
+                blocking=blocking_mode,
+                should_block=should_block,
+                block_reason=block_reason,
+                overall_score=overall_score,
+                processing_time_ms=total_elapsed_ms,
+                results=results_data,
+                critical_issues=critical_issues,
+                warnings=warnings,
+                suggestions=suggestions,
+                agents_scheduled=active_agents,
+                webhook_url=request.webhook_url,
+                _links={
+                    "self": f"/api/v1/review/{review_id}",
+                    "results": f"/api/v1/review/{review_id}/results",
+                },
+                summary=consensus_summary,
+                collaborative_consensus=collaborative_consensus,
+                unified_patch=unified_patch,
+                trace_id=root_span.trace_id,
+            )
 
-        # Determine review status
-        failed_count = sum(1 for res in agent_results if res.status == "failed")
-        if failed_count == len(agent_results) and len(agent_results) > 0:
-            review_status = "failed"
-        elif failed_count > 0:
-            review_status = "degraded"
-        else:
-            review_status = "completed"
+            # 6. Save to Cache only if all agents completed successfully (prevent cache poisoning)
+            if review_status == "completed":
+                await cache_manager.set(cache_key, response.model_dump())
+            return response
 
-        # Categorize findings by urgency
-        critical_issues = [f for f in all_findings if f.severity in (SeverityEnum.CRITICAL, SeverityEnum.HIGH)]
-        warnings = [f for f in all_findings if f.severity == SeverityEnum.MEDIUM]
-        suggestions = [f for f in all_findings if f.severity in (SeverityEnum.LOW, SeverityEnum.INFO)]
-
-        # Calculate weighted overall score from primary diagnostic agents
-        weights = {
-            "security": 0.40,
-            "performance": 0.25,
-            "quality": 0.25,
-            "architecture": 0.05,
-            "compliance": 0.05,
-        }
-        diagnostic_scores = {k: v for k, v in scores.items() if k not in ("consensus", "code_fixer")}
-        total_weight = sum(weights.get(name, 0.2) for name in diagnostic_scores)
-        if total_weight > 0:
-            overall_score = sum(diagnostic_scores[name] * weights.get(name, 0.2) for name in diagnostic_scores) / total_weight
-        else:
-            overall_score = 0.0 if failed_count > 0 else 100.0
-        overall_score = round(max(0.0, min(100.0, overall_score)), 1)
-
-        # Severity Summary
-        summary = {
-            "critical": sum(1 for f in all_findings if f.severity == SeverityEnum.CRITICAL),
-            "high": sum(1 for f in all_findings if f.severity == SeverityEnum.HIGH),
-            "medium": sum(1 for f in all_findings if f.severity == SeverityEnum.MEDIUM),
-            "low": sum(1 for f in all_findings if f.severity == SeverityEnum.LOW),
-            "info": sum(1 for f in all_findings if f.severity == SeverityEnum.INFO),
-        }
-
-        # Blocking determination
-        blocking_mode = (
-            request.config.blocking_mode
-            if (request.config and request.config.blocking_mode is not None)
-            else settings.BLOCKING_MODE
-        )
-        should_block = False
-        block_reason = None
-        if blocking_mode:
-            if summary["critical"] > 0 or summary["high"] > 0:
-                should_block = True
-                block_reason = f"Blocking threshold triggered: Found {summary['critical']} critical and {summary['high']} high issues."
+        # Coalesce concurrent cache-miss executions for identical requests via SingleFlight
+        computed_resp = await cache_manager.singleflight.execute(cache_key, _compute_review)
 
         total_elapsed_ms = int((time.perf_counter() - start_time) * 1000)
-        completed_iso = datetime.now(timezone.utc).isoformat()
 
-        # 5. Multi-Agent Collaborative Consensus & Patch Generation
-        collaborative_consensus = None
-        unified_patch = None
-        consensus_summary = None
-
-        run_consensus = getattr(settings, "COLLABORATIVE_MODE", True) or ("consensus" in active_agents)
-        if run_consensus and ("consensus" in self.registry):
-            try:
-                consensus_agent = self.registry["consensus"]
-                consensus_res = await consensus_agent.analyze(
-                    code=request.code,
-                    language=request.language or "python",
-                    context={"findings": all_findings, "agent_scores": scores}
-                )
-                if consensus_res.findings:
-                    cf = consensus_res.findings[0]
-                    consensus_summary = cf.message
-                    plan_items = [p.strip() for p in cf.recommendation.split(" • ")] if cf.recommendation else []
-                    collaborative_consensus = {
-                        "status": "completed",
-                        "summary": cf.message,
-                        "pr_action": cf.title.replace("Multi-Agent Consensus: ", "").strip().upper().replace(" ", "_"),
-                        "verdict": cf.explanation,
-                        "priority_action_plan": plan_items,
-                    }
-                    if "consensus" in active_agents:
-                        agents_payload.append(consensus_res.model_dump())
-            except Exception as e:
-                logger.warning(f"Collaborative consensus step failed: {e}")
-
-        run_fixer = getattr(settings, "AUTO_GENERATE_FIXES", True) or ("code_fixer" in active_agents)
-        if run_fixer and ("code_fixer" in self.registry) and all_findings:
-            try:
-                fixer_agent = self.registry["code_fixer"]
-                fixer_res = await fixer_agent.analyze(
-                    code=request.code,
-                    language=request.language or "python",
-                    context={"findings": all_findings, "filename": request.filename or "snippet.py"}
-                )
-                if fixer_res.findings and fixer_res.findings[0].suggestion:
-                    unified_patch = fixer_res.findings[0].suggestion
-                if "code_fixer" in active_agents:
-                    agents_payload.append(fixer_res.model_dump())
-            except Exception as e:
-                logger.warning(f"Collaborative code fixer step failed: {e}")
-
-        # Finalize root OpenTelemetry span
-        root_span.set_attribute("review.overall_score", overall_score)
-        root_span.set_attribute("review.status", review_status)
-        root_span.finish()
-
-        trace_payload = {
-            "trace_id": root_span.trace_id,
-            "span_id": root_span.span_id,
-            "traceparent": root_span.to_w3c_traceparent(),
-            "spans": tracer.get_trace_spans(root_span.trace_id),
-        }
-
-        results_data = {
-            "overall_score": overall_score,
-            "severity_summary": summary,
-            "agents": agents_payload,
-            "collaborative_consensus": collaborative_consensus,
-            "unified_patch": unified_patch,
-            "trace": trace_payload,
-        }
-
-        response = CodeReviewResponse(
-            review_id=review_id,
-            status=review_status,
-            created_at=now_iso,
-            completed_at=completed_iso,
-            cache_hit=False,
-            blocking=blocking_mode,
-            should_block=should_block,
-            block_reason=block_reason,
-            overall_score=overall_score,
-            processing_time_ms=total_elapsed_ms,
-            results=results_data,
-            critical_issues=critical_issues,
-            warnings=warnings,
-            suggestions=suggestions,
-            agents_scheduled=active_agents,
-            webhook_url=request.webhook_url,
-            _links={
-                "self": f"/api/v1/review/{review_id}",
-                "results": f"/api/v1/review/{review_id}/results",
-            },
-            summary=consensus_summary,
-            collaborative_consensus=collaborative_consensus,
-            unified_patch=unified_patch,
-            trace_id=root_span.trace_id,
-        )
-
-        # 6. Save to Cache only if all agents completed successfully (prevent cache poisoning)
-        if review_status == "completed":
-            await cache_manager.set(cache_key, response.model_dump())
+        # If coalesced with an existing in-flight execution, personalize response identity
+        if computed_resp.review_id != review_id:
+            response = computed_resp.model_copy(
+                update={
+                    "review_id": review_id,
+                    "cache_hit": True,
+                    "created_at": now_iso,
+                    "completed_at": datetime.now(UTC).isoformat(),
+                    "processing_time_ms": total_elapsed_ms,
+                    "_links": {
+                        "self": f"/api/v1/review/{review_id}",
+                        "results": f"/api/v1/review/{review_id}/results",
+                    },
+                }
+            )
+        else:
+            response = computed_resp
 
         # 7. Record Metrics
-        REVIEW_REQUESTS_TOTAL.labels(status=review_status, language=request.language or "python").inc()
+        REVIEW_REQUESTS_TOTAL.labels(status=response.status, language=request.language or "python").inc()
         REVIEW_DURATION_SECONDS.observe(total_elapsed_ms / 1000.0)
 
         # 8. Execute Post-Review Lifecycle Hooks
@@ -404,7 +441,7 @@ class ReviewOrchestrator:
         """
         start_time = time.perf_counter()
         project_review_id = f"zip_{uuid.uuid4().hex[:16]}"
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
 
         # Archive-level cache lookup if raw bytes supplied
         zip_cache_key = None
@@ -433,7 +470,7 @@ class ReviewOrchestrator:
                 review_id=project_review_id,
                 status="completed",
                 created_at=now_iso,
-                completed_at=datetime.now(timezone.utc).isoformat(),
+                completed_at=datetime.now(UTC).isoformat(),
                 total_files_discovered=extraction.total_entries_in_zip,
                 reviewed_files_count=0,
                 skipped_files_count=len(extraction.skipped_files),
@@ -520,9 +557,7 @@ class ReviewOrchestrator:
                 all_crit_findings.append(annotated)
 
         # Sort: critical first, then high
-        all_crit_findings.sort(
-            key=lambda x: (0 if x.severity == SeverityEnum.CRITICAL else 1, -(x.cvss_score or 0))
-        )
+        all_crit_findings.sort(key=lambda x: (0 if x.severity == SeverityEnum.CRITICAL else 1, -(x.cvss_score or 0)))
         top_critical = all_crit_findings[:30]
 
         # 5. Project-wide Collaborative Consensus
@@ -546,12 +581,14 @@ class ReviewOrchestrator:
             "priority_action_plan": [
                 f"Remediate {cum_crit} critical security/compliance flaws across project",
                 f"Address {cum_high} high-severity bottlenecks and defects",
-                f"Maintain quality standard across {len(extraction.language_distribution)} programming languages"
-            ] if (cum_crit > 0 or cum_high > 0) else ["Project is in clean, healthy state for merge/deployment."]
+                f"Maintain quality standard across {len(extraction.language_distribution)} programming languages",
+            ]
+            if (cum_crit > 0 or cum_high > 0)
+            else ["Project is in clean, healthy state for merge/deployment."],
         }
 
         total_elapsed_ms = int((time.perf_counter() - start_time) * 1000)
-        completed_iso = datetime.now(timezone.utc).isoformat()
+        completed_iso = datetime.now(UTC).isoformat()
 
         resp = ZipReviewResponse(
             project_name=extraction.project_name,

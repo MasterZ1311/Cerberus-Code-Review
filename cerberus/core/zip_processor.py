@@ -6,10 +6,10 @@ protection against Zip-Slip, Zip-Bombs, and binary files.
 
 import io
 import logging
-import os
-from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Union
 import zipfile
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set
+
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger("cerberus.core.zip_processor")
@@ -78,16 +78,45 @@ IGNORED_DIR_NAMES: Set[str] = {
 }
 
 BINARY_EXTENSIONS: Set[str] = {
-    ".exe", ".dll", ".so", ".dylib", ".bin",
-    ".png", ".jpg", ".jpeg", ".gif", ".ico", ".webp", ".svg",
-    ".pdf", ".doc", ".docx", ".zip", ".tar", ".gz", ".whl",
-    ".pyc", ".pyo", ".pyd", ".class", ".o", ".a", ".jar",
-    ".db", ".sqlite", ".sqlite3", ".wasm", ".ttf", ".woff", ".woff2"
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".bin",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".ico",
+    ".webp",
+    ".svg",
+    ".pdf",
+    ".doc",
+    ".docx",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".whl",
+    ".pyc",
+    ".pyo",
+    ".pyd",
+    ".class",
+    ".o",
+    ".a",
+    ".jar",
+    ".db",
+    ".sqlite",
+    ".sqlite3",
+    ".wasm",
+    ".ttf",
+    ".woff",
+    ".woff2",
 }
 
 
 class ExtractedCodeFile(BaseModel):
     """Represents a validated source code file extracted from a ZIP archive."""
+
     path: str = Field(description="Normalized relative path inside the zip archive")
     filename: str = Field(description="Basename of the file")
     content: str = Field(description="UTF-8 decoded source code text")
@@ -98,6 +127,7 @@ class ExtractedCodeFile(BaseModel):
 
 class ZipExtractionResult(BaseModel):
     """Aggregated outcome of extracting a ZIP archive."""
+
     project_name: str
     total_entries_in_zip: int
     code_files: List[ExtractedCodeFile] = Field(default_factory=list)
@@ -158,7 +188,7 @@ def is_ignored_path(path_str: str) -> bool:
 
 
 def extract_code_from_zip(
-    zip_source: Union[bytes, io.BytesIO, str, Path],
+    zip_source: bytes | io.BytesIO | str | Path,
     project_name: Optional[str] = None,
     max_files: int = MAX_EXTRACTED_CODE_FILES,
     max_total_bytes: int = MAX_TOTAL_UNCOMPRESSED_BYTES,
@@ -178,17 +208,22 @@ def extract_code_from_zip(
     Raises:
         ValueError: If archive is corrupt, malicious (Zip Slip/Bomb), or invalid.
     """
+    archive_file: Any
     if isinstance(zip_source, (str, Path)):
         p = Path(zip_source)
         if not p.exists():
             raise ValueError(f"ZIP file not found at path: {zip_source}")
         if p.stat().st_size > MAX_ZIP_ARCHIVE_BYTES:
-            raise ValueError(f"ZIP archive size ({p.stat().st_size} bytes) exceeds safety maximum of {MAX_ZIP_ARCHIVE_BYTES} bytes.")
+            raise ValueError(
+                f"ZIP archive size ({p.stat().st_size} bytes) exceeds safety maximum of {MAX_ZIP_ARCHIVE_BYTES} bytes."
+            )
         project_name = project_name or p.stem
         archive_file = str(p)
     elif isinstance(zip_source, bytes):
         if len(zip_source) > MAX_ZIP_ARCHIVE_BYTES:
-            raise ValueError(f"ZIP archive size ({len(zip_source)} bytes) exceeds safety maximum of {MAX_ZIP_ARCHIVE_BYTES} bytes.")
+            raise ValueError(
+                f"ZIP archive size ({len(zip_source)} bytes) exceeds safety maximum of {MAX_ZIP_ARCHIVE_BYTES} bytes."
+            )
         archive_file = io.BytesIO(zip_source)
         project_name = project_name or "uploaded_project"
     else:
@@ -265,10 +300,14 @@ def extract_code_from_zip(
                         current_file_bytes += len(chunk)
                         accumulated_bytes += len(chunk)
                         if current_file_bytes > MAX_SINGLE_FILE_BYTES:
-                            logger.warning(f"File {arcname} exceeded single file limit during extraction ({current_file_bytes} bytes)")
+                            logger.warning(
+                                f"File {arcname} exceeded single file limit during extraction ({current_file_bytes} bytes)"
+                            )
                             break
                         if accumulated_bytes > max_total_bytes:
-                            logger.warning("Uncompressed ZIP size exceeded maximum safety threshold. Halting extraction.")
+                            logger.warning(
+                                "Uncompressed ZIP size exceeded maximum safety threshold. Halting extraction."
+                            )
                             break
                         chunks.append(chunk)
 
@@ -288,14 +327,16 @@ def extract_code_from_zip(
                     content_text = raw_bytes.decode("latin-1", errors="replace")
 
                 lines = content_text.count("\n") + (1 if content_text else 0)
-                extracted_files.append(ExtractedCodeFile(
-                    path=arcname,
-                    filename=Path(arcname).name,
-                    content=content_text,
-                    language=lang,
-                    size_bytes=len(raw_bytes),
-                    line_count=lines,
-                ))
+                extracted_files.append(
+                    ExtractedCodeFile(
+                        path=arcname,
+                        filename=Path(arcname).name,
+                        content=content_text,
+                        language=lang,
+                        size_bytes=len(raw_bytes),
+                        line_count=lines,
+                    )
+                )
 
                 total_lines += lines
                 lang_dist[lang] = lang_dist.get(lang, 0) + 1

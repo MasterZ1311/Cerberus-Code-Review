@@ -5,6 +5,7 @@ OpenAI & Azure / OpenRouter Compatible LLM Provider.
 import logging
 import os
 from typing import Optional
+
 from cerberus.config import settings
 from cerberus.providers.base import BaseLLMProvider
 
@@ -12,12 +13,7 @@ logger = logging.getLogger("cerberus.providers.openai")
 
 
 class OpenAIProvider(BaseLLMProvider):
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        model: Optional[str] = None,
-        base_url: Optional[str] = None
-    ):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, base_url: Optional[str] = None):
         super().__init__()
         self.api_key: Optional[str] = api_key or settings.OPENAI_API_KEY
         self.model: str = model or settings.OPENAI_MODEL
@@ -33,7 +29,9 @@ class OpenAIProvider(BaseLLMProvider):
 
     @property
     def effective_base_url(self) -> str:
-        return (self.base_url or settings.OPENAI_BASE_URL or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
+        return (
+            self.base_url or settings.OPENAI_BASE_URL or os.getenv("OPENAI_BASE_URL") or "https://api.openai.com/v1"
+        ).rstrip("/")
 
     async def is_available(self) -> bool:
         key = self.effective_api_key
@@ -44,16 +42,10 @@ class OpenAIProvider(BaseLLMProvider):
             return None
 
         try:
-            headers = {
-                "Authorization": f"Bearer {self.effective_api_key}",
-                "Content-Type": "application/json"
-            }
+            headers = {"Authorization": f"Bearer {self.effective_api_key}", "Content-Type": "application/json"}
             payload = {
                 "model": self.effective_model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
+                "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
                 "temperature": 0.1,
                 "max_tokens": 2048,
             }

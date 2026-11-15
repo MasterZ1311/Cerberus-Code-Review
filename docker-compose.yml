@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   api:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: cerberus-api
     restart: unless-stopped
     ports:
@@ -10,17 +12,19 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8000
-      - ENVIRONMENT=${ENVIRONMENT:-production}
-      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-cerberus}:${DB_PASSWORD:-cerberus_secure_password}@db:5432/${DB_NAME:-cerberus_db}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - SECRET_KEY=${SECRET_KEY:-cerberus_dev_secret_key_change_in_production_32chars}
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-cerberus}:${DB_PASSWORD:-cerberus_dev_password_do_not_use_in_prod}@db:5432/${DB_NAME:-cerberus_db}
       - REDIS_URL=redis://redis:6379/0
       - CACHE_ENABLED=true
       - LLM_PROVIDER=${LLM_PROVIDER:-heuristic}
-      - WATSONX_API_KEY=${WATSONX_API_KEY:-}
-      - WATSONX_PROJECT_ID=${WATSONX_PROJECT_ID:-}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama:11434}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - ENABLED_AGENTS=security,performance,quality,architecture,compliance
-      - SECRET_KEY=${SECRET_KEY:-cerberus_secure_production_secret_key_entropy_993817}
     depends_on:
       db:
         condition: service_healthy
@@ -30,17 +34,18 @@ services:
       - cerberus-network
 
   db:
-    image: postgres:15-alpine
+    image: postgres:15.10-alpine
     container_name: cerberus-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-cerberus}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-cerberus_secure_password}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cerberus_dev_password_do_not_use_in_prod}
       POSTGRES_DB: ${DB_NAME:-cerberus_db}
-    ports:
-      - "5432:5432"
+    # Security: Database is isolated within private internal bridge network; not exposed to host 0.0.0.0
+    expose:
+      - "5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U codevault -d codevault_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-cerberus} -d ${DB_NAME:-cerberus_db}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -51,11 +56,12 @@ services:
       - cerberus-network
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4.2-alpine
     container_name: cerberus-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    # Security: Redis cache is isolated within private internal bridge network; not exposed to host 0.0.0.0
+    expose:
+      - "6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -68,11 +74,11 @@ services:
       - cerberus-network
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.54.1
     container_name: cerberus-prometheus
     restart: unless-stopped
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
@@ -85,13 +91,13 @@ services:
       - cerberus-network
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.3.0
     container_name: cerberus-grafana
     restart: unless-stopped
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin_change_in_production}
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana

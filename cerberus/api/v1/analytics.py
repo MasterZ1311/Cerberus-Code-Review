@@ -3,11 +3,13 @@ Repository and Quality Analytics Endpoints.
 Queries live database records to compute genuine quality, security, and performance metrics.
 """
 
-from datetime import datetime, timezone
 import logging
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import Any, Dict, Optional
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
+
 from cerberus.api.dependencies import verify_api_key
 from cerberus.core.database import AsyncSessionLocal
 from cerberus.models.database import CodeReviewRecord, FindingRecord
@@ -22,7 +24,7 @@ async def get_repository_analytics(
     repo: str,
     from_date: Optional[str] = Query(None, description="ISO format start date"),
     to_date: Optional[str] = Query(None, description="ISO format end date"),
-    api_key: str = Depends(verify_api_key)
+    api_key: str = Depends(verify_api_key),
 ) -> Dict[str, Any]:
     """
     Retrieve historical review performance metrics and quality trajectories for a repository.
@@ -34,8 +36,7 @@ async def get_repository_analytics(
             query = select(CodeReviewRecord)
             if owner != "*" and repo != "*":
                 query = query.where(
-                    (CodeReviewRecord.github_repo_owner == owner) &
-                    (CodeReviewRecord.github_repo_name == repo)
+                    (CodeReviewRecord.github_repo_owner == owner) & (CodeReviewRecord.github_repo_name == repo)
                 )
 
             # Date filtering if provided
@@ -53,7 +54,7 @@ async def get_repository_analytics(
                     pass
 
             result = await session.execute(query)
-            reviews: List[CodeReviewRecord] = result.scalars().all()
+            reviews = list(result.scalars().all())
 
             total_reviews = len(reviews)
             if total_reviews > 0:
@@ -63,14 +64,16 @@ async def get_repository_analytics(
                 review_ids = [r.id for r in reviews]
                 f_stmt = select(FindingRecord).where(FindingRecord.review_id.in_(review_ids))
                 f_res = await session.execute(f_stmt)
-                findings: List[FindingRecord] = f_res.scalars().all()
+                findings = list(f_res.scalars().all())
 
                 vulnerabilities_prevented = sum(
-                    1 for f in findings
+                    1
+                    for f in findings
                     if str(f.severity).lower() in ("critical", "high") or "sec" in str(f.category).lower()
                 )
                 performance_optimizations = sum(
-                    1 for f in findings
+                    1
+                    for f in findings
                     if "perf" in str(f.category).lower() or str(f.agent_name).lower() == "performance"
                 )
 
@@ -109,14 +112,13 @@ async def get_repository_analytics(
             "technical_debt_trajectory": debt_trend,
             "performance_optimizations": performance_optimizations,
             "findings_by_severity": severity_counts,
-        }
+        },
     }
 
 
 @router.get("/trends")
 async def get_global_trends(
-    days: int = Query(30, ge=1, le=365),
-    api_key: str = Depends(verify_api_key)
+    days: int = Query(30, ge=1, le=365), api_key: str = Depends(verify_api_key)
 ) -> Dict[str, Any]:
     """Retrieve macro-level code quality and security trends across all repositories."""
     try:
@@ -137,5 +139,5 @@ async def get_global_trends(
         "period_days": days,
         "total_reviews": total_reviews,
         "average_quality_score": avg_score,
-        "system_status": "operational"
+        "system_status": "operational",
     }

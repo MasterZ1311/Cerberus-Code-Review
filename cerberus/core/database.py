@@ -4,11 +4,16 @@ Supports SQLite (zero-config local) and PostgreSQL (production).
 """
 
 import logging
-from typing import AsyncGenerator
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any, AsyncGenerator, Dict, Optional
+
+from sqlalchemy import delete, text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from cerberus.config import settings
 from cerberus.core.migrations import run_migrations
-from cerberus.models.database import Base
+from cerberus.models.database import Base, CodeReviewRecord
 
 logger = logging.getLogger("cerberus.database")
 
@@ -20,14 +25,13 @@ elif db_url.startswith("postgresql://") and not db_url.startswith("postgresql+as
     db_url = db_url.replace("postgresql://", "postgresql+asyncpg://")
 
 if "sqlite+aiosqlite:///./cerberus.db" in db_url:
-    from pathlib import Path
     if not Path("cerberus.db").exists():
         fallback_db = Path(__file__).resolve().parent.parent.parent / "cerberus.db"
         if fallback_db.exists():
             db_url = f"sqlite+aiosqlite:///{fallback_db.as_posix()}"
 
-connect_args = {}
-engine_kwargs = {
+connect_args: Dict[str, Any] = {}
+engine_kwargs: Dict[str, Any] = {
     "echo": False,
     "future": True,
     "pool_pre_ping": True,
@@ -37,31 +41,23 @@ if "sqlite" in db_url:
     connect_args["check_same_thread"] = False
 else:
     # Enterprise connection pooling for PostgreSQL in production
-    engine_kwargs.update({
-        "pool_size": 20,
-        "max_overflow": 10,
-        "pool_recycle": 3600,
-        "pool_timeout": 30,
-    })
+    engine_kwargs.update(
+        {
+            "pool_size": 20,
+            "max_overflow": 10,
+            "pool_recycle": 3600,
+            "pool_timeout": 30,
+        }
+    )
 
-engine = create_async_engine(
-    db_url,
-    connect_args=connect_args,
-    **engine_kwargs
-)
+engine = create_async_engine(db_url, connect_args=connect_args, **engine_kwargs)
 
-AsyncSessionLocal = async_sessionmaker(
-    bind=engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autoflush=False
-)
+AsyncSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False, autoflush=False)
 
 
 async def warm_connection_pool() -> bool:
     """Pre-warms database connection pool on startup to prevent cold-start latency."""
     try:
-        from sqlalchemy import text
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
         logger.info("Database connection pool warmed successfully.")
@@ -72,7 +68,9 @@ async def warm_connection_pool() -> bool:
 
 
 async def init_db() -> None:
-    """Initialize database tables, warm connections, and seed development credentials."""
+    """Initialize database tables, warm connections, and seed development credentials.
+    Fails closed: raises on initialization or migration failure.
+    """
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
@@ -84,6 +82,7 @@ async def init_db() -> None:
         if settings.ENVIRONMENT.lower() not in ("production", "prod") and settings.DEFAULT_DEV_API_KEY:
             async with AsyncSessionLocal() as session:
                 from sqlalchemy import select
+
                 from cerberus.core.security import hash_api_key
                 from cerberus.models.database import ApiKeyRecord
 
@@ -95,6 +94,7 @@ async def init_db() -> None:
                     dev_record = ApiKeyRecord(
                         key_hash=dev_hash,
                         name="Default Development Key",
+                        tenant_id="dev_tenant",
                         prefix=settings.API_KEY_PREFIX,
                         scopes="review:read,review:write,admin",
                         is_active=True,
@@ -103,18 +103,29 @@ async def init_db() -> None:
                     await session.commit()
                     logger.info(f"Seeded default development API key '{settings.DEFAULT_DEV_API_KEY}'.")
     except Exception as e:
-        logger.warning(f"Database initialization warning: {e}")
+        logger.critical(f"Database initialization failure: {e}")
+        raise
 
 
-async def execute_with_db_retry(
-    fn,
-    max_retries: int = 3,
-    delay: float = 0.1
-):
+async def purge_expired_reviews(retention_days: Optional[int] = None) -> int:
+    """Purge reviews and cascade findings older than retention_days according to data retention policy."""
+    days = retention_days if retention_days is not None else settings.DATA_RETENTION_DAYS
+    cutoff = datetime.now(UTC) - timedelta(days=days)
+    async with AsyncSessionLocal() as session:
+        stmt = delete(CodeReviewRecord).where(CodeReviewRecord.created_at < cutoff)
+        result = await session.execute(stmt)
+        await session.commit()
+        count = getattr(result, "rowcount", 0) or 0
+        logger.info(f"Purged {count} expired review records older than {days} days.")
+        return count
+
+
+async def execute_with_db_retry(fn, max_retries: int = 3, delay: float = 0.1):
     """
     Executes a database transaction with automated retry on transient operational or lock errors.
     """
     import asyncio
+
     for attempt in range(max_retries):
         try:
             return await fn()

@@ -6,39 +6,117 @@ on:
   pull_request:
     branches: [ "main", "MZ-Main", "master" ]
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
-  lint-and-security:
-    name: Code Quality & Security Scan
+  lint-and-static-analysis:
+    name: Lint, Format & Type Checking
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@0b93645e9fea7318edeed2796c01d3ab981bc87a # v5.3.0
         with:
           python-version: "3.11"
           cache: "pip"
 
-      - name: Install dependencies
+      - name: Install Linting & Typing Tools
         run: |
           python -m pip install --upgrade pip
-          pip install ruff bandit
+          pip install ruff bandit mypy
           pip install -r requirements.txt
-          pip install -e .
 
       - name: Ruff Linter Check
         run: |
-          ruff check cerberus/ --select E,F,W --ignore E501,E722 || true
+          ruff check cerberus/
+
+      - name: Ruff Formatter Check
+        run: |
+          ruff format --check cerberus/
+
+      - name: Mypy Static Type Verification
+        run: |
+          mypy cerberus/
 
       - name: Bandit AST Security Analysis
         run: |
-          bandit -r cerberus/ -x cerberus/web/ -ll -ii || true
+          bandit -r cerberus/ -c pyproject.toml
+
+  security-and-supply-chain:
+    name: Dependency Audit, Secret Scan & SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@0b93645e9fea7318edeed2796c01d3ab981bc87a # v5.3.0
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Security Tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit cyclonedx-bom
+
+      - name: Dependency Vulnerability Audit (pip-audit)
+        run: |
+          pip-audit -r requirements.txt
+
+      - name: Secret Scanning (TruffleHog)
+        uses: trufflesecurity/trufflehog@a2ca10c3b2f6efad0544f5fb2b339f4ff8d927d6 # v3.88.2
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified
+
+      - name: Generate CycloneDX SBOM
+        run: |
+          cyclonedx-py requirements requirements.txt -o sbom.json
+
+      - name: Upload SBOM Security Artifact
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: cerberus-cyclonedx-sbom
+          path: sbom.json
+          retention-days: 30
 
   test:
     name: Test Suite (Python ${{ matrix.python-version }})
-    needs: [lint-and-security]
+    needs: [lint-and-static-analysis, security-and-supply-chain]
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15.10-alpine
+        env:
+          POSTGRES_USER: cerberus
+          POSTGRES_PASSWORD: cerberus_ci_test_password
+          POSTGRES_DB: cerberus_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7.4.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     strategy:
       fail-fast: false
       matrix:
@@ -46,10 +124,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@0b93645e9fea7318edeed2796c01d3ab981bc87a # v5.3.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -65,27 +143,52 @@ jobs:
         run: |
           python -m compileall cerberus tests
 
-      - name: Run Test Suite
+      - name: Run Test Suite with Branch Coverage Enforcement
         env:
           ENVIRONMENT: testing
           LLM_PROVIDER: heuristic
           PYTHONPATH: .
+          DATABASE_URL: postgresql+asyncpg://cerberus:cerberus_ci_test_password@localhost:5432/cerberus_test_db
+          REDIS_URL: redis://localhost:6379/0
         run: |
-          python -m pytest tests/ -v --tb=short
+          python -m pytest tests/ -v --tb=short --cov=cerberus --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=85
 
-  docker-build:
-    name: Docker Build Verification
+      - name: Upload Test Coverage Artifact
+        if: matrix.python-version == '3.11'
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: coverage-report
+          path: coverage.xml
+          retention-days: 14
+
+  docker-verification:
+    name: Docker Build & Deployment Smoke Test
+    needs: [test]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
 
       - name: Build Docker Image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@4f58ea79222b3b150c895db3437bb9ee1834d5b4 # v6.9.0
         with:
           context: .
           push: false
           tags: cerberus-ai:ci-test
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@0b93645e9fea7318edeed2796c01d3ab981bc87a # v5.3.0
+        with:
+          python-version: "3.11"
+
+      - name: Install requirements for smoke test
+        run: |
+          pip install -r requirements.txt
+          pip install httpx
+
+      - name: Execute Deployment Smoke Test
+        run: |
+          python scripts/test_deployment_smoke.py

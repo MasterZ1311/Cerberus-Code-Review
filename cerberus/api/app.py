@@ -3,14 +3,16 @@ FastAPI Application Entry Point & Lifecycle Management.
 Includes Prometheus Metrics, CORS, and Embedded Web Dashboard.
 """
 
-from contextlib import asynccontextmanager
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, Response
+
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST
+
 from cerberus import __version__
 from cerberus.api.v1 import agents, analytics, config, health, keys, review
 from cerberus.config import settings
@@ -32,6 +34,7 @@ async def lifespan(app: FastAPI):
     from cerberus.agents.orchestrator import orchestrator
     from cerberus.core.database import engine
     from cerberus.providers import close_all_providers
+
     for agent in orchestrator.registry.values():
         if hasattr(agent, "provider") and hasattr(agent.provider, "close") and agent.provider:
             await agent.provider.close()
@@ -73,6 +76,39 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # HTTP Request Body Size Enforcement Middleware
+    @app.middleware("http")
+    async def enforce_max_request_size(request: Request, call_next):
+        content_length = request.headers.get("content-length")
+        max_bytes = getattr(settings, "MAX_REQUEST_BODY_BYTES", 30 * 1024 * 1024)
+        if content_length:
+            try:
+                if int(content_length) > max_bytes:
+                    return JSONResponse(
+                        status_code=413,
+                        content={
+                            "error": "payload_too_large",
+                            "message": f"Request body exceeds maximum allowed size of {max_bytes} bytes.",
+                        },
+                    )
+            except ValueError:
+                pass
+        return await call_next(request)
+
+    # Global Exception Handler (Prevents Internal Exception Traceback Leakage)
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        logging.getLogger("cerberus.api").exception(
+            f"Unhandled exception during {request.method} {request.url.path}: {exc}"
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": "internal_server_error",
+                "message": "An unexpected internal server error occurred. Request has been logged.",
+            },
+        )
 
     # Include Routers
     app.include_router(health.router)

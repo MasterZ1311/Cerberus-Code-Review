@@ -8,6 +8,7 @@ Supports auto-detection of configured keys, circuit breaker resilience, and per-
 import logging
 import os
 from typing import Dict, Optional
+
 from cerberus.config import settings
 from cerberus.providers.anthropic_provider import AnthropicProvider
 from cerberus.providers.base import BaseLLMProvider, CircuitBreaker, CircuitState
@@ -61,7 +62,11 @@ def get_llm_provider(
     # 1. Check for per-agent provider override if agent_name is given
     target_type = provider_type
     if agent_name:
-        agent_override = getattr(settings, f"{agent_name.upper()}_AGENT_PROVIDER", None) or os.getenv(f"{agent_name.upper()}_AGENT_PROVIDER") or os.getenv(f"{agent_name.upper()}_PROVIDER")
+        agent_override = (
+            getattr(settings, f"{agent_name.upper()}_AGENT_PROVIDER", None)
+            or os.getenv(f"{agent_name.upper()}_AGENT_PROVIDER")
+            or os.getenv(f"{agent_name.upper()}_PROVIDER")
+        )
         if agent_override:
             target_type = agent_override
 

@@ -2,57 +2,48 @@
 Telemetry, Metrics (Prometheus), OpenTelemetry-Compatible Distributed Tracing, and Structured Logging.
 """
 
-from contextlib import asynccontextmanager, contextmanager
 import logging
 import secrets
 import sys
 import time
+from contextlib import asynccontextmanager, contextmanager
 from typing import Any, Dict, List, Optional, Tuple
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+
+from prometheus_client import Counter, Histogram, generate_latest
 
 # Configure application-wide logger
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] [%(name)s]: %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)]
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger("cerberus")
 
 # Prometheus Metrics
 REVIEW_REQUESTS_TOTAL = Counter(
-    "cerberus_review_requests_total",
-    "Total number of code review requests processed",
-    ["status", "language"]
+    "cerberus_review_requests_total", "Total number of code review requests processed", ["status", "language"]
 )
 
 REVIEW_DURATION_SECONDS = Histogram(
     "cerberus_review_duration_seconds",
     "Time spent analyzing code reviews",
-    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0]
+    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
 )
 
 AGENT_EXECUTION_SECONDS = Histogram(
     "cerberus_agent_execution_seconds",
     "Execution duration per agent",
     ["agent_name"],
-    buckets=[0.05, 0.2, 0.5, 1.0, 3.0, 8.0]
+    buckets=[0.05, 0.2, 0.5, 1.0, 3.0, 8.0],
 )
 
 FINDINGS_DETECTED_TOTAL = Counter(
-    "cerberus_findings_detected_total",
-    "Count of findings discovered by agents",
-    ["agent_name", "severity"]
+    "cerberus_findings_detected_total", "Count of findings discovered by agents", ["agent_name", "severity"]
 )
 
-CACHE_HITS_TOTAL = Counter(
-    "cerberus_cache_hits_total",
-    "Number of review requests served directly from cache"
-)
+CACHE_HITS_TOTAL = Counter("cerberus_cache_hits_total", "Number of review requests served directly from cache")
 
-CACHE_MISSES_TOTAL = Counter(
-    "cerberus_cache_misses_total",
-    "Number of review requests requiring fresh agent analysis"
-)
+CACHE_MISSES_TOTAL = Counter("cerberus_cache_misses_total", "Number of review requests requiring fresh agent analysis")
 
 
 def get_prometheus_metrics() -> bytes:
@@ -63,6 +54,7 @@ def get_prometheus_metrics() -> bytes:
 # -------------------------------------------------------------
 # OPENTELEMETRY-COMPATIBLE DISTRIBUTED TRACING
 # -------------------------------------------------------------
+
 
 class Span:
     """
@@ -94,20 +86,25 @@ class Span:
         return self
 
     def add_event(self, name: str, attributes: Optional[Dict[str, Any]] = None) -> "Span":
-        self.events.append({
-            "name": name,
-            "timestamp": time.time(),
-            "attributes": attributes or {},
-        })
+        self.events.append(
+            {
+                "name": name,
+                "timestamp": time.time(),
+                "attributes": attributes or {},
+            }
+        )
         return self
 
     def record_exception(self, exception: BaseException) -> "Span":
         self.status = "ERROR"
         self.error_message = str(exception)
-        self.add_event("exception", {
-            "exception.type": exception.__class__.__name__,
-            "exception.message": str(exception),
-        })
+        self.add_event(
+            "exception",
+            {
+                "exception.type": exception.__class__.__name__,
+                "exception.message": str(exception),
+            },
+        )
         return self
 
     def finish(self) -> "Span":
@@ -265,4 +262,3 @@ class Tracer:
 
 # Global OpenTelemetry-compatible Tracer instance
 tracer = Tracer()
-

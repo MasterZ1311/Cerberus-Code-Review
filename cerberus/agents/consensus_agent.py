@@ -8,6 +8,7 @@ import json
 import logging
 import time
 from typing import Any, Dict, List, Optional
+
 from cerberus.agents.ai_helper import parse_llm_json
 from cerberus.agents.base import BaseAgent
 from cerberus.models.schemas import AgentResult, Finding, SeverityEnum
@@ -31,14 +32,10 @@ class ConsensusAgent(BaseAgent):
             "Security vs. Performance Trade-off Optimization",
             "Unified Merge Readiness Determination (MERGE_READY, NEEDS_REVISION, BLOCKED_ON_ISSUES)",
             "Cross-Domain Vulnerability & Bottleneck Intersection Mapping",
-            "Autonomous Code Review Alignment"
+            "Autonomous Code Review Alignment",
         ]
 
-    def _evaluate_heuristic_consensus(
-        self,
-        findings: List[Finding],
-        agent_scores: Dict[str, float]
-    ) -> Dict[str, Any]:
+    def _evaluate_heuristic_consensus(self, findings: List[Finding], agent_scores: Dict[str, float]) -> Dict[str, Any]:
         """Calculates deterministic consensus metrics across all specialized agent reports."""
         critical_count = sum(1 for f in findings if f.severity == SeverityEnum.CRITICAL)
         high_count = sum(1 for f in findings if f.severity == SeverityEnum.HIGH)
@@ -54,11 +51,9 @@ class ConsensusAgent(BaseAgent):
         for line, line_findings in line_map.items():
             categories = {f.category for f in line_findings}
             if len(categories) > 1:
-                intersections.append({
-                    "line": line,
-                    "categories": list(categories),
-                    "finding_count": len(line_findings)
-                })
+                intersections.append(
+                    {"line": line, "categories": list(categories), "finding_count": len(line_findings)}
+                )
 
         # PR action determination
         min_score = min(agent_scores.values()) if agent_scores else 100.0
@@ -78,7 +73,9 @@ class ConsensusAgent(BaseAgent):
             f"{verdict}"
         )
         if intersections:
-            summary += f" Detected cross-domain overlaps on line(s): {', '.join(str(i['line']) for i in intersections)}."
+            summary += (
+                f" Detected cross-domain overlaps on line(s): {', '.join(str(i['line']) for i in intersections)}."
+            )
 
         priority_plan = []
         if critical_count:
@@ -93,8 +90,12 @@ class ConsensusAgent(BaseAgent):
         # Domain Trade-off Arbitration Matrix
         arbitrations = []
         categories_present = {f.category.lower() for f in findings}
-        has_security = any(c in categories_present for c in ("injection", "secrets", "cryptography", "security", "deserialization"))
-        has_perf = any(c in categories_present for c in ("performance", "algorithmic_complexity", "database", "memory_efficiency"))
+        has_security = any(
+            c in categories_present for c in ("injection", "secrets", "cryptography", "security", "deserialization")
+        )
+        has_perf = any(
+            c in categories_present for c in ("performance", "algorithmic_complexity", "database", "memory_efficiency")
+        )
         has_compliance = any(c in categories_present for c in ("compliance", "hipaa", "gdpr", "pcidss", "ccpa"))
         has_arch = any(c in categories_present for c in ("architecture", "dependency", "circular_import"))
 
@@ -179,7 +180,9 @@ class ConsensusAgent(BaseAgent):
                         # Safety Invariant: Never allow LLM to downgrade BLOCKED_ON_ISSUES to MERGE_READY if critical issues are active
                         critical_count = sum(1 for f in findings if f.severity == SeverityEnum.CRITICAL)
                         if critical_count > 0 and proposed_action == "MERGE_READY":
-                            logger.warning("Safety Invariant Enforced: Refusing LLM attempt to downgrade critical blocking verdict to MERGE_READY.")
+                            logger.warning(
+                                "Safety Invariant Enforced: Refusing LLM attempt to downgrade critical blocking verdict to MERGE_READY."
+                            )
                             consensus_data["pr_action"] = "BLOCKED_ON_ISSUES"
                         else:
                             consensus_data["pr_action"] = proposed_action
@@ -196,23 +199,29 @@ class ConsensusAgent(BaseAgent):
         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
 
         plan = consensus_data.get("priority_action_plan", [])
-        recommendation_str = " • ".join(plan) if plan else "Review and address the prioritized action items agreed upon by the multi-agent review team."
+        recommendation_str = (
+            " • ".join(plan)
+            if plan
+            else "Review and address the prioritized action items agreed upon by the multi-agent review team."
+        )
 
         # Create finding representing the consensus decision
         consensus_finding = Finding(
             id="COLLAB-CONSENSUS-001",
-            severity=SeverityEnum.CRITICAL if consensus_data["pr_action"] == "BLOCKED_ON_ISSUES" else (
-                SeverityEnum.MEDIUM if consensus_data["pr_action"] == "NEEDS_REVISION" else SeverityEnum.INFO
-            ),
+            severity=SeverityEnum.CRITICAL
+            if consensus_data["pr_action"] == "BLOCKED_ON_ISSUES"
+            else (SeverityEnum.MEDIUM if consensus_data["pr_action"] == "NEEDS_REVISION" else SeverityEnum.INFO),
             category="consensus",
             title=f"Multi-Agent Consensus: {consensus_data['pr_action'].replace('_', ' ')}",
             message=consensus_data["consensus_summary"],
             explanation=consensus_data.get("verdict"),
-            recommendation=recommendation_str
+            recommendation=recommendation_str,
         )
 
-        score = 100.0 if consensus_data["pr_action"] == "MERGE_READY" else (
-            50.0 if consensus_data["pr_action"] == "NEEDS_REVISION" else 20.0
+        score = (
+            100.0
+            if consensus_data["pr_action"] == "MERGE_READY"
+            else (50.0 if consensus_data["pr_action"] == "NEEDS_REVISION" else 20.0)
         )
 
         return AgentResult(
@@ -224,21 +233,14 @@ class ConsensusAgent(BaseAgent):
         )
 
     async def reach_consensus(
-        self,
-        findings: List[Finding],
-        scores: Dict[str, float],
-        code: str = ""
+        self, findings: List[Finding], scores: Dict[str, float], code: str = ""
     ) -> Dict[str, Any]:
         """Convenience method to calculate consensus directly from findings and scores."""
         return self._evaluate_heuristic_consensus(findings, scores)
 
     async def generate_consensus(
-        self,
-        code: str,
-        findings: List[Finding],
-        agent_scores: Dict[str, float],
-        language: str = "python"
+        self, code: str, findings: List[Finding], agent_scores: Dict[str, float], language: str = "python"
     ) -> Dict[str, Any]:
         """Convenience method for direct consensus generation."""
-        res = await self.analyze(code, language=language, context={"findings": findings, "agent_scores": agent_scores})
+        _ = await self.analyze(code, language=language, context={"findings": findings, "agent_scores": agent_scores})
         return self._evaluate_heuristic_consensus(findings, agent_scores)

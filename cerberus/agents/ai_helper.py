@@ -7,6 +7,7 @@ import json
 import logging
 import re
 from typing import Any, Dict, List, Optional
+
 from cerberus.models.schemas import Finding, SeverityEnum
 
 logger = logging.getLogger("cerberus.agents.ai_helper")
@@ -159,14 +160,18 @@ def merge_findings(
             if l_idx in used_llm_indices:
                 continue
 
-            same_line = (hf.line is not None and lf.line is not None and hf.line == lf.line)
-            same_cat = (hf.category.lower() == lf.category.lower())
+            same_line = hf.line is not None and lf.line is not None and hf.line == lf.line
+            same_cat = hf.category.lower() == lf.category.lower()
 
             if same_line or (same_cat and (hf.line is None or lf.line is None)):
                 # Enrich heuristic finding with deeper LLM explanation & suggestion
-                if lf.explanation and (not enriched_hf.explanation or len(lf.explanation) > len(enriched_hf.explanation)):
+                if lf.explanation and (
+                    not enriched_hf.explanation or len(lf.explanation) > len(enriched_hf.explanation)
+                ):
                     enriched_hf.explanation = lf.explanation
-                if lf.recommendation and (not enriched_hf.recommendation or len(lf.recommendation) > len(enriched_hf.recommendation)):
+                if lf.recommendation and (
+                    not enriched_hf.recommendation or len(lf.recommendation) > len(enriched_hf.recommendation)
+                ):
                     enriched_hf.recommendation = lf.recommendation
                 if lf.suggestion and not enriched_hf.suggestion:
                     enriched_hf.suggestion = lf.suggestion
@@ -226,11 +231,7 @@ def compute_composite_score(
     # (score == 100) but the LLM-derived findings are pulling the score below 70,
     # apply a floor of 70 to prevent a hallucinating LLM from destroying a
     # heuristically-pristine result.
-    if (
-        heuristic_score is not None
-        and heuristic_score >= 100.0
-        and final < 70.0
-    ):
+    if heuristic_score is not None and heuristic_score >= 100.0 and final < 70.0:
         final = 70.0
 
     return round(max(0.0, min(100.0, final)), 1)

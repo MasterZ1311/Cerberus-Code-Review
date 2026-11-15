@@ -4,6 +4,7 @@ Supports HIPAA, GDPR, SOC 2, PCI-DSS, and CCPA.
 """
 
 from cerberus.agents.compliance.agent import ComprehensiveComplianceAgent
+from cerberus.agents.compliance.luhn import mask_pan, validate_luhn
 from cerberus.agents.compliance.models import (
     ComplianceCheck,
     ComplianceReport,
@@ -12,7 +13,6 @@ from cerberus.agents.compliance.models import (
     FrameworkType,
     RemediationTimeline,
 )
-from cerberus.agents.compliance.luhn import validate_luhn, mask_pan
 
 __all__ = [
     "ComprehensiveComplianceAgent",

@@ -6,6 +6,7 @@ Supports Llama 3.3 70B, Llama 3.1 8B, Mixtral, and DeepSeek-R1 via Groq's LPUs.
 import logging
 import os
 from typing import Optional
+
 from cerberus.config import settings
 from cerberus.providers.base import BaseLLMProvider
 
@@ -41,10 +42,7 @@ class GroqProvider(BaseLLMProvider):
             }
             payload = {
                 "model": self.effective_model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
+                "messages": [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
                 "temperature": 0.1,
                 "max_tokens": 2048,
             }

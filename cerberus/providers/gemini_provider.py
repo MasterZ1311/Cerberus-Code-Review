@@ -6,6 +6,7 @@ Supports Gemini 1.5 Flash, Gemini 1.5 Pro, and Gemini 2.0 Flash via Google Gener
 import logging
 import os
 from typing import Optional
+
 from cerberus.config import settings
 from cerberus.providers.base import BaseLLMProvider
 
@@ -39,12 +40,7 @@ class GeminiProvider(BaseLLMProvider):
             client = await self.get_client()
             headers = {"Content-Type": "application/json"}
             payload = {
-                "contents": [
-                    {
-                        "role": "user",
-                        "parts": [{"text": f"{system_prompt}\n\nUser Request:\n{user_prompt}"}]
-                    }
-                ],
+                "contents": [{"role": "user", "parts": [{"text": f"{system_prompt}\n\nUser Request:\n{user_prompt}"}]}],
                 "generationConfig": {
                     "temperature": 0.1,
                     "maxOutputTokens": 2048,
@@ -55,8 +51,8 @@ class GeminiProvider(BaseLLMProvider):
             for api_version in ("v1", "v1beta"):
                 url = f"https://generativelanguage.googleapis.com/{api_version}/models/{model}:generateContent?key={self.effective_api_key}"
 
-                async def _req():
-                    return await client.post(url, json=payload, headers=headers, timeout=25.0)
+                async def _req(target_url=url):
+                    return await client.post(target_url, json=payload, headers=headers, timeout=25.0)
 
                 res = await self.execute_request_with_retry(_req)
                 if res is not None and getattr(res, "status_code", 0) == 200:

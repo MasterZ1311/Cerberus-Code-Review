@@ -19,7 +19,6 @@ from cerberus.agents.compliance.ccpa_evaluator import CCPARegulatoryEvaluator
 from cerberus.agents.compliance.gdpr_evaluator import GDPRRegulatoryEvaluator
 from cerberus.agents.compliance.hipaa_evaluator import HIPAARegulatoryEvaluator
 from cerberus.agents.compliance.models import (
-    ComplianceCheck,
     ComplianceReport,
     ComplianceStatus,
     FrameworkScore,
@@ -56,7 +55,7 @@ class ComprehensiveComplianceAgent(BaseAgent):
             "PCI-DSS v4.0 (Req 3.2, 3.4, 3.5 - PAN Luhn Validation, CVV Storage Prohibition)",
             "CCPA / CPRA (§1798.105, §1798.120 - Do-Not-Sell Opt-Out, DSAR Verification)",
             "Automated Regulatory Remediation Timelines & SLA Generation",
-            "Multi-Framework Individual Compliance Scoring Matrix"
+            "Multi-Framework Individual Compliance Scoring Matrix",
         ]
 
     def _evaluate_synchronously(self, code: str, language: str) -> ComplianceReport:
@@ -121,7 +120,7 @@ class ComprehensiveComplianceAgent(BaseAgent):
                 critical_violations=crit_cnt,
                 high_violations=high_cnt,
                 medium_violations=med_cnt,
-                findings=findings
+                findings=findings,
             )
 
         # Calculate overall compliance score directly from total findings
@@ -148,34 +147,25 @@ class ComprehensiveComplianceAgent(BaseAgent):
             overall_compliance_score=overall_score,
             overall_status=overall_status,
             frameworks=framework_scores,
-            remediation_timeline=RemediationTimeline(
-                estimated_remediation_hours=round(total_hours, 1)
-            ),
+            remediation_timeline=RemediationTimeline(estimated_remediation_hours=round(total_hours, 1)),
             audit_trail=[
                 f"HIPAA: {framework_scores['HIPAA'].score}% ({framework_scores['HIPAA'].status.value})",
                 f"GDPR: {framework_scores['GDPR'].score}% ({framework_scores['GDPR'].status.value})",
                 f"SOC 2: {framework_scores['SOC2'].score}% ({framework_scores['SOC2'].status.value})",
                 f"PCI-DSS: {framework_scores['PCI-DSS'].score}% ({framework_scores['PCI-DSS'].status.value})",
                 f"CCPA: {framework_scores['CCPA'].score}% ({framework_scores['CCPA'].status.value})",
-            ]
+            ],
         )
         return report
 
     async def analyze(
-        self,
-        code: str,
-        language: str = "python",
-        context: Optional[Dict[str, Any]] = None
+        self, code: str, language: str = "python", context: Optional[Dict[str, Any]] = None
     ) -> AgentResult:
         """Analyze code asynchronously across all regulatory compliance frameworks."""
         start_time = time.perf_counter()
 
         # 1. Safely offload regex and AST evaluation to threadpool
-        report: ComplianceReport = await asyncio.to_thread(
-            self._evaluate_synchronously,
-            code,
-            language
-        )
+        report: ComplianceReport = await asyncio.to_thread(self._evaluate_synchronously, code, language)
 
         all_findings: List[Finding] = []
         for fs in report.frameworks.values():
@@ -248,5 +238,5 @@ class ComprehensiveComplianceAgent(BaseAgent):
             status="completed",
             score=round(final_score, 1),
             execution_time_ms=elapsed_ms,
-            findings=all_findings
+            findings=all_findings,
         )

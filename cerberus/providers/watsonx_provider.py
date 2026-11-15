@@ -7,7 +7,7 @@ import logging
 import os
 import time
 from typing import Optional
-import httpx
+
 from cerberus.config import settings
 from cerberus.providers.base import BaseLLMProvider
 
@@ -38,7 +38,9 @@ class WatsonxProvider(BaseLLMProvider):
 
     @property
     def effective_model_id(self) -> str:
-        return self.model_id or settings.WATSONX_MODEL_ID or os.getenv("WATSONX_MODEL_ID") or "ibm/granite-3-8b-instruct"
+        return (
+            self.model_id or settings.WATSONX_MODEL_ID or os.getenv("WATSONX_MODEL_ID") or "ibm/granite-3-8b-instruct"
+        )
 
     async def is_available(self) -> bool:
         return bool(self.effective_api_key and self.effective_project_id)

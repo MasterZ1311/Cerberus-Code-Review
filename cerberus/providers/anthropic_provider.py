@@ -6,6 +6,7 @@ Supports Claude 3.5 Sonnet, Claude 3.5 Haiku, and Claude 3 Opus via standard Ant
 import logging
 import os
 from typing import Optional
+
 from cerberus.config import settings
 from cerberus.providers.base import BaseLLMProvider
 
@@ -44,9 +45,7 @@ class AnthropicProvider(BaseLLMProvider):
                 "model": self.effective_model,
                 "max_tokens": 2048,
                 "system": system_prompt,
-                "messages": [
-                    {"role": "user", "content": user_prompt}
-                ],
+                "messages": [{"role": "user", "content": user_prompt}],
                 "temperature": 0.1,
             }
             client = await self.get_client()

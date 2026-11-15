@@ -1,12 +1,14 @@
 """
 Zero-Downtime Asynchronous Schema Migration Engine for cerberus</>.
 Supports forward migrations with revision tracking on SQLite and PostgreSQL.
+Fails closed upon unexpected migration failures to protect data integrity.
 """
 
-from datetime import datetime, timezone
 import hashlib
 import logging
+from datetime import UTC, datetime
 from typing import List, Tuple
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -24,36 +26,75 @@ MIGRATIONS: List[Tuple[str, str, str]] = [
             checksum VARCHAR(64) NOT NULL,
             applied_at TIMESTAMP NOT NULL
         );
-        """
+        """,
     ),
     (
         "002_review_approval_columns",
         "Add manual approval tracking columns to code_reviews",
         """
-        -- Handled safely via column existence check or table creation
         SELECT 1;
+        """,
+    ),
+    (
+        "003_multitenancy_and_config",
+        "Ensure runtime_config and multi-tenant attribution columns exist",
         """
+        CREATE TABLE IF NOT EXISTS runtime_config (
+            key VARCHAR(64) PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TIMESTAMP NOT NULL
+        );
+        """,
     ),
 ]
+
+
+async def _migrate_multitenancy_columns(conn) -> None:
+    """Ensure multi-tenant and ownership columns exist on pre-existing database tables."""
+    dialect = conn.dialect.name
+    columns_to_ensure = [
+        ("api_keys", "tenant_id", "VARCHAR(64)"),
+        ("code_reviews", "owner_id", "VARCHAR(64)"),
+        ("review_findings", "owner_id", "VARCHAR(64)"),
+        ("review_feedback", "owner_id", "VARCHAR(64)"),
+    ]
+    for table, col, col_type in columns_to_ensure:
+        try:
+            if dialect == "sqlite":
+                res = await conn.execute(text(f"PRAGMA table_info({table});"))
+                existing_cols = {row[1] for row in res.fetchall()}
+                if existing_cols and col not in existing_cols:
+                    logger.info(f"Adding column '{col}' to table '{table}'")
+                    await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type};"))
+            else:
+                await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type};"))
+        except Exception as e:
+            logger.debug(f"Schema migration column check ({table}.{col}): {e}")
 
 
 async def run_migrations(engine: AsyncEngine) -> int:
     """
     Executes pending migrations sequentially inside transactions.
+    Fails closed: raises an exception if any migration fails.
     Returns the count of newly applied migrations.
     """
     applied_count = 0
     try:
         async with engine.begin() as conn:
             # 1. Ensure migrations ledger table exists
-            await conn.execute(text("""
+            await conn.execute(
+                text("""
                 CREATE TABLE IF NOT EXISTS schema_migrations (
                     version VARCHAR(64) PRIMARY KEY,
                     description VARCHAR(255) NOT NULL,
                     checksum VARCHAR(64) NOT NULL,
                     applied_at TIMESTAMP NOT NULL
                 );
-            """))
+            """)
+            )
+
+            # 2. Ensure multi-tenant schema columns are present
+            await _migrate_multitenancy_columns(conn)
 
             # 2. Query already applied versions
             result = await conn.execute(text("SELECT version FROM schema_migrations;"))
@@ -64,30 +105,25 @@ async def run_migrations(engine: AsyncEngine) -> int:
                 if version not in applied_versions:
                     logger.info(f"Applying schema migration '{version}': {description}")
                     if sql_stmt.strip():
-                        # Execute individual statements
                         for stmt in sql_stmt.strip().split(";"):
                             clean_stmt = stmt.strip()
                             if clean_stmt:
                                 await conn.execute(text(clean_stmt))
 
                     checksum = hashlib.sha256(sql_stmt.encode("utf-8")).hexdigest()
-                    now = datetime.now(timezone.utc)
+                    now = datetime.now(UTC)
                     await conn.execute(
                         text("""
                             INSERT INTO schema_migrations (version, description, checksum, applied_at)
                             VALUES (:version, :description, :checksum, :applied_at);
                         """),
-                        {
-                            "version": version,
-                            "description": description,
-                            "checksum": checksum,
-                            "applied_at": now
-                        }
+                        {"version": version, "description": description, "checksum": checksum, "applied_at": now},
                     )
                     applied_count += 1
                     logger.info(f"Schema migration '{version}' applied successfully.")
 
     except Exception as e:
-        logger.warning(f"Schema migration notification: {e}")
+        logger.critical(f"Schema migration failed on {version if 'version' in locals() else 'ledger'}: {e}")
+        raise
 
     return applied_count

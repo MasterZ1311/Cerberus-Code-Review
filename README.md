@@ -13,8 +13,9 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg" alt="Python: 3.11+"></a>
   <a href="https://github.com/MasterZ1311/MultiAgent-CodeReview/actions/workflows/ci.yml"><img src="https://github.com/MasterZ1311/MultiAgent-CodeReview/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
-  <a href="tests/"><img src="https://img.shields.io/badge/tests-495%20passed-brightgreen.svg" alt="Tests Passing"></a>
-  <a href="reports/MASTER_ENGINEERING_AUDIT.md"><img src="https://img.shields.io/badge/Score-10%2F10%20(Master%20Standard)-success.svg" alt="Overall Score"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/tests-536%20passed-brightgreen.svg" alt="Tests Passing"></a>
+  <a href="pyproject.toml"><img src="https://img.shields.io/badge/coverage-85.36%25%20branch-brightgreen.svg" alt="Coverage: 85.36% Branch"></a>
+  <a href="reports/MASTER_ENGINEERING_AUDIT.md"><img src="https://img.shields.io/badge/Score-10%2F10%20(Production%20Verified)-success.svg" alt="Overall Score"></a>
   <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"></a>
 </p>
 
@@ -39,7 +40,7 @@
 > **Think of building software like constructing a skyscraper or modern house.**  
 > Before opening the building to the public, you would never rely on just one generalist inspector to check everything. You bring in **specialized licensed inspectors**: an electrician to check wiring, a plumber to check pipes, a structural engineer to check the foundation, and a fire marshal to check safety laws.
 
-**cerberus</>** does exactly this for computer code—automatically, in just **14 milliseconds**!
+**cerberus</>** does exactly this for computer code—automatically, in **~17.5 milliseconds** (cold heuristic AST) and sub-millisecond (**<0.3 ms** cached), with reproducible benchmarks committed in `scripts/benchmark_review.py`!
 
 Whenever programmers write new software, Cerberus sends in a team of **7 specialized AI detectives** who review every line of code simultaneously. They deliberate together, reach a shared verdict, and **automatically write the exact fix** so your team can release software with complete confidence.
 
@@ -103,7 +104,7 @@ Cerberus is completely model-agnostic. Use **any provider you already have** or 
 
 | Provider | Mode | Best For | Free Tier Available? |
 | :--- | :--- | :--- | :--- |
-| **Heuristic Engine** | Offline / Local | Zero latency (14ms), zero cost, no internet needed | ✅ 100% Free Forever |
+| **Heuristic Engine** | Offline / Local | Zero cloud cost, offline privacy (~17.5ms cold, <0.3ms cached) | ✅ 100% Free Forever |
 | **Groq** | Cloud API | Ultra-fast inference (<500ms) with Llama 3 models | ✅ Generous Free Tier |
 | **Google Gemini** | Cloud API | Deep architectural analysis with Gemini 1.5/2.0 | ✅ Free Tier Available |
 | **Ollama** | Local / Offline | 100% private, runs local open models (e.g. DeepSeek-R1) | ✅ 100% Free & Open |
@@ -287,15 +288,17 @@ curl http://localhost:8000/metrics
 
 ## 🧪 Testing, Quality & Verification
 
-Cerberus has **454+ automated tests across 29 test suites** running in CI across Python 3.11, 3.12, and 3.13:
+Cerberus has **536 automated tests across 32 test suites with 85.36% enforced branch coverage** running in CI across Python 3.11, 3.12, and 3.13:
 
 ```bash
-# Run full automated test suite
-python -m pytest tests/ -q --tb=short
+# Run full automated test suite with enforced branch coverage
+python -m pytest --cov=cerberus --cov-branch --cov-report=term-missing
 ```
 
 ```
-============================== 454 passed in 48.12s ==============================
+TOTAL                                             5317    592   1786    302    85%
+Required test coverage of 85.0% reached. Total coverage: 85.36%
+======================= 536 passed in 71.81s ========================
 ```
 
 - **🛡️ Master Hostile Verification Suite (`tests/test_perfect_10_master_coverage.py`):** 22 comprehensive end-to-end test cases exercising CLI subcommands, API v1 routes, SingleFlight cache stampede coalescing, zlib payload compression, DB retry resilience, and polyglot syntax verification.
@@ -359,6 +362,17 @@ python -m pytest tests/ -q --tb=short
                          │  • Ollama (Private Local)     │
                          └───────────────────────────────┘
 ```
+
+---
+
+## 🔒 Enterprise Deployment, Hardening & Security Policy
+
+Cerberus provides verified infrastructure-as-code and security manifests for production:
+
+- 🐳 **Multi-Stage Container Image (`Dockerfile`):** Unprivileged runtime user (`cerberus`, UID `10001`), immutable non-editable wheels, pinned base image (`python:3.11.9-slim-bookworm`), and native curl-based healthchecks.
+- 🌐 **Isolated Compose Network (`docker-compose.yml`):** Internal container-only network `cerberus_net`, PostgreSQL (`5432`) and Redis (`6379`) ports completely unexposed to host/public networks, strict healthcheck dependency gating.
+- ☸️ **Production Kubernetes Topology (`k8s/`):** Committed [`deployment.yaml`](k8s/deployment.yaml) and [`service.yaml`](k8s/service.yaml) featuring `readOnlyRootFilesystem`, `drop: ["ALL"]` capabilities, resource requests/limits, and truthful `/api/v1/health/ready` probe integration.
+- 🛡️ **Static Analysis Security Testing (`semgrep.yaml`):** Enforced SAST rules catching SQL injection patterns (CWE-89) and hard-coded production secrets (CWE-798).
 
 ---
 

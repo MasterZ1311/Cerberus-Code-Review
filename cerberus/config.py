@@ -5,9 +5,9 @@ Supports loading from environment variables and .env files.
 
 from pathlib import Path
 from typing import List, Optional
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, model_validator
 
+from pydantic import model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 INSECURE_DEFAULT_SECRETS = {
     "cerberus_dev_secret_key_change_in_production_32chars",
@@ -30,11 +30,7 @@ _ENV_FALLBACK = str(Path(__file__).resolve().parent.parent / ".env")
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=(".env", _ENV_FALLBACK),
-        env_file_encoding="utf-8",
-        extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=(".env", _ENV_FALLBACK), env_file_encoding="utf-8", extra="ignore")
 
     # Server Settings
     HOST: str = "0.0.0.0"
@@ -55,9 +51,16 @@ class Settings(BaseSettings):
 
     # GitHub App & Webhook Settings
     GITHUB_WEBHOOK_SECRET: Optional[str] = None
+    ALLOW_INSECURE_LOCAL_WEBHOOKS: bool = False
     GITHUB_TOKEN: Optional[str] = None
     GITHUB_APP_ID: Optional[str] = None
     GITHUB_APP_PRIVATE_KEY: Optional[str] = None
+
+    # Source Code Retention & Privacy Controls
+    RETAIN_SOURCE_CODE: bool = False
+    DATA_RETENTION_DAYS: int = 30
+    MAX_ZIP_UPLOAD_BYTES: int = 25 * 1024 * 1024  # 25 MB
+    MAX_REQUEST_BODY_BYTES: int = 30 * 1024 * 1024  # 30 MB
 
     # Tree-sitter Multi-Language AST Engine
     ENABLE_TREE_SITTER: bool = True
@@ -69,7 +72,9 @@ class Settings(BaseSettings):
     CACHE_MAX_ITEMS: int = 1000
 
     # LLM Provider Configuration (Supports multi-provider, auto-detection, and per-agent routing)
-    LLM_PROVIDER: str = "auto"  # Options: auto, openai, anthropic, gemini, groq, deepseek, openrouter, ollama, heuristic, watsonx
+    LLM_PROVIDER: str = (
+        "auto"  # Options: auto, openai, anthropic, gemini, groq, deepseek, openrouter, ollama, heuristic, watsonx
+    )
 
     # Provider Credentials & Model Settings
     OPENAI_API_KEY: Optional[str] = None
@@ -143,10 +148,13 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "Production configuration error: SECRET_KEY must be at least 32 characters long in production."
                 )
+            if self.ALLOW_INSECURE_LOCAL_WEBHOOKS:
+                raise ValueError(
+                    "Production configuration error: ALLOW_INSECURE_LOCAL_WEBHOOKS cannot be enabled in production."
+                )
             # In production, automatically nullify default dev key to ensure dev fallback is disabled
             if self.DEFAULT_DEV_API_KEY and (
-                self.DEFAULT_DEV_API_KEY in INSECURE_DEFAULT_DEV_KEYS
-                or "dev_key" in self.DEFAULT_DEV_API_KEY.lower()
+                self.DEFAULT_DEV_API_KEY in INSECURE_DEFAULT_DEV_KEYS or "dev_key" in self.DEFAULT_DEV_API_KEY.lower()
             ):
                 self.DEFAULT_DEV_API_KEY = None
         return self

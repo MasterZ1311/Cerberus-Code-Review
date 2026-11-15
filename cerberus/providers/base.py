@@ -2,12 +2,13 @@
 Base Abstract Interface for LLM Providers with Built-in Circuit Breaker & Retry Resilience.
 """
 
-from abc import ABC, abstractmethod
 import asyncio
-from enum import Enum
 import logging
 import time
-from typing import Any, Callable, Dict, Optional
+from abc import ABC, abstractmethod
+from enum import Enum
+from typing import Any, Callable, Optional
+
 import httpx
 
 logger = logging.getLogger("cerberus.providers.base")
@@ -24,6 +25,7 @@ class CircuitBreaker:
     Fail-fast Circuit Breaker preventing cascading timeouts during cloud provider outages.
     Automatically trips after consecutive errors and recovers gracefully.
     """
+
     def __init__(self, failure_threshold: int = 3, recovery_timeout: float = 30.0):
         self.failure_threshold = failure_threshold
         self.recovery_timeout = recovery_timeout

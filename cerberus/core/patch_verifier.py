@@ -4,10 +4,11 @@ Validates generated patches in-memory without executing untrusted code:
 Stages: GENERATED -> SYNTAX_VALID -> APPLIED_CLEANLY -> STATIC_ANALYSIS_PASSED -> REGRESSION_FREE.
 """
 
-from enum import Enum
 import difflib
 import logging
-from typing import Any, Dict, List, Optional
+from enum import Enum
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
 
 from cerberus.core.syntax_verifier import SyntaxVerifier
@@ -55,10 +56,7 @@ class PatchVerificationPipeline:
         original_findings: Optional[List[Finding]] = None,
     ) -> PatchVerificationResult:
         orig_findings = original_findings or []
-        result = PatchVerificationResult(
-            original_findings_count=len(orig_findings),
-            repaired_code=repaired_code
-        )
+        result = PatchVerificationResult(original_findings_count=len(orig_findings), repaired_code=repaired_code)
 
         # 1. Stage: GENERATED
         if not repaired_code or not repaired_code.strip():
@@ -81,13 +79,9 @@ class PatchVerificationPipeline:
         # 3. Stage: APPLIED_CLEANLY (In-Memory Unified Diff Verification)
         orig_lines = original_code.splitlines(keepends=False)
         rep_lines = repaired_code.splitlines(keepends=False)
-        diff = list(difflib.unified_diff(
-            orig_lines,
-            rep_lines,
-            fromfile=f"a/{filename}",
-            tofile=f"b/{filename}",
-            lineterm=""
-        ))
+        diff = list(
+            difflib.unified_diff(orig_lines, rep_lines, fromfile=f"a/{filename}", tofile=f"b/{filename}", lineterm="")
+        )
         result.patch_diff = "\n".join(diff) + "\n" if diff else ""
 
         if not diff and original_code == repaired_code:
@@ -100,7 +94,9 @@ class PatchVerificationPipeline:
 
         # 4. Stage: STATIC_ANALYSIS_PASSED
         sec_findings, sec_score = HeuristicEngine.analyze_security(repaired_code, language=language, filename=filename)
-        perf_findings, perf_score = HeuristicEngine.analyze_performance(repaired_code, language=language, filename=filename)
+        perf_findings, perf_score = HeuristicEngine.analyze_performance(
+            repaired_code, language=language, filename=filename
+        )
         qual_findings, qual_score = HeuristicEngine.analyze_quality(repaired_code, language=language, filename=filename)
 
         new_all_findings = sec_findings + perf_findings + qual_findings

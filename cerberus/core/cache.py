@@ -2,6 +2,7 @@
 Two-Tier Caching System: Redis with Automatic In-Memory Fallback.
 Features SingleFlight Stampede (Thundering Herd) Protection,
 Transparent Payload Compression, and SHA-256 Request Fingerprinting.
+Includes Short-Lived Scoped One-Time Stream Token Management.
 """
 
 import asyncio
@@ -9,10 +10,12 @@ import base64
 import hashlib
 import json
 import logging
+import secrets
 import time
 import zlib
 from collections import OrderedDict
 from typing import Any, Callable, Coroutine, Dict, List, Optional, TypeVar
+
 from cerberus.config import settings
 
 logger = logging.getLogger("cerberus.cache")
@@ -67,8 +70,9 @@ class CacheManager:
         self.enabled = settings.CACHE_ENABLED
         self.ttl = settings.CACHE_TTL_SECONDS
         self.max_items = max_items if max_items is not None else settings.CACHE_MAX_ITEMS
-        self.redis_client = None
+        self.redis_client: Optional[Any] = None
         self._memory_cache: OrderedDict[str, Dict[str, Any]] = OrderedDict()
+        self._stream_tokens: Dict[str, Dict[str, Any]] = {}
         self.singleflight = SingleFlight()
         self.stats = {
             "hits": 0,
@@ -87,11 +91,8 @@ class CacheManager:
 
         try:
             import redis.asyncio as aioredis
-            client = aioredis.from_url(
-                settings.REDIS_URL,
-                decode_responses=True,
-                socket_connect_timeout=1.5
-            )
+
+            client = aioredis.from_url(settings.REDIS_URL, decode_responses=True, socket_connect_timeout=1.5)
             # Ping to verify
             await client.ping()
             self.redis_client = client
@@ -102,7 +103,11 @@ class CacheManager:
 
     async def close(self) -> None:
         if self.redis_client:
-            await self.redis_client.close()
+            try:
+                await self.redis_client.close()
+            except Exception:
+                pass
+            self.redis_client = None
 
     def compute_cache_key(
         self,
@@ -118,9 +123,17 @@ class CacheManager:
         normalized_code = (code or "").strip().replace("\r\n", "\n")
         safe_lang = (language or "python").lower()
         agents_str = ",".join(sorted(agents or []))
-        
-        ctx_dict = context.model_dump() if hasattr(context, "model_dump") else (context if isinstance(context, dict) else {})
-        cfg_dict = config.model_dump() if hasattr(config, "model_dump") else (config if isinstance(config, dict) else {})
+
+        ctx_dict = (
+            context.model_dump()
+            if (context is not None and hasattr(context, "model_dump"))
+            else (context if isinstance(context, dict) else {})
+        )
+        cfg_dict = (
+            config.model_dump()
+            if (config is not None and hasattr(config, "model_dump"))
+            else (config if isinstance(config, dict) else {})
+        )
         ctx_str = json.dumps(ctx_dict, sort_keys=True) if ctx_dict else ""
         cfg_str = json.dumps(cfg_dict, sort_keys=True) if cfg_dict else ""
         fn_str = (filename or "").strip()
@@ -132,7 +145,14 @@ class CacheManager:
 
     def _encode_payload(self, value: Dict[str, Any]) -> str:
         """Serializes payload with automatic zlib compression for large objects."""
-        raw_json = json.dumps(value)
+        # Source code retention enforcement
+        val_copy = dict(value)
+        if not getattr(settings, "RETAIN_SOURCE_CODE", False):
+            # Redact raw code snippet from cache payload
+            if "code_snippet" in val_copy:
+                val_copy["code_snippet"] = "[REDACTED BY PRIVACY POLICY]"
+
+        raw_json = json.dumps(val_copy)
         if len(raw_json.encode("utf-8")) > self.COMPRESSION_THRESHOLD_BYTES:
             compressed = zlib.compress(raw_json.encode("utf-8"), level=6)
             b64_str = base64.b64encode(compressed).decode("ascii")
@@ -189,10 +209,7 @@ class CacheManager:
             while len(self._memory_cache) >= self.max_items and self._memory_cache:
                 self._memory_cache.popitem(last=False)
 
-        self._memory_cache[key] = {
-            "data": value,
-            "expires_at": time.time() + ttl
-        }
+        self._memory_cache[key] = {"data": value, "expires_at": time.time() + ttl}
 
     async def set(self, key: str, value: Dict[str, Any], ttl_seconds: Optional[int] = None) -> None:
         if not self.enabled:
@@ -230,6 +247,9 @@ class CacheManager:
                 logger.warning(f"Redis DELETE failed for key {key}: {e}")
         return removed
 
+    # Async alias for standard cache delete API
+    delete = invalidate_async
+
     def prune_expired(self) -> int:
         """Remove all expired entries from in-memory cache. Returns count of purged items."""
         now = time.time()
@@ -241,6 +261,7 @@ class CacheManager:
     def clear(self) -> None:
         """Clear in-memory cache and reset statistics."""
         self._memory_cache.clear()
+        self._stream_tokens.clear()
         self.stats = {
             "hits": 0,
             "misses": 0,
@@ -255,6 +276,48 @@ class CacheManager:
     def hit_rate(self) -> float:
         total = self.stats["hits"] + self.stats["misses"]
         return (self.stats["hits"] / total * 100.0) if total > 0 else 0.0
+
+    async def create_stream_token(self, review_id: str, tenant_id: str, ttl_seconds: int = 60) -> str:
+        """Generates a short-lived, scoped one-time token for SSE/WebSocket streaming."""
+        token = f"st_{secrets.token_urlsafe(32)}"
+        token_payload = {"review_id": review_id, "tenant_id": tenant_id, "expires_at": time.time() + ttl_seconds}
+        if self.redis_client:
+            try:
+                await self.redis_client.set(f"cvai:stream_token:{token}", json.dumps(token_payload), ex=ttl_seconds)
+                return token
+            except Exception as e:
+                logger.warning(f"Redis stream token write failed ({e}); fallback to memory.")
+
+        self._stream_tokens[token] = token_payload
+        return token
+
+    async def consume_stream_token(self, token: str) -> Optional[Dict[str, Any]]:
+        """Validates and atomically consumes a single-use stream token."""
+        if not token or not token.strip():
+            return None
+
+        # Try Redis first
+        if self.redis_client:
+            try:
+                r_key = f"cvai:stream_token:{token}"
+                val = await self.redis_client.get(r_key)
+                if val:
+                    await self.redis_client.delete(r_key)
+                    data = json.loads(val)
+                    if data.get("expires_at", 0) >= time.time():
+                        return data
+                    return None
+            except Exception as e:
+                logger.warning(f"Redis stream token read failed: {e}")
+
+        # In-memory check
+        now = time.time()
+        if token in self._stream_tokens:
+            entry = self._stream_tokens.pop(token)
+            if entry.get("expires_at", 0) >= now:
+                return entry
+
+        return None
 
 
 # Singleton cache instance

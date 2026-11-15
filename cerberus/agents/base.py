@@ -4,6 +4,7 @@ Base Class Interface for all Cerberus Code Review Agents.
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
+
 from cerberus.models.schemas import AgentResult
 
 
@@ -16,10 +17,7 @@ class BaseAgent(ABC):
 
     @abstractmethod
     async def analyze(
-        self,
-        code: str,
-        language: str = "python",
-        context: Optional[Dict[str, Any]] = None
+        self, code: str, language: str = "python", context: Optional[Dict[str, Any]] = None
     ) -> AgentResult:
         """
         Analyze code snippet and return structured findings and score.

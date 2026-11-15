@@ -3,7 +3,9 @@ Agents Metadata Endpoint: Lists available specialized review agents and capabili
 """
 
 from typing import List
+
 from fastapi import APIRouter, Depends
+
 from cerberus.agents.orchestrator import orchestrator
 from cerberus.api.dependencies import verify_api_key
 from cerberus.models.schemas import AgentInfo
