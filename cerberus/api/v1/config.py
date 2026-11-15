@@ -5,7 +5,7 @@ Configuration Management Endpoints.
 from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, status
 from pydantic import BaseModel
-from cerberus.api.dependencies import verify_api_key
+from cerberus.api.dependencies import require_scopes, verify_api_key
 from cerberus.config import settings
 
 router = APIRouter(prefix="/api/v1/config", tags=["Configuration"])
@@ -35,9 +35,9 @@ async def get_configuration(api_key: str = Depends(verify_api_key)) -> Dict[str,
 @router.put("", status_code=status.HTTP_200_OK)
 async def update_configuration(
     update: ConfigUpdateModel,
-    api_key: str = Depends(verify_api_key)
+    api_key: str = Depends(require_scopes("admin"))
 ) -> Dict[str, str]:
-    """Update runtime configuration settings."""
+    """Update runtime configuration settings. Requires administrative scope."""
     if update.enabled_agents is not None:
         settings.ENABLED_AGENTS = update.enabled_agents
     if update.severity_threshold is not None:

@@ -15,9 +15,11 @@ from pydantic import BaseModel, Field
 logger = logging.getLogger("cerberus.core.zip_processor")
 
 # Security and Resource Limits
+MAX_ZIP_ARCHIVE_BYTES = 25 * 1024 * 1024  # 25 MB archive size cap
 MAX_TOTAL_UNCOMPRESSED_BYTES = 50 * 1024 * 1024  # 50 MB
 MAX_SINGLE_FILE_BYTES = 2 * 1024 * 1024  # 2 MB
 MAX_EXTRACTED_CODE_FILES = 150  # Cap on files to prevent excessive agent load
+MAX_NESTING_DEPTH = 15  # Guard against deep recursive directory bombs
 
 EXTENSION_TO_LANGUAGE: Dict[str, str] = {
     ".py": "python",
@@ -104,12 +106,17 @@ class ZipExtractionResult(BaseModel):
     language_distribution: Dict[str, int] = Field(default_factory=dict)
 
 
-def is_safe_zip_path(path_str: str) -> bool:
+def is_safe_zip_path(path_str: str, max_depth: int = MAX_NESTING_DEPTH) -> bool:
     """
-    Guards against Zip Slip (directory traversal attacks).
-    Rejects absolute paths, Windows drive references, and paths containing '..' backtracking.
+    Guards against Zip Slip (directory traversal attacks) and malicious entry naming.
+    Rejects absolute paths, Windows drive references, null bytes, URL-encoded traversal,
+    and paths exceeding maximum nesting depth.
     """
+    if not path_str or "\0" in path_str:
+        return False
     clean = path_str.replace("\\", "/")
+    if "%2e" in clean.lower() or "%2f" in clean.lower():
+        return False
     if clean.startswith("/") or clean.startswith("\\"):
         return False
     if len(clean) >= 2 and clean[1] == ":":
@@ -117,7 +124,15 @@ def is_safe_zip_path(path_str: str) -> bool:
     parts = clean.split("/")
     if ".." in parts:
         return False
+    non_empty_parts = [p for p in parts if p and p != "."]
+    if len(non_empty_parts) > max_depth:
+        return False
     return True
+
+
+def is_symlink_entry(info: zipfile.ZipInfo) -> bool:
+    """Detects Unix symbolic links within zip archive headers (mode 0o120000)."""
+    return ((info.external_attr >> 16) & 0o170000) == 0o120000
 
 
 def detect_language_from_path(filename: str) -> Optional[str]:
@@ -167,9 +182,13 @@ def extract_code_from_zip(
         p = Path(zip_source)
         if not p.exists():
             raise ValueError(f"ZIP file not found at path: {zip_source}")
+        if p.stat().st_size > MAX_ZIP_ARCHIVE_BYTES:
+            raise ValueError(f"ZIP archive size ({p.stat().st_size} bytes) exceeds safety maximum of {MAX_ZIP_ARCHIVE_BYTES} bytes.")
         project_name = project_name or p.stem
         archive_file = str(p)
     elif isinstance(zip_source, bytes):
+        if len(zip_source) > MAX_ZIP_ARCHIVE_BYTES:
+            raise ValueError(f"ZIP archive size ({len(zip_source)} bytes) exceeds safety maximum of {MAX_ZIP_ARCHIVE_BYTES} bytes.")
         archive_file = io.BytesIO(zip_source)
         project_name = project_name or "uploaded_project"
     else:
@@ -181,6 +200,7 @@ def extract_code_from_zip(
 
     extracted_files: List[ExtractedCodeFile] = []
     skipped_files: List[str] = []
+    seen_entries: Set[str] = set()
     accumulated_bytes = 0
     total_entries = 0
     lang_dist: Dict[str, int] = {}
@@ -197,11 +217,24 @@ def extract_code_from_zip(
 
             arcname = info.filename.replace("\\", "/")
 
-            # Security check: Zip Slip traversal
+            # Security check: Symlink rejection
+            if is_symlink_entry(info):
+                logger.warning(f"Rejected symbolic link entry in zip archive: {arcname}")
+                skipped_files.append(f"{arcname} (rejected symlink)")
+                continue
+
+            # Security check: Zip Slip traversal & nesting depth
             if not is_safe_zip_path(arcname):
                 logger.warning(f"Rejected potentially malicious zip entry (Zip Slip): {arcname}")
                 skipped_files.append(f"{arcname} (unsafe path)")
                 continue
+
+            # Security check: Duplicate entry rejection
+            if arcname in seen_entries:
+                logger.warning(f"Skipping duplicate zip entry: {arcname}")
+                skipped_files.append(f"{arcname} (duplicate entry)")
+                continue
+            seen_entries.add(arcname)
 
             # Skip ignored directories and files
             if is_ignored_path(arcname):
@@ -214,22 +247,40 @@ def extract_code_from_zip(
                 skipped_files.append(f"{arcname} (unsupported code extension)")
                 continue
 
-            # Security check: Single file size cap
+            # Security check: Header declared single file size cap
             if info.file_size > MAX_SINGLE_FILE_BYTES:
                 logger.warning(f"Skipping oversized file {arcname} ({info.file_size} bytes)")
                 skipped_files.append(f"{arcname} (exceeds single file size limit)")
                 continue
 
-            # Security check: Accumulated uncompressed size (Zip Bomb guard)
-            accumulated_bytes += info.file_size
-            if accumulated_bytes > max_total_bytes:
-                logger.warning("Uncompressed ZIP size exceeded maximum safety threshold. Halting extraction.")
-                skipped_files.append(f"{arcname} (halted: total uncompressed size limit reached)")
-                break
-
-            # Read file content safely
+            # Read file content safely using bounded chunk streaming to defeat deceptive header zip bombs
             try:
-                raw_bytes = zf.read(info)
+                chunks = []
+                current_file_bytes = 0
+                with zf.open(info, "r") as entry_stream:
+                    while True:
+                        chunk = entry_stream.read(65536)  # 64 KB chunk
+                        if not chunk:
+                            break
+                        current_file_bytes += len(chunk)
+                        accumulated_bytes += len(chunk)
+                        if current_file_bytes > MAX_SINGLE_FILE_BYTES:
+                            logger.warning(f"File {arcname} exceeded single file limit during extraction ({current_file_bytes} bytes)")
+                            break
+                        if accumulated_bytes > max_total_bytes:
+                            logger.warning("Uncompressed ZIP size exceeded maximum safety threshold. Halting extraction.")
+                            break
+                        chunks.append(chunk)
+
+                if current_file_bytes > MAX_SINGLE_FILE_BYTES:
+                    skipped_files.append(f"{arcname} (exceeds single file size limit)")
+                    continue
+                if accumulated_bytes > max_total_bytes:
+                    skipped_files.append(f"{arcname} (halted: total uncompressed size limit reached)")
+                    break
+
+                raw_bytes = b"".join(chunks)
+
                 # Attempt UTF-8, then fallback to latin-1
                 try:
                     content_text = raw_bytes.decode("utf-8")

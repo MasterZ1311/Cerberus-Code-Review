@@ -304,6 +304,183 @@ class HeuristicEngine:
                 ))
                 break
 
+        # 9. Server-Side Request Forgery (SSRF - CWE-918)
+        ssrf_patterns = [
+            (r"""(?:requests|httpx)\.(?:get|post|put|delete|head)\s*\(\s*(?:url|user_url|target|dest|endpoint|req_url|request\.)""", "HTTP client request to unvalidated dynamic URL"),
+            (r"""urllib\.request\.urlopen\s*\(\s*(?:url|user_url|target|endpoint|request\.)""", "urllib.request.urlopen with unvalidated destination URL"),
+        ]
+        for idx, line in enumerate(lines, 1):
+            if HeuristicEngine._is_comment_or_docstring_line(line, doc_lines, idx):
+                continue
+            for pat, desc in ssrf_patterns:
+                if re.search(pat, line):
+                    findings.append(Finding(
+                        id=f"SEC-SSRF-{idx}",
+                        severity=SeverityEnum.HIGH,
+                        category="ssrf",
+                        title="Server-Side Request Forgery (SSRF)",
+                        message=f"{desc}. Unchecked outbound network requests can access internal services and cloud metadata.",
+                        line=idx,
+                        code_snippet=line.strip(),
+                        explanation="Untrusted URLs passed to HTTP clients can allow attackers to probe localhost, 127.0.0.1, or cloud metadata endpoints (169.254.169.254).",
+                        recommendation="Validate URL schema (whitelist http/https), resolve DNS, and block loopback/private/link-local IP addresses.",
+                        suggestion="# Validate URL against allowlist:\nif is_allowed_domain(target_url):\n    resp = requests.get(target_url)",
+                        cwe_id="CWE-918",
+                        cvss_score=8.6,
+                        exploitability=0.85
+                    ))
+                    break
+
+        # 10. Path Traversal & Unrestricted File Access (CWE-22)
+        traversal_patterns = [
+            (r"""open\s*\(\s*(?:user_path|file_path|filename|path|user_input|request\.)""", "File open with untrusted path"),
+            (r"""os\.path\.join\s*\([^,]+,\s*(?:user_path|file_path|filename|path|request\.)""", "Path join with unvalidated user input"),
+        ]
+        for idx, line in enumerate(lines, 1):
+            if HeuristicEngine._is_comment_or_docstring_line(line, doc_lines, idx):
+                continue
+            for pat, desc in traversal_patterns:
+                if re.search(pat, line):
+                    findings.append(Finding(
+                        id=f"SEC-TRAV-{idx}",
+                        severity=SeverityEnum.HIGH,
+                        category="path_traversal",
+                        title="Path Traversal / Arbitrary File Access",
+                        message=f"{desc}. Path manipulation can allow reading or writing outside intended directories.",
+                        line=idx,
+                        code_snippet=line.strip(),
+                        explanation="Without path boundary validation, attackers can use '../' sequences or absolute paths to escape storage sandboxes.",
+                        recommendation="Canonicalize paths with os.path.realpath/resolve() and verify the result starts with the safe base directory.",
+                        suggestion="safe_path = Path(base_dir).resolve() / filename\nif not safe_path.resolve().is_relative_to(base_dir):\n    raise ValueError('Path traversal detected')",
+                        cwe_id="CWE-22",
+                        cvss_score=8.2,
+                        exploitability=0.80
+                    ))
+                    break
+
+        # 11. Multi-Language: JavaScript / TypeScript Security Findings
+        js_langs = ("javascript", "js", "typescript", "ts", "tsx", "jsx")
+        if language.lower() in js_langs or (filename and any(filename.endswith(ext) for ext in (".js", ".ts", ".tsx", ".jsx"))):
+            for idx, line in enumerate(lines, 1):
+                if HeuristicEngine._is_comment_or_docstring_line(line, doc_lines, idx):
+                    continue
+                # DOM XSS
+                if re.search(r"""(?:innerHTML|outerHTML)\s*=""", line) or "document.write(" in line or "dangerouslySetInnerHTML" in line:
+                    findings.append(Finding(
+                        id=f"SEC-XSS-{idx}",
+                        severity=SeverityEnum.HIGH,
+                        category="xss",
+                        title="DOM-based Cross-Site Scripting (XSS)",
+                        message="Direct HTML assignment or document.write introduces DOM-based XSS vulnerabilities.",
+                        line=idx,
+                        code_snippet=line.strip(),
+                        explanation="Assigning untrusted data directly to innerHTML bypasses HTML escaping, executing attacker scripts.",
+                        recommendation="Use textContent or a sanitizer like DOMPurify before inserting HTML.",
+                        suggestion="element.textContent = sanitize(userInput);",
+                        cwe_id="CWE-79",
+                        cvss_score=8.3,
+                        exploitability=0.85
+                    ))
+                # Command execution in Node.js
+                if re.search(r"""child_process\.(?:exec|execSync)\s*\(""", line):
+                    findings.append(Finding(
+                        id=f"SEC-NODE-CMD-{idx}",
+                        severity=SeverityEnum.CRITICAL,
+                        category="injection",
+                        title="Node.js Command Injection",
+                        message="child_process.exec invokes system shell without argument escaping.",
+                        line=idx,
+                        code_snippet=line.strip(),
+                        explanation="Passing concatenated commands to exec allows shell metacharacters to execute arbitrary binaries.",
+                        recommendation="Use child_process.execFile or spawn with argument arrays.",
+                        suggestion="execFile('node', [scriptPath], callback);",
+                        cwe_id="CWE-78",
+                        cvss_score=9.5,
+                        exploitability=0.90
+                    ))
+                # Prototype Pollution
+                if "__proto__" in line or "constructor.prototype" in line:
+                    findings.append(Finding(
+                        id=f"SEC-PROTO-{idx}",
+                        severity=SeverityEnum.HIGH,
+                        category="prototype_pollution",
+                        title="Prototype Pollution Vulnerability",
+                        message="Direct property manipulation on __proto__ can pollute global Object prototypes.",
+                        line=idx,
+                        code_snippet=line.strip(),
+                        explanation="Polluting Object.prototype alters properties across all JavaScript objects, often causing RCE or DoS.",
+                        recommendation="Use Object.create(null) for maps or freeze Object.prototype.",
+                        suggestion="const safeMap = Object.create(null);",
+                        cwe_id="CWE-1321",
+                        cvss_score=8.5,
+                        exploitability=0.75
+                    ))
+
+        # 12. Multi-Language: Go Findings
+        go_langs = ("go", "golang")
+        if language.lower() in go_langs or (filename and filename.endswith(".go")):
+            for idx, line in enumerate(lines, 1):
+                if HeuristicEngine._is_comment_or_docstring_line(line, doc_lines, idx):
+                    continue
+                # SQL Injection via fmt.Sprintf or concatenation
+                if re.search(r"""db\.(?:Query|QueryRow|Exec)\s*\(\s*fmt\.Sprintf\(""", line) or re.search(r"""db\.(?:Query|QueryRow|Exec)\s*\(\s*["'].*["']\s*\+""", line):
+                    findings.append(Finding(
+                        id=f"SEC-GO-SQLI-{idx}",
+                        severity=SeverityEnum.CRITICAL,
+                        category="injection",
+                        title="Go SQL Injection via String Formatting",
+                        message="Dynamic SQL query composed via fmt.Sprintf or string concatenation in Go.",
+                        line=idx,
+                        code_snippet=line.strip(),
+                        explanation="Formatting raw user parameters into SQL statements enables database injection attacks.",
+                        recommendation="Use parameterized queries with database driver placeholders ($1, ?, etc.).",
+                        suggestion="db.QueryContext(ctx, \"SELECT * FROM users WHERE id = $1\", userID)",
+                        cwe_id="CWE-89",
+                        cvss_score=9.8,
+                        exploitability=0.95
+                    ))
+                # Error swallowing
+                if re.search(r"""_\s*=\s*err\b""", line):
+                    findings.append(Finding(
+                        id=f"SEC-GO-ERR-{idx}",
+                        severity=SeverityEnum.MEDIUM,
+                        category="error_handling",
+                        title="Go Unhandled Error (Error Swallowed with '_')",
+                        message="Ignoring error return with blank identifier '_' masks operational and security failures.",
+                        line=idx,
+                        code_snippet=line.strip(),
+                        explanation="Swallowing errors leaves application state corrupted and bypasses security failure handlers.",
+                        recommendation="Explicitly inspect if err != nil and return or log the error.",
+                        suggestion="if err != nil {\n    return fmt.Errorf(\"operation failed: %w\", err)\n}",
+                        cwe_id="CWE-703",
+                        cvss_score=6.0
+                    ))
+
+        # 13. Multi-Language: Rust Safety Findings
+        rust_langs = ("rust", "rs")
+        if language.lower() in rust_langs or (filename and filename.endswith(".rs")):
+            for idx, line in enumerate(lines, 1):
+                if HeuristicEngine._is_comment_or_docstring_line(line, doc_lines, idx):
+                    continue
+                # Unsafe block without // SAFETY: documentation
+                if re.search(r"""\bunsafe\s*\{""", line):
+                    prev_context = "\n".join(lines[max(0, idx - 4):idx])
+                    if "SAFETY:" not in prev_context and "safety:" not in prev_context.lower():
+                        findings.append(Finding(
+                            id=f"SEC-RUST-UNSAFE-{idx}",
+                            severity=SeverityEnum.MEDIUM,
+                            category="memory_safety",
+                            title="Undocumented Rust 'unsafe' Block",
+                            message="Rust 'unsafe' block without mandatory '// SAFETY:' rationale comment.",
+                            line=idx,
+                            code_snippet=line.strip(),
+                            explanation="Unsafe Rust circumvents borrow-checker guarantees and must be accompanied by explicit safety invariant proofs.",
+                            recommendation="Add a '// SAFETY:' comment above the unsafe block specifying why invariants are upheld.",
+                            suggestion="// SAFETY: Pointer is guaranteed non-null, aligned, and valid for reads.\nunsafe { *ptr }",
+                            cwe_id="CWE-242",
+                            cvss_score=5.5
+                        ))
+
         # Calculate security score (100 minus deductions)
         score = 100.0
         for f in findings:

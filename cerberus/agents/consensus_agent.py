@@ -174,8 +174,15 @@ class ConsensusAgent(BaseAgent):
                 raw_res = await provider.generate_response(system_prompt, user_prompt)
                 llm_parsed = parse_llm_json(raw_res)
                 if llm_parsed and isinstance(llm_parsed, dict):
-                    if "pr_action" in llm_parsed and llm_parsed["pr_action"] in ("MERGE_READY", "BLOCKED_ON_ISSUES", "NEEDS_REVISION"):
-                        consensus_data["pr_action"] = llm_parsed["pr_action"]
+                    proposed_action = llm_parsed.get("pr_action")
+                    if proposed_action in ("MERGE_READY", "BLOCKED_ON_ISSUES", "NEEDS_REVISION"):
+                        # Safety Invariant: Never allow LLM to downgrade BLOCKED_ON_ISSUES to MERGE_READY if critical issues are active
+                        critical_count = sum(1 for f in findings if f.severity == SeverityEnum.CRITICAL)
+                        if critical_count > 0 and proposed_action == "MERGE_READY":
+                            logger.warning("Safety Invariant Enforced: Refusing LLM attempt to downgrade critical blocking verdict to MERGE_READY.")
+                            consensus_data["pr_action"] = "BLOCKED_ON_ISSUES"
+                        else:
+                            consensus_data["pr_action"] = proposed_action
                     if "consensus_summary" in llm_parsed:
                         consensus_data["consensus_summary"] = llm_parsed["consensus_summary"]
                         consensus_data["summary"] = llm_parsed["consensus_summary"]

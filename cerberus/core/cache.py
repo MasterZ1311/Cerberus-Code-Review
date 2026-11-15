@@ -104,12 +104,29 @@ class CacheManager:
         if self.redis_client:
             await self.redis_client.close()
 
-    def compute_cache_key(self, code: Optional[str], language: Optional[str] = "python", agents: Optional[List[str]] = None) -> str:
+    def compute_cache_key(
+        self,
+        code: Optional[str],
+        language: Optional[str] = "python",
+        agents: Optional[List[str]] = None,
+        filename: Optional[str] = None,
+        context: Optional[Any] = None,
+        config: Optional[Any] = None,
+        ruleset_version: Optional[str] = None,
+    ) -> str:
         """Generate deterministic SHA-256 fingerprint for code and execution parameters."""
         normalized_code = (code or "").strip().replace("\r\n", "\n")
         safe_lang = (language or "python").lower()
         agents_str = ",".join(sorted(agents or []))
-        payload = f"{safe_lang}:{agents_str}:{normalized_code}"
+        
+        ctx_dict = context.model_dump() if hasattr(context, "model_dump") else (context if isinstance(context, dict) else {})
+        cfg_dict = config.model_dump() if hasattr(config, "model_dump") else (config if isinstance(config, dict) else {})
+        ctx_str = json.dumps(ctx_dict, sort_keys=True) if ctx_dict else ""
+        cfg_str = json.dumps(cfg_dict, sort_keys=True) if cfg_dict else ""
+        fn_str = (filename or "").strip()
+        ver_str = (ruleset_version or "").strip()
+
+        payload = f"{safe_lang}:{agents_str}:{fn_str}:{ctx_str}:{cfg_str}:{ver_str}:{normalized_code}"
         digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
         return f"cvai:cache:{digest}"
 
@@ -193,6 +210,25 @@ class CacheManager:
                 await self.redis_client.set(key, payload_str, ex=ttl)
             except Exception as e:
                 logger.warning(f"Redis SET failed: {e}")
+
+    def invalidate(self, key: str) -> bool:
+        """Synchronously evict an item from L1 in-memory cache."""
+        if key in self._memory_cache:
+            del self._memory_cache[key]
+            return True
+        return False
+
+    async def invalidate_async(self, key: str) -> bool:
+        """Evict an item from both L1 in-memory cache and L2 Redis."""
+        removed = self.invalidate(key)
+        if self.redis_client:
+            try:
+                res = await self.redis_client.delete(key)
+                if res > 0:
+                    removed = True
+            except Exception as e:
+                logger.warning(f"Redis DELETE failed for key {key}: {e}")
+        return removed
 
     def prune_expired(self) -> int:
         """Remove all expired entries from in-memory cache. Returns count of purged items."""

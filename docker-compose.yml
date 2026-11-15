@@ -11,7 +11,7 @@ services:
       - HOST=0.0.0.0
       - PORT=8000
       - ENVIRONMENT=${ENVIRONMENT:-production}
-      - DATABASE_URL=postgresql+asyncpg://codevault:${DB_PASSWORD:-dev_password}@db:5432/codevault_db
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-cerberus}:${DB_PASSWORD:-cerberus_secure_password}@db:5432/${DB_NAME:-cerberus_db}
       - REDIS_URL=redis://redis:6379/0
       - CACHE_ENABLED=true
       - LLM_PROVIDER=${LLM_PROVIDER:-heuristic}
@@ -34,9 +34,9 @@ services:
     container_name: cerberus-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: codevault
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-dev_password}
-      POSTGRES_DB: codevault_db
+      POSTGRES_USER: ${DB_USER:-cerberus}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cerberus_secure_password}
+      POSTGRES_DB: ${DB_NAME:-cerberus_db}
     ports:
       - "5432:5432"
     healthcheck:

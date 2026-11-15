@@ -4,7 +4,7 @@ FastAPI Dependencies for Authentication, Database Sessions, and Rate Limiting.
 
 from datetime import datetime, timezone
 from typing import Callable, List, Optional
-from fastapi import Header, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy import select
 from cerberus.config import settings
 from cerberus.core.database import AsyncSessionLocal
@@ -115,8 +115,9 @@ async def verify_api_key(
                 detail={"error": "invalid_api_key", "message": "API key is invalid or has expired"}
             )
 
-    scopes_str = key_record.scopes if key_record and key_record.scopes else "review:read,review:write"
-    scopes_set = {s.strip().lower() for s in scopes_str.split(",") if s.strip()}
+    if key_record is not None:
+        scopes_str = key_record.scopes if key_record.scopes else "review:read,review:write"
+        scopes_set = {s.strip().lower() for s in scopes_str.split(",") if s.strip()}
     request.state.api_key_record = key_record
     request.state.api_key_scopes = scopes_set
 
@@ -137,7 +138,7 @@ def require_scopes(*required_scopes: str) -> Callable:
     Dependency factory enforcing granular Role-Based Access Control (RBAC).
     Verifies that the authenticated API key possesses all required scopes.
     """
-    async def _scope_checker(request: Request, token: str = verify_api_key) -> str:
+    async def _scope_checker(request: Request, token: str = Depends(verify_api_key)) -> str:
         granted_scopes = getattr(request.state, "api_key_scopes", set())
         if "admin" in granted_scopes:
             return token

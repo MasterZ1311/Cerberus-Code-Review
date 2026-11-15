@@ -7,6 +7,8 @@ import base64
 import json
 import logging
 from pathlib import Path
+import re
+import time
 from datetime import datetime, timezone
 import uuid
 from collections import OrderedDict
@@ -70,6 +72,9 @@ REVIEWS_STORE_MAX_ITEMS = getattr(settings, "CACHE_MAX_ITEMS", 1000)
 reviews_store: OrderedDict[str, CodeReviewResponse] = OrderedDict()
 zip_reviews_store: OrderedDict[str, ZipReviewResponse] = OrderedDict()
 ws_connections: Dict[str, List[WebSocket]] = {}
+_webhook_deliveries: OrderedDict[str, float] = OrderedDict()
+MAX_WEBHOOK_PAYLOAD_BYTES = 10 * 1024 * 1024  # 10 MB cap
+DELIVERY_IDEMPOTENCY_TTL_SECONDS = 600  # 10 minutes
 
 # Strong reference tracking for background tasks to prevent GC in Python 3.11+
 _background_tasks: set = set()
@@ -237,39 +242,110 @@ async def get_review_sonarqube(
 async def handle_github_webhook(
     request: Request,
     x_hub_signature_256: Optional[str] = Header(None),
-    x_github_event: str = Header("pull_request")
+    x_github_event: str = Header("pull_request"),
+    x_github_delivery: Optional[str] = Header(None)
 ):
     """
     Native GitHub Actions and GitHub App Webhook Event Ingestion.
     Validates X-Hub-Signature-256 HMAC signature against configured secret,
-    processes pull_request.opened events to perform zero-click automated code review,
+    prevents duplicate replay deliveries, processes pull_request events,
     generates line-anchored review comments, and submits reviews to the GitHub API.
     """
     raw_body = await request.body()
-    secret = settings.GITHUB_WEBHOOK_SECRET or settings.SECRET_KEY
+    if len(raw_body) > MAX_WEBHOOK_PAYLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail={"error": "payload_too_large", "message": f"Webhook payload exceeds {MAX_WEBHOOK_PAYLOAD_BYTES} bytes cap."}
+        )
 
-    # Signature verification
+    # 1. Secret Determination & Production Verification
+    is_prod = settings.ENVIRONMENT.lower() in ("production", "prod")
+    if is_prod:
+        if not settings.GITHUB_WEBHOOK_SECRET or settings.GITHUB_WEBHOOK_SECRET in (
+            "cerberus_dev_secret_key_change_in_production_32chars",
+            "secret",
+            "changeme",
+            "password",
+            "admin"
+        ):
+            logger.error("Production misconfiguration: GITHUB_WEBHOOK_SECRET is not securely set.")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={"error": "misconfigured_secret", "message": "GITHUB_WEBHOOK_SECRET is required and must be configured in production."}
+            )
+        secret = settings.GITHUB_WEBHOOK_SECRET
+    else:
+        secret = settings.GITHUB_WEBHOOK_SECRET or settings.SECRET_KEY
+
+    # 2. Strict Signature Enforcement
+    # Require signature in production or whenever GITHUB_WEBHOOK_SECRET is configured
+    if is_prod or settings.GITHUB_WEBHOOK_SECRET:
+        if not x_hub_signature_256:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing required X-Hub-Signature-256 HMAC signature header"
+            )
+
     if x_hub_signature_256:
         is_valid = verify_github_signature(raw_body, x_hub_signature_256, secret)
         if not is_valid:
-            raise HTTPException(status_code=401, detail="Invalid GitHub X-Hub-Signature-256 HMAC signature")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid GitHub X-Hub-Signature-256 HMAC signature"
+            )
 
+    # 3. Replay Protection via X-GitHub-Delivery
+    if x_github_delivery:
+        now = time.time()
+        stale_threshold = now - DELIVERY_IDEMPOTENCY_TTL_SECONDS
+        while _webhook_deliveries and next(iter(_webhook_deliveries.values())) < stale_threshold:
+            _webhook_deliveries.popitem(last=False)
+
+        if x_github_delivery in _webhook_deliveries:
+            logger.info(f"Duplicate webhook delivery detected and ignored: {x_github_delivery}")
+            return {
+                "status": "ignored",
+                "reason": "duplicate_event",
+                "delivery_id": x_github_delivery,
+                "message": f"Webhook delivery '{x_github_delivery}' was already processed."
+            }
+        _webhook_deliveries[x_github_delivery] = now
+
+    # 4. Safe JSON Parsing
     try:
         payload = json.loads(raw_body.decode("utf-8")) if raw_body else {}
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON payload in webhook request")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "malformed_json", "message": "Invalid JSON payload in webhook request"}
+        )
+
+    # 5. Event Type Validation
+    event_normalized = (x_github_event or "").strip().lower()
+    if event_normalized not in ("pull_request", "ping"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "unsupported_event", "message": f"Webhook event '{x_github_event}' is not supported."}
+        )
 
     # Handle Ping Event
-    if x_github_event == "ping":
+    if event_normalized == "ping":
         return {
             "status": "pong",
             "zen": "Keep it logically awesome.",
             "hook_id": payload.get("hook_id", 0)
         }
 
-    # Parse Pull Request Context
+    # 6. Parse Pull Request Context & Supported Actions
     pr_info = parse_pull_request_event(payload)
-    action = pr_info.action if pr_info else payload.get("action", "opened")
+    action = (pr_info.action if pr_info else payload.get("action", "opened")).lower()
+
+    if action not in ("opened", "synchronize", "reopened"):
+        return {
+            "status": "ignored",
+            "action": action,
+            "message": f"Pull request action '{action}' is ignored; only opened, synchronize, and reopened trigger reviews."
+        }
 
     # Determine code to review
     code_to_review = payload.get("code") or payload.get("patch") or payload.get("diff") or ""
@@ -285,7 +361,16 @@ async def handle_github_webhook(
         filename = f"PR_{pr_info.pr_number}.py" if pr_info else "pr_change.py"
 
     if not code_to_review and pr_info:
-        code_to_review = pr_info.body or pr_info.title or ""
+        # Check if PR body contains markdown code block
+        body_text = pr_info.body or ""
+        code_block_match = re.search(r"```(?:\w+)?\s*\n([\s\S]*?)\n```", body_text)
+        if code_block_match:
+            code_to_review = code_block_match.group(1).strip()
+        elif body_text.strip():
+            # Fallback if body text is provided as direct snippet
+            code_to_review = body_text.strip()
+        elif pr_info.title:
+            code_to_review = ""
 
     if not code_to_review:
         return {
@@ -299,7 +384,8 @@ async def handle_github_webhook(
         code=code_to_review,
         filename=filename,
         language=language,
-        config=ReviewConfig(blocking_mode=True)
+        config=ReviewConfig(blocking_mode=True),
+        context={"is_webhook": True, "event": x_github_event, "action": action}
     )
     result = await orchestrator.execute_review(review_req)
     _store_review(result.review_id, result)
@@ -363,7 +449,7 @@ async def get_review_status_only(
 async def approve_review(
     review_id: str,
     payload: Optional[ReviewApproveRequest] = None,
-    api_key: str = Depends(verify_api_key)
+    api_key: str = Depends(require_scopes("review:write"))
 ):
     """
     Human-in-the-Loop PR Approval Gate.

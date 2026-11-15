@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import CONTENT_TYPE_LATEST
 from cerberus import __version__
-from cerberus.api.v1 import agents, analytics, config, health, review
+from cerberus.api.v1 import agents, analytics, config, health, keys, review
 from cerberus.config import settings
 from cerberus.core.cache import cache_manager
 from cerberus.core.database import init_db
@@ -80,6 +80,7 @@ def create_app() -> FastAPI:
     app.include_router(agents.router)
     app.include_router(config.router)
     app.include_router(analytics.router)
+    app.include_router(keys.router)
 
     # Prometheus /metrics endpoint
     @app.get("/metrics", include_in_schema=False)

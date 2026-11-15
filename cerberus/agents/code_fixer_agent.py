@@ -13,6 +13,7 @@ import time
 from typing import Any, Dict, List, Optional
 from cerberus.agents.ai_helper import parse_llm_json
 from cerberus.agents.base import BaseAgent
+from cerberus.core.patch_verifier import PatchVerificationPipeline, PatchVerificationStage
 from cerberus.core.syntax_verifier import SyntaxVerifier
 from cerberus.models.schemas import AgentResult, Finding, SeverityEnum
 from cerberus.providers import get_llm_provider
@@ -221,9 +222,21 @@ class CodeFixerAgent(BaseAgent):
             except Exception as e:
                 logger.warning(f"CodeFixerAgent LLM patch generation failed; keeping heuristic fix: {e}")
 
-        # Compute diff if changes occurred
-        if repaired_code and repaired_code != code:
-            unified_diff = self._generate_unified_diff(code, repaired_code, filename=filename)
+        # Multi-Stage In-Memory Patch Verification Pipeline
+        verification = PatchVerificationPipeline.verify_patch(
+            original_code=code,
+            repaired_code=repaired_code,
+            language=language,
+            filename=filename,
+            original_findings=findings
+        )
+
+        if not verification.is_valid:
+            logger.warning(f"Patch verification failed at stage '{verification.stage}': {verification.explanation}. Reverting to safe code.")
+            repaired_code = code
+            unified_diff = ""
+        else:
+            unified_diff = verification.patch_diff or ""
 
         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
 
@@ -233,7 +246,8 @@ class CodeFixerAgent(BaseAgent):
             category="code_repair",
             title="Automated Multi-Agent Fix Generated" if unified_diff else "No Automated Fix Required",
             message=(
-                "Collaborative patch synthesized resolving multi-agent issues."
+                f"Collaborative patch synthesized and verified (Stage: {verification.stage.value}). "
+                f"{verification.explanation}"
                 if unified_diff else "Code is either clean or no safe automated fix could be determined."
             ),
             suggestion=unified_diff if unified_diff else None,

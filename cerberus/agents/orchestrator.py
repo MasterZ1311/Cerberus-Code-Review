@@ -134,6 +134,9 @@ class ReviewOrchestrator:
             code=request.code,
             language=request.language or "python",
             agents=active_agents,
+            filename=getattr(request, "filename", None),
+            context=getattr(request, "context", None),
+            config=getattr(request, "config", None),
         )
         cached_data = await cache_manager.get(cache_key)
         if cached_data:
@@ -205,6 +208,16 @@ class ReviewOrchestrator:
             scores[res.name] = res.score
             all_findings.extend(res.findings)
             agents_payload.append(res.model_dump())
+
+        # Deduplicate identical findings across agents or passes (line, category, cwe, title)
+        seen_sigs = set()
+        deduped_findings: List[Finding] = []
+        for f in all_findings:
+            sig = (f.line, str(f.category).lower(), str(f.cwe_id or "").lower(), f.title.lower().strip())
+            if sig not in seen_sigs:
+                seen_sigs.add(sig)
+                deduped_findings.append(f)
+        all_findings = deduped_findings
 
         # Determine review status
         failed_count = sum(1 for res in agent_results if res.status == "failed")

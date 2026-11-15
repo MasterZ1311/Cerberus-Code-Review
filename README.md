@@ -13,8 +13,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg" alt="Python: 3.11+"></a>
   <a href="https://github.com/MasterZ1311/MultiAgent-CodeReview/actions/workflows/ci.yml"><img src="https://github.com/MasterZ1311/MultiAgent-CodeReview/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
-  <a href="tests/"><img src="https://img.shields.io/badge/tests-481%20passed-brightgreen.svg" alt="Tests Passing"></a>
-  <a href="file:///C:/Users/vishwa/.gemini/antigravity/brain/2f0f2b60-6732-4448-a631-6596b62178dd/deep_codebase_analysis_and_rating.md"><img src="https://img.shields.io/badge/Score-10%2F10%20(Flawless%20Pinnacle)-success.svg" alt="Overall Score"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/tests-495%20passed-brightgreen.svg" alt="Tests Passing"></a>
+  <a href="reports/MASTER_ENGINEERING_AUDIT.md"><img src="https://img.shields.io/badge/Score-10%2F10%20(Master%20Standard)-success.svg" alt="Overall Score"></a>
   <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"></a>
 </p>
 
@@ -362,6 +362,18 @@ python -m pytest tests/ -q --tb=short
 
 ---
 
+## 📚 Master Engineering Transformation Reports
+
+- 🏆 **[Master Engineering Audit](reports/MASTER_ENGINEERING_AUDIT.md)** — Comprehensive scorecard, architecture evaluation, and audit across 10 pillars
+- 🛡️ **[Security Audit & Threat Model](reports/SECURITY_AUDIT.md)** — OWASP ASVS v4.0.3 analysis, STRIDE threat model, negative testing, and Red-Team results
+- 🧪 **[Test Results & Quality Assurance Report](reports/TEST_RESULTS.md)** — 495 automated tests execution summary, zero-flakiness analysis, and module breakdown
+- 🧠 **[AI/LLM Systems & Evaluation Report](reports/AI_EVALUATION.md)** — Foundation model routing, invariant safety guards, and consensus arbitration
+- ⚡ **[Performance Benchmarks Report](reports/PERFORMANCE_BENCHMARKS.md)** — Profiling, sub-millisecond cache latency, and SingleFlight thundering-herd defense
+- 🚀 **[Production Readiness & SRE Review](reports/PRODUCTION_READINESS.md)** — Launch checklist, deployment topologies, SLOs, and zero-downtime procedures
+- 📝 **[Changelog](CHANGELOG.md)** — Detailed historical record of all improvements and features
+
+---
+
 ## 📚 Documentation Index
 
 - 🏗️ **[System Architecture](docs/01-architecture-overview.md)** — Detailed multi-agent orchestration and design patterns
@@ -370,7 +382,6 @@ python -m pytest tests/ -q --tb=short
 - 📖 **[Installation & Docker Setup](docs/04-installation-setup.md)** — Step-by-step production deployment guide
 - ⚙️ **[Configuration Reference](docs/05-configuration-reference.md)** — Environment variables and runtime tuning
 - 📊 **[Monitoring & Telemetry](docs/06-monitoring-operations.md)** — Prometheus metrics, Grafana dashboards, and alerts
-- 📋 **[Full Scorecard Report](file:///C:/Users/vishwa/.gemini/antigravity/brain/2f0f2b60-6732-4448-a631-6596b62178dd/deep_codebase_analysis_and_rating.md)** — Complete 10/10 technical audit across 7 pillars
 
 ---
 
