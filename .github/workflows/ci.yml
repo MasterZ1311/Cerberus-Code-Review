@@ -94,7 +94,7 @@ jobs:
           pip-audit -r requirements-ci-tools-lock.txt
 
       - name: Filesystem Security Scan (Trivy)
-        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -138,7 +138,7 @@ jobs:
 
       - name: Validate Kubernetes Manifests (Dry-Run Apply)
         run: |
-          kubectl apply --dry-run=client -k k8s/
+          kubectl apply --dry-run=client --validate=false -k k8s/
 
       - name: Install kubeconform
         run: |
@@ -254,7 +254,7 @@ jobs:
           tags: cerberus-ai:ci-test
 
       - name: Scan Built Docker Image (Trivy)
-        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: 'cerberus-ai:ci-test'
           format: 'table'
