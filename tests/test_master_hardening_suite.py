@@ -13,26 +13,20 @@ import hashlib
 import hmac
 import io
 import json
-import os
 import time
 import zipfile
-from datetime import datetime, timedelta, timezone
-from typing import List
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
 
 from cerberus.api.app import create_app
 from cerberus.config import settings
 from cerberus.core.cache import CacheManager
-from cerberus.core.database import AsyncSessionLocal, init_db
+from cerberus.core.database import AsyncSessionLocal
 from cerberus.core.patch_verifier import PatchVerificationPipeline, PatchVerificationStage
-from cerberus.core.security import generate_api_key, hash_api_key
+from cerberus.core.security import generate_api_key
 from cerberus.core.zip_processor import extract_code_from_zip, is_safe_zip_path, is_symlink_entry
-from cerberus.models.database import ApiKeyRecord, CodeReviewRecord, FindingRecord
-from cerberus.models.schemas import Finding, SeverityEnum
-from cerberus.providers.heuristic_engine import HeuristicEngine
+from cerberus.models.database import ApiKeyRecord
 
 
 @pytest.fixture(scope="module")

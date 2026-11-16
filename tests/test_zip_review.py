@@ -4,8 +4,8 @@ Tests ZIP extraction security, multi-file orchestrator review, REST endpoints, a
 """
 
 import io
-import json
 import zipfile
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from typer.testing import CliRunner
@@ -14,12 +14,12 @@ from cerberus.agents.orchestrator import orchestrator
 from cerberus.api.app import app
 from cerberus.cli.main import app as cli_app
 from cerberus.core.zip_processor import (
-    extract_code_from_zip,
-    is_safe_zip_path,
     detect_language_from_path,
+    extract_code_from_zip,
     is_ignored_path,
+    is_safe_zip_path,
 )
-from cerberus.models.schemas import SeverityEnum, ZipReviewResponse
+from cerberus.models.schemas import ZipReviewResponse
 
 
 def _create_sample_zip_bytes(files_dict: dict) -> bytes:

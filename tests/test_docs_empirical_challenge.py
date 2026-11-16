@@ -8,13 +8,13 @@ Validates:
 - Universal: Absence of placeholder tokens (TODO, FIXME, <replace_me>)
 """
 
-import os
-import re
 import ast
 import json
-import yaml
+import os
+import re
+
 import pytest
-from fastapi import FastAPI
+import yaml
 from fastapi.testclient import TestClient
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -26,7 +26,7 @@ DOC8_PATH = os.path.join(REPO_ROOT, "PRODUCTION_LAUNCH_MANUAL.md")
 
 def extract_code_blocks(filepath):
     """Extract code blocks from markdown file with line numbers and language."""
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         lines = f.readlines()
     blocks = []
     in_block = False
@@ -63,7 +63,7 @@ def extract_code_blocks(filepath):
 @pytest.mark.parametrize("filepath", [DOC5_PATH, DOC6_PATH, DOC7_PATH, DOC8_PATH])
 def test_no_forbidden_placeholders(filepath):
     """Verify strict absence of placeholder tokens: TODO, FIXME, <replace_me>, <replace-me>, REPLACE_ME."""
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(filepath, encoding="utf-8") as f:
         content = f.read()
 
     forbidden = ["TODO", "FIXME", "<replace_me>", "<replace-me>", "REPLACE_ME"]
@@ -95,7 +95,7 @@ def test_doc5_dockerfile_multi_stage():
     assert len(dockerfile_blocks) >= 1, "Dockerfile block not found in DEPLOYMENT_GUIDE.md"
 
     content = dockerfile_blocks[0]["content"]
-    from_lines = [l.strip() for l in content.splitlines() if l.strip().upper().startswith("FROM")]
+    from_lines = [line.strip() for line in content.splitlines() if line.strip().upper().startswith("FROM")]
     assert len(from_lines) >= 4, (
         f"Expected 4 multi-stage builds (builder, tester, security-scan, runtime), found: {from_lines}"
     )
@@ -275,7 +275,7 @@ def test_doc6_grafana_dashboard_json():
     assert len(json_blocks) >= 1, "Grafana dashboard JSON block not found"
 
     content = json_blocks[0]["content"]
-    lines = [l for l in content.splitlines() if not l.strip().startswith("//")]
+    lines = [line for line in content.splitlines() if not line.strip().startswith("//")]
     dashboard = json.loads("\n".join(lines))
 
     assert "title" in dashboard, "Missing title in Grafana dashboard"
@@ -370,7 +370,7 @@ def test_doc7_pytest_ini_and_workflow_yaml():
 
 def test_doc8_checklist_count_100_plus():
     """Verify 100+ checklist items in PRODUCTION_LAUNCH_MANUAL.md."""
-    with open(DOC8_PATH, "r", encoding="utf-8") as f:
+    with open(DOC8_PATH, encoding="utf-8") as f:
         content = f.read()
 
     table_items = re.findall(r"^\|\s*(\d+)\s*\|([^|]+)\|", content, re.MULTILINE)

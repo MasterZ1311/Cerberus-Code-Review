@@ -11,8 +11,9 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.verify_python_blocks import extract_python_blocks
-import cerberus.models.database as c_db
+import cerberus.models.database as c_db  # noqa: E402
+from scripts.verify_python_blocks import extract_python_blocks  # noqa: E402
+
 
 def assemble_full_api():
     src = types.ModuleType("src")
@@ -71,12 +72,12 @@ def assemble_full_api():
     main_mod = load_v("src.main", file_map["src/main.py"])
     app = main_mod.app
     print(f"App title: {app.title}, version: {app.version}")
-    
+
     schema = app.openapi()
     print(f"Generated OpenAPI endpoints count: {len(schema['paths'])}")
     for path, methods in schema["paths"].items():
         print(f"  {list(methods.keys())} {path}")
-        
+
     return app, schema
 
 if __name__ == "__main__":

@@ -2,12 +2,11 @@
 Empirical test for API_SPECIFICATIONS.md OpenAPI YAML and FastAPI application.
 """
 
-import pytest
 import yaml
-from pathlib import Path
-from scripts.verify_python_blocks import ROOT
-from scripts.verify_openapi_yaml import extract_yaml_blocks
+
 from scripts.test_api_assembly import assemble_full_api
+from scripts.verify_openapi_yaml import extract_yaml_blocks
+from scripts.verify_python_blocks import ROOT
 
 
 def test_doc4_openapi_yaml():

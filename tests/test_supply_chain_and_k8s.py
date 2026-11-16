@@ -323,6 +323,7 @@ spec:
 def test_sibling_checksum_verification(tmp_path: Path):
     """Verify that sibling .sha256 checksums are verified before validating manifests."""
     import hashlib
+
     from scripts.validate_k8s_image_pinning import validate_image_pinning
 
     app_sha = "sha256:1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff"
@@ -368,6 +369,7 @@ def test_production_deployment_gate_modes_and_safeguards(tmp_path: Path, monkeyp
     - --apply + --confirm + --dry-run returns 0 when server dry-run passes.
     """
     import subprocess
+
     from scripts.deploy_production import deploy_production
 
     app_sha = "sha256:1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff"

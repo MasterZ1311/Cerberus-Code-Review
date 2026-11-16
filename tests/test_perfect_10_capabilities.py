@@ -12,17 +12,17 @@ Comprehensive Verification Test Suite for Perfect 10 Capabilities:
 
 import base64
 import io
-import json
 import logging
 import zipfile
+
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from typer.testing import CliRunner
+
 from cerberus.api.app import app
 from cerberus.cli.main import app as cli_app
 from cerberus.core.database import engine
 from cerberus.core.migrations import run_migrations
-from cerberus.core.security import generate_api_key
 from cerberus.core.security_headers import SensitiveDataMaskingFilter
 from cerberus.providers.heuristic_engine import HeuristicEngine
 
@@ -89,6 +89,7 @@ def run_user_code(user_input):
     categories = [f.category for f in findings]
     cwes = [f.cwe_id for f in findings]
 
+    assert len(categories) > 0
     assert "CWE-94" in cwes  # Code injection
     assert "CWE-295" in cwes  # Disabled TLS
     assert "CWE-330" in cwes  # Weak PRNG
@@ -229,6 +230,7 @@ async def test_review_feedback_submission():
 async def test_database_migrations_idempotent():
     """Verify schema migrations run cleanly and are idempotent."""
     count = await run_migrations(engine)
+    assert count >= 0
     # Re-running immediately should apply 0 new migrations
     second_count = await run_migrations(engine)
     assert second_count == 0
@@ -317,7 +319,6 @@ async def test_review_approve_404_and_headers():
 def test_provider_factory_resolution():
     """Verify provider initialization and fallback logic in cerberus.providers."""
     from cerberus.providers import get_llm_provider, resolve_auto_provider
-    from cerberus.providers.base import BaseLLMProvider
 
     # Resolves to heuristic when no API keys are present in CI/offline environment
     auto_prov = resolve_auto_provider()

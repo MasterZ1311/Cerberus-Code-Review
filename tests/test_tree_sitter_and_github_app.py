@@ -5,22 +5,23 @@ Unit and Integration Tests for:
 """
 
 import json
+
 import pytest
 from fastapi.testclient import TestClient
 
 from cerberus.api.app import app
 from cerberus.config import settings
 from cerberus.core.github_app import (
-    parse_pull_request_event,
     build_pr_review_payload,
+    parse_pull_request_event,
 )
 from cerberus.core.security import generate_webhook_signature
-from cerberus.core.syntax_verifier import SyntaxVerifier, detect_language_from_path
+from cerberus.core.syntax_verifier import SyntaxVerifier
 from cerberus.models.schemas import (
     CodeReviewResponse,
     Finding,
-    SeverityEnum,
     GitHubPullRequestInfo,
+    SeverityEnum,
 )
 
 client = TestClient(app)

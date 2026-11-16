@@ -5,25 +5,19 @@ cache boundaries, zip-slip protections, and background task longevity.
 """
 
 import asyncio
-import io
-import json
-import zipfile
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
 from cerberus.agents.ai_helper import (
     build_findings_from_llm,
     compute_composite_score,
-    merge_findings,
     parse_llm_json,
 )
 from cerberus.agents.code_fixer_agent import CodeFixerAgent
 from cerberus.agents.consensus_agent import ConsensusAgent
-from cerberus.agents.orchestrator import orchestrator
 from cerberus.api.app import app
-from cerberus.api.v1.config import ConfigUpdateModel
 from cerberus.api.v1.review import _background_tasks, _create_background_task
-from cerberus.config import settings
 from cerberus.core.cache import CacheManager
 from cerberus.core.security import RateLimiter, generate_api_key, hash_api_key
 from cerberus.core.zip_processor import (
@@ -32,10 +26,7 @@ from cerberus.core.zip_processor import (
     is_safe_zip_path,
 )
 from cerberus.models.schemas import (
-    CodeReviewRequest,
     Finding,
-    ReviewApproveRequest,
-    ReviewConfig,
     SeverityEnum,
 )
 from cerberus.providers.heuristic_engine import HeuristicEngine
@@ -296,6 +287,7 @@ async def test_background_task_strong_reference():
 
     initial_count = len(_background_tasks)
     task = _create_background_task(dummy())
+    assert len(_background_tasks) >= initial_count
     assert task in _background_tasks
     await task
     # Should automatically clean up from the strong set

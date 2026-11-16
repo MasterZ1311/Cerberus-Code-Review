@@ -13,40 +13,50 @@ Systematically targets unexercised branches across:
 - App Lifespan (startup, connection warmup, shutdown)
 """
 
-import asyncio
 import base64
 import io
 import json
 import time
 import uuid
 import zipfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine
-
 from starlette.testclient import TestClient
 
 from cerberus.agents.code_fixer_agent import CodeFixerAgent
-from cerberus.api.app import app, lifespan
+from cerberus.api.app import app
 from cerberus.cli.main import (
     _render_zip_review_cli,
     apply_fix_command,
-    create_api_key as cli_create_api_key,
-    doctor as cli_doctor,
     export_gitlab_command,
     export_sarif_command,
     export_sonarqube_command,
+)
+from cerberus.cli.main import (
+    create_api_key as cli_create_api_key,
+)
+from cerberus.cli.main import (
+    doctor as cli_doctor,
+)
+from cerberus.cli.main import (
     health as cli_health,
+)
+from cerberus.cli.main import (
     list_agents as cli_list_agents,
+)
+from cerberus.cli.main import (
     review as cli_review,
+)
+from cerberus.cli.main import (
     revoke_api_key as cli_revoke_api_key,
 )
 from cerberus.config import settings
-from cerberus.core.cache import CacheManager, cache_manager
+from cerberus.core.cache import CacheManager
 from cerberus.core.database import AsyncSessionLocal, init_db
 from cerberus.core.github_app import (
     build_github_check_run_payload,
@@ -60,13 +70,10 @@ from cerberus.core.migrations import (
     run_migrations,
 )
 from cerberus.core.security import generate_webhook_signature
-from cerberus.models.database import ApiKeyRecord, CodeReviewRecord, FindingRecord
+from cerberus.models.database import CodeReviewRecord, FindingRecord
 from cerberus.models.schemas import (
     CodeReviewResponse,
-    FeedbackRequest,
     Finding,
-    GitHubPRReviewPayload,
-    ReviewApproveRequest,
     SeverityEnum,
     SeveritySummary,
     ZipReviewResponse,
@@ -105,7 +112,7 @@ async def test_analytics_repositories_empty_and_populated():
                 code_snippet="x = 1",
                 language="python",
                 overall_score=90.0,
-                created_at=datetime.now(timezone.utc) - timedelta(days=2),
+                created_at=datetime.now(UTC) - timedelta(days=2),
             )
             session.add(rev1)
 
@@ -132,8 +139,8 @@ async def test_analytics_repositories_empty_and_populated():
             await session.commit()
 
         # 3. Query repository with date filtering (both valid and invalid to hit branches)
-        from_d = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
-        to_d = datetime.now(timezone.utc).isoformat()
+        from_d = (datetime.now(UTC) - timedelta(days=5)).isoformat()
+        to_d = datetime.now(UTC).isoformat()
         res_pop = await client.get(
             f"/api/v1/analytics/repositories/octocat/hello-world?from_date={from_d}&to_date={to_d}",
             headers=headers,
@@ -305,7 +312,7 @@ async def test_migrations_engine_execution():
     # 4. Test error rollback when a migration fails
     bad_migrations = list(MIGRATIONS) + [("999_broken", "Invalid SQL", "THIS IS AN INVALID SQL STATEMENT;")]
     with patch("cerberus.core.migrations.MIGRATIONS", bad_migrations):
-        with pytest.raises(Exception):
+        with pytest.raises(Exception, match=r".*"):
             await run_migrations(fresh_engine)
 
     await fresh_engine.dispose()
@@ -354,7 +361,7 @@ async def test_github_app_parsing_and_formatting():
     resp = CodeReviewResponse(
         review_id="rev_gh_test",
         status="completed",
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=datetime.now(UTC).isoformat(),
         overall_score=72.0,
         summary="Security risks identified",
         critical_issues=[finding],
@@ -710,7 +717,7 @@ def test_cli_subcommands(tmp_path: Path):
         project_name="demo_proj",
         review_id="zip_rev_123",
         status="completed",
-        created_at=datetime.now(timezone.utc).isoformat(),
+        created_at=datetime.now(UTC).isoformat(),
         total_files_discovered=2,
         reviewed_files_count=2,
         skipped_files_count=0,

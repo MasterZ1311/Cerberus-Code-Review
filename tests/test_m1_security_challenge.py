@@ -4,18 +4,18 @@ Tests negative authentication cases, token lifecycles, injection vectors, and CO
 """
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
+
 import pytest
 from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
 
 from cerberus.api.app import app, create_app
 from cerberus.api.dependencies import verify_api_key
 from cerberus.config import Settings, settings
 from cerberus.core.database import AsyncSessionLocal, init_db
-from cerberus.core.security import generate_api_key, hash_api_key, rate_limiter
+from cerberus.core.security import generate_api_key, rate_limiter
 from cerberus.models.database import ApiKeyRecord
 
 
@@ -135,7 +135,7 @@ class TestAuthenticationNegativeCases:
                 prefix=prefix,
                 scopes="review:read",
                 is_active=True,
-                expires_at=datetime.now(timezone.utc) - timedelta(hours=2),
+                expires_at=datetime.now(UTC) - timedelta(hours=2),
             )
             session.add(record)
             await session.commit()
@@ -151,7 +151,7 @@ class TestAuthenticationNegativeCases:
     async def test_expired_api_key_with_naive_datetime_rejected(self):
         """An API key with naive datetime in the past must be treated safely as UTC and rejected."""
         raw_key, key_hash, prefix = generate_api_key(name="expired-naive-test")
-        naive_past = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=5)
+        naive_past = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=5)
         async with AsyncSessionLocal() as session:
             record = ApiKeyRecord(
                 key_hash=key_hash,
@@ -181,7 +181,7 @@ class TestAuthenticationNegativeCases:
                 prefix=prefix,
                 scopes="review:read",
                 is_active=True,
-                expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+                expires_at=datetime.now(UTC) + timedelta(days=30),
             )
             session.add(record)
             await session.commit()
@@ -276,6 +276,7 @@ class TestBoundaryAndAdversarialTokens:
 
         # The fake token should NOT have been tracked by the rate limiter
         assert fake_token not in rate_limiter.requests
+        assert len(rate_limiter.requests) == initial_tracked
 
     @pytest.mark.asyncio
     async def test_production_environment_rejects_dev_fallback_if_not_in_db(self, monkeypatch):

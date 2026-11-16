@@ -4,9 +4,9 @@ Verifies HIPAA, GDPR, SOC 2, PCI-DSS (Luhn algorithm), and CCPA evaluations.
 """
 
 import pytest
+
 from cerberus.agents.compliance import (
     ComprehensiveComplianceAgent,
-    ComplianceStatus,
     mask_pan,
     validate_luhn,
 )

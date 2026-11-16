@@ -10,19 +10,18 @@ Test Suite for 10/10 Capabilities:
 """
 
 import json
-import os
-from pathlib import Path
+
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from typer.testing import CliRunner
+
 from cerberus.api.app import app
 from cerberus.cli.main import app as cli_app
 from cerberus.config import settings
-from cerberus.core.sarif import review_response_to_sarif, zip_review_response_to_sarif
+from cerberus.core.sarif import review_response_to_sarif
 from cerberus.core.security import generate_webhook_signature, timing_safe_compare, verify_github_signature
 from cerberus.core.syntax_verifier import SyntaxVerifier
-from cerberus.models.schemas import CodeReviewRequest, CodeReviewResponse, Finding, SeverityEnum
-
+from cerberus.models.schemas import CodeReviewResponse, Finding, SeverityEnum
 
 runner = CliRunner()
 

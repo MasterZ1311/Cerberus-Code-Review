@@ -1,7 +1,9 @@
-import numpy as np
-from PIL import Image, ImageFilter
 from collections import deque
 from pathlib import Path
+
+import numpy as np
+from PIL import Image
+
 
 def generate_clean_logo():
     src_path = Path("Cerberus Code Shield Logo.png")

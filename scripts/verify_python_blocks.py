@@ -6,8 +6,6 @@ Empirical Python Code Block Validator for:
 - DATABASE_DESIGN.md
 """
 import ast
-import re
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -150,16 +148,16 @@ def main():
         if not doc_path.exists():
             continue
         blocks = extract_python_blocks(doc_path)
-        print(f"\n=======================================================")
+        print("\n=======================================================")
         print(f"DOCUMENT: {doc_name} ({len(blocks)} Python blocks)")
-        print(f"=======================================================")
+        print("=======================================================")
 
         for idx, block in enumerate(blocks, 1):
             total_blocks += 1
             result = validate_block(block)
             first_line = block['content'].splitlines()[0] if block['content'].splitlines() else ""
             lines_count = len(block['content'].splitlines())
-            
+
             if result["valid"]:
                 passed_blocks += 1
                 print(f"[PASS] Block #{idx} (lines {block['start']}-{block['end']}, {lines_count} lines): {first_line[:50]}")
@@ -175,7 +173,7 @@ def main():
                     print(f"       Error at block relative line {err_line} (doc line {block['start'] + err_line - 1})")
                     print(f"       Line text: {result.get('text', '').strip()}")
 
-    print(f"\nSUMMARY:")
+    print("\nSUMMARY:")
     print(f"Total Python blocks: {total_blocks}")
     print(f"Passed AST Parse:    {passed_blocks}")
     print(f"Failed AST Parse:    {failed_blocks}")

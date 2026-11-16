@@ -3,6 +3,7 @@ Tests for cerberus CLI Commands.
 """
 
 from typer.testing import CliRunner
+
 from cerberus.cli.main import app
 
 runner = CliRunner()

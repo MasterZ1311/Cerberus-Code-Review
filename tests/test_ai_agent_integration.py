@@ -5,8 +5,8 @@ heuristic de-duplication, and multi-agent synthesis.
 """
 
 import json
+
 import pytest
-from unittest.mock import AsyncMock, patch
 
 from cerberus.agents.ai_helper import (
     build_findings_from_llm,
@@ -20,10 +20,8 @@ from cerberus.agents.orchestrator import ReviewOrchestrator
 from cerberus.agents.performance_agent import PerformanceAgent
 from cerberus.agents.quality_agent import QualityAgent
 from cerberus.agents.security_agent import SecurityAgent
-from cerberus.config import settings
 from cerberus.models.schemas import CodeReviewRequest, Finding, SeverityEnum
 from cerberus.providers.base import BaseLLMProvider
-from cerberus.providers.watsonx_provider import WatsonxProvider
 
 
 class MockLLMProvider(BaseLLMProvider):

@@ -93,7 +93,7 @@ async def run_benchmark(iterations: int = 50) -> Dict[str, Any]:
 def main():
     try:
         summary = asyncio.run(run_benchmark(iterations=30))
-        print("\nBenchmark completed successfully.")
+        print(f"\nBenchmark completed successfully: {len(summary)} suites executed.")
         return 0
     except Exception as e:
         print(f"Benchmark failed: {e}", file=sys.stderr)

@@ -20,11 +20,10 @@ Specs:
 - Loop: Netscape 2.0 infinite loop (loop=0).
 """
 
-import sys
 import io
 import json
-import math
 from pathlib import Path
+
 from PIL import Image
 from playwright.sync_api import sync_playwright
 

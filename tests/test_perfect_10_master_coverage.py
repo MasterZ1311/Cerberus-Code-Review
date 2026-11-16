@@ -7,87 +7,88 @@ import asyncio
 import base64
 import io
 import json
-import os
-from pathlib import Path
-import tempfile
 import zipfile
-import pytest
-from httpx import AsyncClient, ASGITransport
 
-from cerberus.api.app import app, create_app, lifespan
+import pytest
+from httpx import ASGITransport, AsyncClient
+
+from cerberus.agents.code_fixer_agent import CodeFixerAgent
+from cerberus.agents.compliance.ccpa_evaluator import CCPARegulatoryEvaluator
+from cerberus.agents.compliance.gdpr_evaluator import GDPRRegulatoryEvaluator
+from cerberus.agents.compliance.hipaa_evaluator import HIPAARegulatoryEvaluator
+from cerberus.agents.compliance.luhn import mask_pan, validate_luhn
+from cerberus.agents.compliance.soc2_evaluator import SOC2RegulatoryEvaluator
+from cerberus.agents.consensus_agent import ConsensusAgent
+from cerberus.agents.orchestrator import orchestrator
+from cerberus.api.app import app
+from cerberus.cli.main import (
+    _safe_text,
+    export_gitlab_command,
+    export_sarif_command,
+    export_sonarqube_command,
+    install_git_hooks,
+    uninstall_git_hooks,
+)
+from cerberus.cli.main import (
+    create_api_key as cli_create_api_key,
+)
+from cerberus.cli.main import (
+    doctor as cli_doctor,
+)
+from cerberus.cli.main import (
+    health as cli_health,
+)
+from cerberus.cli.main import (
+    init as cli_init,
+)
+from cerberus.cli.main import (
+    list_agents as cli_list_agents,
+)
+from cerberus.cli.main import (
+    list_api_keys as cli_list_api_keys,
+)
+from cerberus.cli.main import (
+    review as cli_review,
+)
+from cerberus.cli.main import (
+    revoke_api_key as cli_revoke_api_key,
+)
 from cerberus.config import settings
-from cerberus.core.cache import cache_manager, SingleFlight
-from cerberus.core.database import init_db, warm_connection_pool, execute_with_db_retry, AsyncSessionLocal
-from cerberus.core.migrations import run_migrations, MIGRATIONS
+from cerberus.core.cache import SingleFlight, cache_manager
+from cerberus.core.database import AsyncSessionLocal, execute_with_db_retry, init_db, warm_connection_pool
+from cerberus.core.migrations import run_migrations
 from cerberus.core.sarif import (
-    severity_to_sarif_level,
     generate_sarif_from_findings,
-    review_response_to_sarif,
-    zip_review_response_to_sarif,
     review_response_to_gitlab_code_quality,
-    zip_review_response_to_gitlab_code_quality,
     review_response_to_sonarqube,
-    zip_review_response_to_sonarqube,
 )
 from cerberus.core.security import (
+    RateLimiter,
     calculate_shannon_entropy,
-    verify_key_entropy,
     generate_api_key,
+    generate_webhook_signature,
     hash_api_key,
     timing_safe_compare,
-    generate_webhook_signature,
     verify_github_signature,
-    RateLimiter,
+    verify_key_entropy,
 )
-from cerberus.core.security_headers import SecurityHeadersMiddleware, SensitiveDataMaskingFilter
+from cerberus.core.security_headers import SensitiveDataMaskingFilter
 from cerberus.core.syntax_verifier import SyntaxVerifier, detect_language_from_path
-from cerberus.core.telemetry import tracer, get_prometheus_metrics
 from cerberus.core.zip_processor import (
-    is_safe_zip_path,
-    is_ignored_path,
     extract_code_from_zip,
+    is_ignored_path,
+    is_safe_zip_path,
 )
 from cerberus.models.schemas import (
     CodeReviewRequest,
     CodeReviewResponse,
-    FeedbackRequest,
     Finding,
-    ReviewApproveRequest,
-    ReviewConfig,
     SeverityEnum,
-    ZipBase64ReviewRequest,
 )
-from cerberus.agents.orchestrator import orchestrator
-from cerberus.agents.code_fixer_agent import CodeFixerAgent
-from cerberus.agents.consensus_agent import ConsensusAgent
-from cerberus.agents.compliance_agent import ComplianceAgent
-from cerberus.agents.compliance.luhn import validate_luhn, mask_pan
-from cerberus.agents.compliance.ccpa_evaluator import CCPARegulatoryEvaluator
-from cerberus.agents.compliance.gdpr_evaluator import GDPRRegulatoryEvaluator
-from cerberus.agents.compliance.hipaa_evaluator import HIPAARegulatoryEvaluator
-from cerberus.agents.compliance.pcidss_evaluator import PCIDSSRegulatoryEvaluator
-from cerberus.agents.compliance.soc2_evaluator import SOC2RegulatoryEvaluator
 from cerberus.providers import (
+    close_all_providers,
     get_llm_provider,
     resolve_auto_provider,
-    close_all_providers,
-)
-from cerberus.cli.main import (
-    _safe_text,
-    review as cli_review,
-    apply_fix_command,
-    export_sarif_command,
-    export_sonarqube_command,
-    export_gitlab_command,
-    create_api_key as cli_create_api_key,
-    list_api_keys as cli_list_api_keys,
-    revoke_api_key as cli_revoke_api_key,
-    health as cli_health,
-    list_agents as cli_list_agents,
-    doctor as cli_doctor,
-    init as cli_init,
-    install_git_hooks,
-    uninstall_git_hooks,
 )
 
 
@@ -582,7 +583,6 @@ async def test_orchestrator_hooks_and_registration():
 
 
 def test_package_main_entrypoints():
-    import importlib
     import cerberus.__main__
     import cerberus.cli.__main__
 
@@ -646,8 +646,8 @@ async def test_code_fixer_extended_features():
 
 def test_github_app_payloads_deep():
     from cerberus.core.github_app import (
-        build_pr_review_payload,
         build_github_check_run_payload,
+        build_pr_review_payload,
         parse_pull_request_event,
     )
 
@@ -701,11 +701,9 @@ def test_github_app_payloads_deep():
 
 def test_cli_zip_and_exports_all_formats(tmp_path):
     from cerberus.cli.main import (
-        export_sarif_command,
-        export_gitlab_command,
-        export_sonarqube_command,
-        init as cli_init,
         apply_fix_command as cli_apply_fix,
+    )
+    from cerberus.cli.main import (
         review as cli_review,
     )
 

@@ -1,4 +1,3 @@
-import asyncio
 import pytest
 
 from cerberus.core.background import background_tasks

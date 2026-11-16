@@ -8,7 +8,8 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import yaml
+import yaml  # noqa: E402
+
 
 def extract_yaml_blocks(doc_path):
     text = doc_path.read_text(encoding="utf-8")
@@ -43,7 +44,7 @@ def validate_openapi():
     doc_path = ROOT / "API_SPECIFICATIONS.md"
     yaml_blocks = extract_yaml_blocks(doc_path)
     print(f"Total YAML blocks in API_SPECIFICATIONS.md: {len(yaml_blocks)}")
-    
+
     for idx, b in enumerate(yaml_blocks, 1):
         print(f"\nValidating YAML block #{idx} (lines {b['start']}-{b['end']}, {len(b['content'].splitlines())} lines)...")
         try:
@@ -52,23 +53,23 @@ def validate_openapi():
         except Exception as e:
             print(f"  YAML syntax ERROR: {e}")
             continue
-            
+
         if not isinstance(parsed, dict):
             print("  Warning: Root is not a dict")
             continue
-            
+
         # Check OpenAPI fields
         openapi_ver = parsed.get("openapi")
         info = parsed.get("info", {})
         paths = parsed.get("paths", {})
         components = parsed.get("components", {})
-        
+
         print(f"  OpenAPI version: {openapi_ver}")
         print(f"  Title: {info.get('title')}, version: {info.get('version')}")
         print(f"  Total Paths: {len(paths)}")
         print(f"  Total Schemas in components: {len(components.get('schemas', {}))}")
         print(f"  Security Schemes: {list(components.get('securitySchemes', {}).keys())}")
-        
+
         required_endpoints = [
             "/reviews",
             "/reviews/{id}",
@@ -79,7 +80,7 @@ def validate_openapi():
             "/teams/expertise",
             "/reviews/{id}/stream"
         ]
-        
+
         print("\n  Checking required endpoints against YAML paths:")
         for ep in required_endpoints:
             # Handle possible prefix like /api/v1 or alternate path param names like {review_id}

@@ -18,12 +18,11 @@ import asyncio
 import base64
 import json
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
 
 from cerberus.agents.orchestrator import ReviewOrchestrator
 from cerberus.api.app import app
@@ -35,7 +34,6 @@ from cerberus.core.security import (
     generate_api_key,
     generate_webhook_signature,
     get_token_fingerprint,
-    hash_api_key,
 )
 from cerberus.models.database import ApiKeyRecord, CodeReviewRecord, RuntimeConfigRecord
 from cerberus.models.schemas import CodeReviewRequest
@@ -513,7 +511,7 @@ async def test_data_retention_ttl_purge():
             code_snippet="print('old code')",
             language="python",
             overall_score=80.0,
-            created_at=datetime.now(timezone.utc) - timedelta(days=45),
+            created_at=datetime.now(UTC) - timedelta(days=45),
         )
         session.add(old_record)
         await session.commit()

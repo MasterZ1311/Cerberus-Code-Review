@@ -26,11 +26,12 @@ Adversarially tests and validates:
 import asyncio
 import time
 import uuid
+
 import pytest
+
 from cerberus.config import settings
 from cerberus.core.cache import CacheManager
 from cerberus.core.security import RateLimiter
-
 
 # =====================================================================
 # 1. CacheManager Empirical Stress & LRU Eviction Tests
@@ -461,7 +462,7 @@ def test_rate_limiter_global_invariants_under_mixed_traffic():
 
     clients = [f"mixed_client_{i}" for i in range(150)]
 
-    for step in range(500):
+    for _step in range(500):
         client = rng.choice(clients)
         limiter.is_allowed(client)
 

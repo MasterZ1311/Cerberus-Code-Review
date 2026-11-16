@@ -24,18 +24,19 @@ Challenger 2 Test Battery:
 
 import asyncio
 import uuid
+
 import httpx
 import pytest
 from httpx import ASGITransport, AsyncClient
+
+from cerberus.agents.orchestrator import orchestrator
 from cerberus.api.app import app
 from cerberus.api.v1.review import reviews_store
 from cerberus.config import settings
 from cerberus.models.schemas import CodeReviewRequest, CodeReviewResponse
-from cerberus.providers.base import BaseLLMProvider
 from cerberus.providers.ollama_provider import OllamaProvider
 from cerberus.providers.openai_provider import OpenAIProvider
 from cerberus.providers.watsonx_provider import WatsonxProvider
-from cerberus.agents.orchestrator import orchestrator
 
 
 def _make_dummy_response(review_id: str = None) -> CodeReviewResponse:

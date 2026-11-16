@@ -5,6 +5,7 @@ circuit breaker trip verification, and transient error recovery.
 """
 
 import os
+
 import pytest
 
 from cerberus.core.circuit_breaker import CircuitBreaker, CircuitState

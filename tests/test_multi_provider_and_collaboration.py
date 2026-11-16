@@ -3,26 +3,23 @@ Tests for Multi-Provider AI Support (Groq, Anthropic, Gemini, DeepSeek, OpenAI)
 and Multi-Agent Collaborative Workflows (ConsensusAgent, CodeFixerAgent, Per-Agent Routing).
 """
 
-import json
-from unittest.mock import AsyncMock, patch, MagicMock
-import httpx
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 
+from cerberus.agents.code_fixer_agent import CodeFixerAgent
+from cerberus.agents.consensus_agent import ConsensusAgent
+from cerberus.agents.orchestrator import ReviewOrchestrator
 from cerberus.config import settings
 from cerberus.models.schemas import CodeReviewRequest, Finding, SeverityEnum
 from cerberus.providers import (
     AnthropicProvider,
+    DeepSeekProvider,
     GeminiProvider,
     GroqProvider,
-    DeepSeekProvider,
-    OpenAIProvider,
-    resolve_auto_provider,
     get_llm_provider,
+    resolve_auto_provider,
 )
-from cerberus.agents.consensus_agent import ConsensusAgent
-from cerberus.agents.code_fixer_agent import CodeFixerAgent
-from cerberus.agents.orchestrator import ReviewOrchestrator
-
 
 # =====================================================================
 # 1. PROVIDER TESTS (Anthropic, Gemini, Groq, DeepSeek)

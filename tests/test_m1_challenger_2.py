@@ -6,11 +6,9 @@ Focus areas:
 """
 
 import asyncio
-import hashlib
-import os
 import re
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Optional
 
 import pytest
@@ -20,7 +18,7 @@ from typer.testing import CliRunner
 
 from cerberus.api.app import app
 from cerberus.cli.main import app as cli_app
-from cerberus.config import INSECURE_DEFAULT_SECRETS, Settings, settings
+from cerberus.config import INSECURE_DEFAULT_SECRETS, Settings
 from cerberus.core.database import AsyncSessionLocal, init_db
 from cerberus.core.security import hash_api_key
 from cerberus.models.database import ApiKeyRecord
@@ -295,7 +293,7 @@ class TestCLIKeyLifecycle:
             async with AsyncSessionLocal() as session:
                 stmt = select(ApiKeyRecord).where(ApiKeyRecord.key_hash == computed_hash)
                 record = (await session.execute(stmt)).scalars().first()
-                record.expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+                record.expires_at = datetime.now(UTC) - timedelta(hours=1)
                 await session.commit()
 
             # Now verify it is rejected with 401

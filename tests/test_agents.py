@@ -3,7 +3,7 @@ Unit Tests for Specialized Review Agents (Security, Performance, Quality, Archit
 """
 
 import pytest
-from cerberus.agents.architecture_agent import ArchitectureAgent
+
 from cerberus.agents.compliance_agent import ComplianceAgent
 from cerberus.agents.performance_agent import PerformanceAgent
 from cerberus.agents.quality_agent import QualityAgent

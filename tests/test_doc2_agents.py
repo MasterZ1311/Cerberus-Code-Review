@@ -6,9 +6,10 @@ Tests:
 - Validates that the remaining 59 blocks execute cleanly
 """
 
+
 import pytest
-from pathlib import Path
-from scripts.verify_python_blocks import extract_python_blocks, ROOT
+
+from scripts.verify_python_blocks import ROOT, extract_python_blocks
 
 EXPECTED_AGENTS = [
     "Predictive Bug Detection",

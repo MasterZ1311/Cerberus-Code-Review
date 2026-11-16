@@ -2,10 +2,10 @@
 Empirical test for PHASE_1_DETAILED_IMPLEMENTATION.md code block execution.
 """
 
+
 import pytest
-import asyncio
-from pathlib import Path
-from scripts.verify_python_blocks import extract_python_blocks, ROOT
+
+from scripts.verify_python_blocks import ROOT, extract_python_blocks
 
 
 @pytest.mark.asyncio

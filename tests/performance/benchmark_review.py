@@ -6,7 +6,6 @@ Generates performance SLO report with actual measurements.
 import asyncio
 import statistics
 import time
-from typing import List
 
 from cerberus.agents.orchestrator import orchestrator
 from cerberus.models.schemas import CodeReviewRequest

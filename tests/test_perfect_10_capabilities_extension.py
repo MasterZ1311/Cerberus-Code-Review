@@ -8,11 +8,11 @@ Validation Test Suite for Cerberus Perfect 10 Capabilities:
 - CLI Automated Git Hooks installation/uninstallation
 """
 
-import asyncio
-from pathlib import Path
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 import pytest
 from httpx import Response
+
 from cerberus.agents.base import BaseAgent
 from cerberus.agents.code_fixer_agent import CodeFixerAgent
 from cerberus.agents.orchestrator import ReviewOrchestrator
@@ -29,14 +29,14 @@ from cerberus.models.schemas import (
     Finding,
     ReviewConfig,
     SeverityEnum,
+    SeveritySummary,
     ZipFileReview,
     ZipReviewResponse,
-    SeveritySummary,
 )
+from cerberus.providers import get_llm_provider
 from cerberus.providers.base import CircuitBreaker, CircuitState
 from cerberus.providers.heuristic_engine import HeuristicEngine
 from cerberus.providers.openrouter_provider import OpenRouterProvider
-from cerberus.providers import get_llm_provider, resolve_auto_provider
 
 
 @pytest.mark.asyncio
@@ -184,7 +184,7 @@ async def test_orchestrator_lifecycle_hooks():
 
 
 def test_gitlab_code_quality_export():
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
     review = CodeReviewResponse(
         review_id="rev_gl_123",
         status="completed",
@@ -214,7 +214,7 @@ def test_gitlab_code_quality_export():
 
 
 def test_github_check_run_payload_generation():
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
     review = CodeReviewResponse(
         review_id="rev_gh_456",
         status="completed",
@@ -255,6 +255,7 @@ def test_github_check_run_payload_generation():
 
 def test_cli_git_hooks_installation_and_uninstallation(tmp_path):
     from typer.testing import CliRunner
+
     from cerberus.cli.main import app
 
     runner = CliRunner()
@@ -277,10 +278,11 @@ def test_cli_git_hooks_installation_and_uninstallation(tmp_path):
 @pytest.mark.asyncio
 async def test_gitlab_api_endpoint():
     from httpx import ASGITransport, AsyncClient
+
     from cerberus.api.app import app
     from cerberus.api.v1.review import _store_review
 
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
     fake_review = CodeReviewResponse(
         review_id="rev_test_gl_api",
         status="completed",
@@ -358,7 +360,7 @@ async def test_db_execute_with_retry():
 
 
 def test_zip_gitlab_code_quality_export():
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now_iso = datetime.now(UTC).isoformat()
     rev = CodeReviewResponse(
         review_id="rev_sub_1",
         status="completed",
@@ -429,6 +431,7 @@ def test_dynamic_agent_registration():
 
 def test_cli_formats_gitlab_and_check_run(tmp_path):
     from typer.testing import CliRunner
+
     from cerberus.cli.main import app
 
     runner = CliRunner()

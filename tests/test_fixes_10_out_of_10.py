@@ -2,19 +2,16 @@
 Tests for 10/10 Architecture, Security, Heuristics, Schema, and DevOps Hardening.
 """
 
-import ast
 import pytest
+
+from cerberus.agents.architecture_agent import ArchitectureAgent
 from cerberus.config import Settings
-from cerberus.core.security import RateLimiter, hash_api_key
+from cerberus.core.security import RateLimiter
 from cerberus.models.schemas import (
     CodeReviewResponse,
-    Finding,
     ReviewResults,
-    SeverityEnum,
 )
 from cerberus.providers.heuristic_engine import HeuristicEngine
-from cerberus.agents.architecture_agent import ArchitectureAgent
-
 
 # ============================================================================
 # 1. Security & Production Guard Tests

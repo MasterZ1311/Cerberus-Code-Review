@@ -9,25 +9,23 @@ Comprehensive Test Suite for Perfect 10/10 Verification Across All Pillars:
 
 import asyncio
 import json
+
 import pytest
 from typer.testing import CliRunner
 
-from cerberus.core.telemetry import (
-    Span,
-    Tracer,
-    tracer as global_tracer,
-)
-from cerberus.core.syntax_verifier import SyntaxVerifier
-from cerberus.core.cache import SingleFlight, CacheManager
+from cerberus.cli.main import app
+from cerberus.core.cache import CacheManager, SingleFlight
 from cerberus.core.database import warm_connection_pool
-from cerberus.core.sarif import review_response_to_sonarqube, zip_review_response_to_sonarqube
+from cerberus.core.sarif import review_response_to_sonarqube
+from cerberus.core.syntax_verifier import SyntaxVerifier
+from cerberus.core.telemetry import (
+    Tracer,
+)
 from cerberus.models.schemas import (
     CodeReviewResponse,
-    ZipReviewResponse,
     Finding,
     SeverityEnum,
 )
-from cerberus.cli.main import app
 
 runner = CliRunner()
 

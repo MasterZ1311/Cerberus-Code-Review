@@ -4,6 +4,7 @@ Integration Tests for FastAPI REST Endpoints.
 
 import pytest
 from httpx import ASGITransport, AsyncClient
+
 from cerberus.api.app import app
 
 

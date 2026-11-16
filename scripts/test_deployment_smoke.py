@@ -8,7 +8,6 @@ Validates:
 4. Live service readiness probe: truthful health and readiness responses under ASGI transport.
 """
 
-import os
 import sys
 from pathlib import Path
 
@@ -75,6 +74,7 @@ def test_docker_compose_configuration():
 def test_production_settings_validation():
     print("[3/4] Validating production fail-closed settings enforcement...")
     from pydantic import ValidationError
+
     from cerberus.config import Settings
 
     # Attempting to start in production with default/insecure secret must fail
@@ -106,7 +106,9 @@ def test_production_settings_validation():
 def test_live_asgi_readiness_probe():
     print("[4/5] Validating live service health and readiness endpoints...")
     import asyncio
+
     from httpx import ASGITransport, AsyncClient
+
     from cerberus.api.app import app
     from cerberus.core.database import init_db
 
@@ -140,7 +142,9 @@ def test_live_asgi_readiness_probe():
 def test_live_asgi_authentication_and_tenancy():
     print("[5/5] Validating ASGI live authentication and tenant boundary enforcement...")
     import asyncio
+
     from httpx import ASGITransport, AsyncClient
+
     from cerberus.api.app import app
     from cerberus.core.database import init_db
 
@@ -210,7 +214,9 @@ def test_database_persistence_fail_closed():
     print("[7/7] Validating synchronous database persistence fail-closed behavior...")
     import asyncio
     from unittest.mock import patch
+
     from httpx import ASGITransport, AsyncClient
+
     from cerberus.api.app import app
     from cerberus.core.database import init_db
 

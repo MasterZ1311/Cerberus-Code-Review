@@ -4,9 +4,9 @@ Tests Orchestrator Reliability, Agent Crash Scoring, Cache Poisoning Prevention,
 WebSocket Authentication, and Connection Cleanup.
 """
 
-import asyncio
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
@@ -15,9 +15,6 @@ from cerberus.api.app import app
 from cerberus.api.v1.review import ws_connections
 from cerberus.config import settings
 from cerberus.core.cache import cache_manager
-from cerberus.core.security import generate_api_key, hash_api_key
-from cerberus.core.database import AsyncSessionLocal
-from cerberus.models.database import ApiKeyRecord
 from cerberus.models.schemas import CodeReviewRequest
 
 

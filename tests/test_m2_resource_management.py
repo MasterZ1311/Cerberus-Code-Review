@@ -12,13 +12,13 @@ Verifies:
 import asyncio
 import time
 import uuid
+
 import httpx
 import pytest
 from httpx import ASGITransport, AsyncClient
+
 from cerberus.api.app import app
 from cerberus.api.v1.review import (
-    REVIEWS_STORE_MAX_ITEMS,
-    _store_review,
     reviews_store,
 )
 from cerberus.config import settings
@@ -31,7 +31,6 @@ from cerberus.providers.base import BaseLLMProvider
 from cerberus.providers.ollama_provider import OllamaProvider
 from cerberus.providers.openai_provider import OpenAIProvider
 from cerberus.providers.watsonx_provider import WatsonxProvider
-
 
 # =====================================================================
 # 1. CacheManager Bounded LRU & Lifecycle Tests

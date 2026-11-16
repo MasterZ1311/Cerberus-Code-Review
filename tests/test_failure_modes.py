@@ -216,6 +216,7 @@ async def test_readiness_probe_production_redis_failure():
 async def test_stream_cross_worker_db_fallback():
     """Verify SSE streaming resolves completed status from DB when local in-memory store is empty."""
     import uuid
+
     from cerberus.api.v1.review import reviews_store
     from cerberus.models.database import CodeReviewRecord
 
