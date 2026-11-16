@@ -2,7 +2,7 @@
   <img src="assets/cerberus_logo.png" alt="cerberus</> Official Logo" width="180">
 </p>
 
-<h1 align="center">cerberus&lt;/&gt; MultiAgent-CodeReview</h1>
+<h1 align="center">cerberus&lt;/&gt; Code-Review</h1>
 
 <p align="center">
   <strong>Autonomous Multi-Agent Code Review &amp; Collaborative Quality Assurance System</strong><br>
@@ -12,7 +12,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg" alt="Python: 3.11+"></a>
-  <a href="https://github.com/MasterZ1311/MultiAgent-CodeReview/actions/workflows/ci.yml"><img src="https://github.com/MasterZ1311/MultiAgent-CodeReview/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
+  <a href="https://github.com/MasterZ1311/Cerberus-Code-Review/actions/workflows/ci.yml"><img src="https://github.com/MasterZ1311/Cerberus-Code-Review/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
   <a href="tests/"><img src="https://img.shields.io/badge/tests-passing-brightgreen.svg" alt="Tests Passing"></a>
   <a href="pyproject.toml"><img src="https://img.shields.io/badge/coverage-%E2%89%A585%25%20branch-brightgreen.svg" alt="Coverage: >=85% Branch Enforced"></a>
   <a href="SECURITY.md"><img src="https://img.shields.io/badge/security-hardened-success.svg" alt="Security Hardened"></a>
@@ -42,7 +42,7 @@
 
 **cerberus</>** does exactly this for computer code—automatically, in **~17.5 milliseconds** (cold heuristic AST) and sub-millisecond (**<0.3 ms** cached), with reproducible benchmarks committed in `tests/performance/benchmark_review.py`!
 
-**🎯 Now with 10 Programming Languages:** Python, JavaScript, TypeScript, Go, Rust, **Java, C#, Ruby, PHP**, and more—featuring **125+ language-specific security rules**.
+**🎯 Now with 11 Programming Languages:** Python, JavaScript, TypeScript, Go, Rust, Java, C#, Ruby, PHP, **Kotlin, and Swift**—featuring **130+ language-specific security rules**.
 
 Whenever programmers write new software, Cerberus sends in a team of **7 specialized AI detectives** who review every line of code simultaneously. They deliberate together, reach a shared verdict, and **automatically write the exact fix** so your team can release software with complete confidence.
 
@@ -125,8 +125,8 @@ Cerberus is completely model-agnostic. Use **any provider you already have** or 
 ### 1. Installation
 
 ```bash
-git clone https://github.com/MasterZ1311/MultiAgent-CodeReview.git
-cd MultiAgent-CodeReview
+git clone https://github.com/MasterZ1311/Cerberus-Code-Review.git
+cd Cerberus-Code-Review
 
 # Create and activate virtual environment (optional but recommended)
 python -m venv venv
@@ -188,6 +188,18 @@ python -m cerberus.cli review --file app.py --format markdown --output review.md
 
 # Run only specific agents
 python -m cerberus.cli review --file app.py --agents "security,compliance"
+
+# List available specialized AI agents
+python -m cerberus.cli list-agents
+
+# List registered extensible plugins and custom rules
+python -m cerberus.cli list-plugins
+
+# Inspect multi-tenant quota usage meter and tier allocations
+python -m cerberus.cli quotas --tenant-id "default"
+
+# Enforce data retention lifecycle and purge historical reviews
+python -m cerberus.cli retention purge --days 30
 
 # Environment Doctor & System Diagnostics
 python -m cerberus.cli doctor
@@ -291,6 +303,25 @@ curl -N http://localhost:8000/api/v1/review/{review_id}/stream \
 # Or:
 curl -N "http://localhost:8000/api/v1/review/{review_id}/stream?stream_token=<SINGLE_USE_TOKEN>"
 
+# Mint cryptographically verified JWT bearer token
+curl -X POST http://localhost:8000/api/v1/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"client_id": "service-worker", "client_secret": "secret", "scopes": ["reviews:write", "reviews:read"]}'
+
+# Inspect multi-tenant monthly quota consumption
+curl http://localhost:8000/api/v1/tenants/quota \
+  -H "Authorization: Bearer cvai_dev_key_123"
+
+# Upgrade tenant tier (Admin only)
+curl -X POST http://localhost:8000/api/v1/tenants/acme-corp/tier \
+  -H "Authorization: Bearer cvai_admin_key" \
+  -H "Content-Type: application/json" \
+  -d '{"tier": "enterprise"}'
+
+# List registered plugins and custom rule metadata
+curl http://localhost:8000/api/v1/plugins \
+  -H "Authorization: Bearer cvai_dev_key_123"
+
 # Prometheus Telemetry Metrics
 curl http://localhost:8000/metrics
 ```
@@ -299,7 +330,7 @@ curl http://localhost:8000/metrics
 
 ## 🧪 Testing, Quality & Verification
 
-Cerberus has **615 automated tests across 44 test suites with >=85% enforced branch coverage** running in CI across Python 3.11, 3.12, and 3.13:
+Cerberus has **685 automated tests across 52 test suites with >=85% enforced branch coverage** running in CI across Python 3.11, 3.12, and 3.13:
 
 ```bash
 # Run full automated test suite with enforced branch coverage

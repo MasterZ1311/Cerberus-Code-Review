@@ -16,8 +16,8 @@ Please take a few moments to review these guidelines before submitting a pull re
 
 ### 2. Fork and Clone
 ```bash
-git clone https://github.com/<your-username>/MultiAgent-CodeReview.git
-cd MultiAgent-CodeReview
+git clone https://github.com/<your-username>/Cerberus-Code-Review.git
+cd Cerberus-Code-Review
 ```
 
 ### 3. Create a Virtual Environment

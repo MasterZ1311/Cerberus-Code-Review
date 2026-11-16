@@ -71,6 +71,7 @@ scratch/
 
 # Subagent teamwork scratch artifacts
 .agents/
+brag-output/
 
 # Internal documentation & submission reports
 internal_docs/
