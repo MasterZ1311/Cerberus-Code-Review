@@ -29,6 +29,7 @@ def setup_database():
 # Category 1: Negative Authentication Cases
 # ============================================================================
 
+
 class TestAuthenticationNegativeCases:
     """Stress-test authentication rejection against forged, malformed, and missing credentials."""
 
@@ -51,20 +52,23 @@ class TestAuthenticationNegativeCases:
             assert data["detail"]["error"] == "missing_authentication"
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("header_value", [
-        " ",
-        "   ",
-        "Bearer",
-        "Bearer ",
-        "Bearer   ",
-        "Token some_random_token",
-        "Basic dXNlcjpwYXNz",
-        "Digest username=admin",
-        "bearer_without_space",
-        "Bearer token1 token2",
-        "Bearer token1 token2 token3",
-        "Bearer    extra_leading_space",
-    ])
+    @pytest.mark.parametrize(
+        "header_value",
+        [
+            " ",
+            "   ",
+            "Bearer",
+            "Bearer ",
+            "Bearer   ",
+            "Token some_random_token",
+            "Basic dXNlcjpwYXNz",
+            "Digest username=admin",
+            "bearer_without_space",
+            "Bearer token1 token2",
+            "Bearer token1 token2 token3",
+            "Bearer    extra_leading_space",
+        ],
+    )
     async def test_malformed_authorization_headers(self, header_value: str):
         """Malformed Authorization headers must be rejected with 401 invalid_token_format."""
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -74,19 +78,22 @@ class TestAuthenticationNegativeCases:
             assert data["detail"]["error"] == "invalid_token_format"
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("arbitrary_token", [
-        "cvai_",
-        "cvai_attacker",
-        "cvai_fabricated_token_999",
-        "cvai_00000000000000000000000000000000",
-        "cvai_admin",
-        "cvai_root",
-        "cvai_dev_key_1234",
-        "cvai_dev_key_12",
-        "cvai_dev_key_123_extra",
-        "cvai_null",
-        "cvai_undefined",
-    ])
+    @pytest.mark.parametrize(
+        "arbitrary_token",
+        [
+            "cvai_",
+            "cvai_attacker",
+            "cvai_fabricated_token_999",
+            "cvai_00000000000000000000000000000000",
+            "cvai_admin",
+            "cvai_root",
+            "cvai_dev_key_1234",
+            "cvai_dev_key_12",
+            "cvai_dev_key_123_extra",
+            "cvai_null",
+            "cvai_undefined",
+        ],
+    )
     async def test_arbitrary_cvai_tokens_rejected(self, arbitrary_token: str):
         """Tokens starting with cvai_ that are unregistered must be rejected with 401 invalid_api_key."""
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -196,19 +203,23 @@ class TestAuthenticationNegativeCases:
 # Category 2: Boundary Tokens, SQL Injection, and Pathological Inputs
 # ============================================================================
 
+
 class TestBoundaryAndAdversarialTokens:
     """Stress-test system resilience against injection strings, giant tokens, and edge cases."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("injection_payload", [
-        "' OR '1'='1",
-        "cvai_' OR '1'='1' --",
-        "'; DROP TABLE api_keys; --",
-        "' UNION SELECT 1, 'admin', 'hash', 'cvai_', 'all', 1, datetime('now'), NULL --",
-        "\" OR \"\"=\"",
-        "admin'--",
-        "cvai_'OR'1'='1'--",
-    ])
+    @pytest.mark.parametrize(
+        "injection_payload",
+        [
+            "' OR '1'='1",
+            "cvai_' OR '1'='1' --",
+            "'; DROP TABLE api_keys; --",
+            "' UNION SELECT 1, 'admin', 'hash', 'cvai_', 'all', 1, datetime('now'), NULL --",
+            '" OR ""="',
+            "admin'--",
+            "cvai_'OR'1'='1'--",
+        ],
+    )
     async def test_sql_injection_in_token(self, injection_payload: str):
         """SQL injection payloads in Bearer token must be rejected with 401 without DB errors."""
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -227,12 +238,15 @@ class TestBoundaryAndAdversarialTokens:
             assert res.json()["detail"]["error"] == "invalid_api_key"
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("special_token", [
-        "cvai_<script>alert(1)</script>",
-        "cvai_${7*7}",
-        "cvai_{{constructor.constructor('return_this')()}}",
-        "cvai_../../../../etc/passwd",
-    ])
+    @pytest.mark.parametrize(
+        "special_token",
+        [
+            "cvai_<script>alert(1)</script>",
+            "cvai_${7*7}",
+            "cvai_{{constructor.constructor('return_this')()}}",
+            "cvai_../../../../etc/passwd",
+        ],
+    )
     async def test_special_characters_and_script_payloads(self, special_token: str):
         """Special characters and injection strings must be safely handled and rejected with 401."""
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -279,16 +293,20 @@ class TestBoundaryAndAdversarialTokens:
 # Category 3: CORS Behavior & Stress Tests
 # ============================================================================
 
+
 class TestCORSBehaviorAndSecurity:
     """Stress-test CORS headers across whitelisted, non-whitelisted, and malicious origins."""
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("whitelisted_origin", [
-        "http://localhost:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "http://127.0.0.1:3000",
-    ])
+    @pytest.mark.parametrize(
+        "whitelisted_origin",
+        [
+            "http://localhost:3000",
+            "http://localhost:8000",
+            "http://127.0.0.1:8000",
+            "http://127.0.0.1:3000",
+        ],
+    )
     async def test_cors_whitelisted_origins_simple_request(self, whitelisted_origin: str):
         """Whitelisted origins must receive matching Access-Control-Allow-Origin and credentials true."""
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -298,12 +316,15 @@ class TestCORSBehaviorAndSecurity:
             assert res.headers.get("access-control-allow-credentials") == "true"
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("whitelisted_origin", [
-        "http://localhost:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "http://127.0.0.1:3000",
-    ])
+    @pytest.mark.parametrize(
+        "whitelisted_origin",
+        [
+            "http://localhost:3000",
+            "http://localhost:8000",
+            "http://127.0.0.1:8000",
+            "http://127.0.0.1:3000",
+        ],
+    )
     async def test_cors_whitelisted_origins_preflight(self, whitelisted_origin: str):
         """Preflight OPTIONS request from whitelisted origin must be approved with credentials."""
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -313,7 +334,7 @@ class TestCORSBehaviorAndSecurity:
                     "Origin": whitelisted_origin,
                     "Access-Control-Request-Method": "POST",
                     "Access-Control-Request-Headers": "authorization, content-type",
-                }
+                },
             )
             assert res.status_code == 200
             assert res.headers.get("access-control-allow-origin") == whitelisted_origin
@@ -321,12 +342,15 @@ class TestCORSBehaviorAndSecurity:
             assert "POST" in res.headers.get("access-control-allow-methods", "")
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("untrusted_origin", [
-        "http://example.com",
-        "https://google.com",
-        "http://evil.com",
-        "https://attacker.org",
-    ])
+    @pytest.mark.parametrize(
+        "untrusted_origin",
+        [
+            "http://example.com",
+            "https://google.com",
+            "http://evil.com",
+            "https://attacker.org",
+        ],
+    )
     async def test_cors_non_whitelisted_origins_rejected(self, untrusted_origin: str):
         """Non-whitelisted origins must not receive Access-Control-Allow-Origin header."""
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -336,18 +360,21 @@ class TestCORSBehaviorAndSecurity:
             assert res.headers.get("access-control-allow-origin") is None
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("malicious_origin", [
-        "http://localhost:3000.evil.com",
-        "http://evil-localhost:3000",
-        "http://localhost:3000@attacker.com",
-        "http://localhost:3001",
-        "http://localhost:8080",
-        "http://localhost",
-        "https://localhost:3000",
-        "http://127.0.0.1",
-        "http://127.0.0.1:8001",
-        "null",
-    ])
+    @pytest.mark.parametrize(
+        "malicious_origin",
+        [
+            "http://localhost:3000.evil.com",
+            "http://evil-localhost:3000",
+            "http://localhost:3000@attacker.com",
+            "http://localhost:3001",
+            "http://localhost:8080",
+            "http://localhost",
+            "https://localhost:3000",
+            "http://127.0.0.1",
+            "http://127.0.0.1:8001",
+            "null",
+        ],
+    )
     async def test_cors_adversarial_origins_rejected(self, malicious_origin: str):
         """Subdomain, port alteration, and protocol mismatch attacks must not receive CORS permissions."""
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -362,7 +389,7 @@ class TestCORSBehaviorAndSecurity:
                 headers={
                     "Origin": malicious_origin,
                     "Access-Control-Request-Method": "GET",
-                }
+                },
             )
             # Preflight must be rejected with 400 Bad Request by CORSMiddleware
             assert preflight.status_code == 400
@@ -403,6 +430,7 @@ class TestCORSBehaviorAndSecurity:
 # ============================================================================
 # Category 4: Production Configuration Security
 # ============================================================================
+
 
 class TestProductionSecurityValidation:
     """Stress-test production settings validation against weak or default secrets."""

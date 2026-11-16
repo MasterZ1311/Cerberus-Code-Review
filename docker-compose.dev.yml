@@ -1,0 +1,38 @@
+version: '3.8'
+
+# =========================================================================
+# Cerberus Multi-Agent Platform - Development Compose Override
+# Provides local development defaults and hot-reloading mounts.
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# =========================================================================
+
+services:
+  api:
+    environment:
+      - ENVIRONMENT=development
+      - SECRET_KEY=cerberus_dev_secret_key_change_in_production_32chars
+      - DB_USER=cerberus
+      - DB_PASSWORD=cerberus_dev_password_do_not_use_in_prod
+      - DB_NAME=cerberus_db
+      - LLM_PROVIDER=heuristic
+    volumes:
+      - .:/app:ro
+      - /app/.git
+      - /app/.venv
+
+  db:
+    environment:
+      POSTGRES_USER: cerberus
+      POSTGRES_PASSWORD: cerberus_dev_password_do_not_use_in_prod
+      POSTGRES_DB: cerberus_db
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"
+
+  grafana:
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin

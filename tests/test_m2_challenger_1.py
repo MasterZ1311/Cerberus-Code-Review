@@ -36,6 +36,7 @@ from cerberus.core.security import RateLimiter
 # 1. CacheManager Empirical Stress & LRU Eviction Tests
 # =====================================================================
 
+
 @pytest.mark.asyncio
 async def test_cache_insert_beyond_capacity_invariant():
     """CacheManager must strictly cap items at max_items under heavy sequential load."""
@@ -239,6 +240,7 @@ async def test_cache_concurrent_async_access():
 # =====================================================================
 # 2. RateLimiter Empirical Stress & Sliding Window Tests
 # =====================================================================
+
 
 def test_rate_limiter_flood_20k_identifiers_bounded_capacity():
     """
@@ -452,6 +454,7 @@ def test_rate_limiter_global_invariants_under_mixed_traffic():
     and asserts global invariants: len <= max_tracked and no empty lists.
     """
     import random
+
     rng = random.Random(42)
     max_tracked = 50
     limiter = RateLimiter(limit_per_hour=5, max_tracked=max_tracked)

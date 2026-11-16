@@ -1,0 +1,31 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: cerberus-api-role
+  namespace: cerberus
+  labels:
+    app.kubernetes.io/name: cerberus-api
+    app.kubernetes.io/part-of: cerberus-system
+rules:
+  # Cerberus does not require Kubernetes API mutation permissions.
+  # Grant read-only access to its own ConfigMaps for dynamic reload if needed.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: cerberus-api-rolebinding
+  namespace: cerberus
+  labels:
+    app.kubernetes.io/name: cerberus-api
+    app.kubernetes.io/part-of: cerberus-system
+subjects:
+  - kind: ServiceAccount
+    name: cerberus-api-sa
+    namespace: cerberus
+roleRef:
+  kind: Role
+  name: cerberus-api-role
+  apiGroup: rbac.authorization.k8s.io

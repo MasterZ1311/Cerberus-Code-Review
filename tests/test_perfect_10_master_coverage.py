@@ -141,6 +141,7 @@ async def test_singleflight_stampede_coalescing():
 @pytest.mark.asyncio
 async def test_migrations_engine():
     from cerberus.core.database import engine
+
     if engine:
         count = await run_migrations(engine)
         assert isinstance(count, int)
@@ -153,6 +154,7 @@ async def test_database_retry_and_warm_pool():
 
     # Test execute_with_db_retry with a simple query
     from sqlalchemy import text
+
     async def sample_query():
         async with AsyncSessionLocal() as session:
             res = await session.execute(text("SELECT 1;"))
@@ -203,7 +205,10 @@ def test_rate_limiter_in_memory():
 def test_sensitive_data_log_masking():
     masker = SensitiveDataMaskingFilter()
     import logging
-    record = logging.LogRecord("test", logging.INFO, "path", 1, "User key is cvai_1234567890abcdef and sk-live1234567890abcdef", (), None)
+
+    record = logging.LogRecord(
+        "test", logging.INFO, "path", 1, "User key is cvai_1234567890abcdef and sk-live1234567890abcdef", (), None
+    )
     masker.filter(record)
     assert "cvai_***REDACTED***" in record.msg
     assert "sk-***REDACTED***" in record.msg
@@ -224,7 +229,7 @@ def test_syntax_verifier_all_branches():
     # JSON
     ok, err = SyntaxVerifier.verify_json('{"name": "cerberus"}')
     assert ok is True
-    ok, err = SyntaxVerifier.verify_json('{name: cerberus}')
+    ok, err = SyntaxVerifier.verify_json("{name: cerberus}")
     assert ok is False
 
     # YAML
@@ -262,7 +267,7 @@ def test_zip_processor_security_guards():
         zf.writestr("main.py", "print('hello world')\n")
         zf.writestr("image.png", b"\x89PNG\r\n\x1a\n")
         zf.writestr("node_modules/bad.js", "console.log('skip');")
-    
+
     buf.seek(0)
     result = extract_code_from_zip(buf.getvalue(), project_name="test_proj")
     assert len(result.code_files) == 1
@@ -332,7 +337,7 @@ async def test_code_fixer_and_consensus():
     res = await consensus.analyze(
         code="select * from users",
         language="python",
-        context={"findings": [finding], "agent_scores": {"quality": 70.0, "security": 90.0}}
+        context={"findings": [finding], "agent_scores": {"quality": 70.0, "security": 90.0}},
     )
     assert res.status == "completed"
     assert len(res.findings) > 0
@@ -354,7 +359,7 @@ def test_all_sarif_and_ci_exports():
             recommendation="Use parameterized query",
             suggestion="db.execute('SELECT * FROM u WHERE id=?', (uid,))",
             cwe_id="CWE-89",
-            cvss_score=9.8
+            cvss_score=9.8,
         )
     ]
     sarif = generate_sarif_from_findings(findings, "app.py")
@@ -410,16 +415,8 @@ async def test_api_endpoints_full_lifecycle():
 
         # 5. Submit Review
         dev_key = settings.DEFAULT_DEV_API_KEY or "cvai_dev_key_123"
-        rev_payload = {
-            "code": "def divide(a, b):\n    return a / b\n",
-            "language": "python",
-            "filename": "calc.py"
-        }
-        r_post = await ac.post(
-            "/api/v1/review",
-            json=rev_payload,
-            headers={"Authorization": f"Bearer {dev_key}"}
-        )
+        rev_payload = {"code": "def divide(a, b):\n    return a / b\n", "language": "python", "filename": "calc.py"}
+        r_post = await ac.post("/api/v1/review", json=rev_payload, headers={"Authorization": f"Bearer {dev_key}"})
         assert r_post.status_code == 200
         data = r_post.json()
         rev_id = data["review_id"]
@@ -443,7 +440,7 @@ async def test_api_endpoints_full_lifecycle():
         appr_resp = await ac.post(
             f"/api/v1/review/{rev_id}/approve",
             json={"reviewer": "Lead Architect", "override_blocking": True, "notes": "Approved for release"},
-            headers={"Authorization": f"Bearer {dev_key}"}
+            headers={"Authorization": f"Bearer {dev_key}"},
         )
         assert appr_resp.status_code == 200
         assert appr_resp.json()["status"] == "approved"
@@ -452,7 +449,7 @@ async def test_api_endpoints_full_lifecycle():
         fb_resp = await ac.post(
             f"/api/v1/review/{rev_id}/feedback",
             json={"rating": 5, "is_helpful": True, "comments": "Excellent accurate review"},
-            headers={"Authorization": f"Bearer {dev_key}"}
+            headers={"Authorization": f"Bearer {dev_key}"},
         )
         assert fb_resp.status_code == 200
         assert fb_resp.json()["status"] == "success"
@@ -466,7 +463,7 @@ async def test_api_endpoints_full_lifecycle():
         zip_b64_resp = await ac.post(
             "/api/v1/review/zip-base64",
             json={"zip_base64": b64_zip, "project_name": "api_test_project"},
-            headers={"Authorization": f"Bearer {dev_key}"}
+            headers={"Authorization": f"Bearer {dev_key}"},
         )
         assert zip_b64_resp.status_code == 200
         assert zip_b64_resp.json()["project_name"] == "api_test_project"
@@ -566,11 +563,7 @@ async def test_orchestrator_hooks_and_registration():
     orchestrator.register_pre_hook(sample_pre_hook)
     orchestrator.register_post_hook(sample_post_hook)
 
-    req = CodeReviewRequest(
-        code="def hello(): return 'world'",
-        language="python",
-        filename="hook_test.py"
-    )
+    req = CodeReviewRequest(code="def hello(): return 'world'", language="python", filename="hook_test.py")
     resp = await orchestrator.execute_review(req)
     assert resp.status in ("completed", "degraded")
     assert pre_called is True
@@ -581,6 +574,7 @@ def test_package_main_entrypoints():
     import importlib
     import cerberus.__main__
     import cerberus.cli.__main__
+
     assert hasattr(cerberus.__main__, "app")
     assert hasattr(cerberus.cli.__main__, "app")
 
@@ -628,7 +622,7 @@ async def test_code_fixer_extended_features():
         message="Add docstring",
         line=1,
         recommendation="def calc():\n    '''Calculate.'''\n    pass",
-        suggestion="'''Calculate.'''"
+        suggestion="'''Calculate.'''",
     )
     comments = fixer.generate_pr_review_comments([f], "calc.py")
     assert len(comments) == 1
@@ -645,6 +639,7 @@ def test_github_app_payloads_deep():
         build_github_check_run_payload,
         parse_pull_request_event,
     )
+
     payload_raw = {
         "action": "opened",
         "pull_request": {
@@ -654,8 +649,8 @@ def test_github_app_payloads_deep():
             "title": "Feature PR",
             "html_url": "https://github.com/octocat/cerberus/pull/10",
             "diff_url": "https://github.com/octocat/cerberus/pull/10.diff",
-            "patch_url": "https://github.com/octocat/cerberus/pull/10.patch"
-        }
+            "patch_url": "https://github.com/octocat/cerberus/pull/10.patch",
+        },
     }
     pr_info = parse_pull_request_event(payload_raw)
     assert pr_info is not None
@@ -668,7 +663,7 @@ def test_github_app_payloads_deep():
         overall_score=95.0,
         critical_issues=[],
         warnings=[],
-        suggestions=[]
+        suggestions=[],
     )
     pr_review = build_pr_review_payload(resp, pr_info, "calc.py")
     assert pr_review.event == "APPROVE"
@@ -680,9 +675,11 @@ def test_github_app_payloads_deep():
         created_at="2026-11-14T00:00:00Z",
         overall_score=40.0,
         should_block=True,
-        critical_issues=[Finding(id="S1", severity=SeverityEnum.CRITICAL, category="sec", title="SQLi", message="Injection", line=5)],
+        critical_issues=[
+            Finding(id="S1", severity=SeverityEnum.CRITICAL, category="sec", title="SQLi", message="Injection", line=5)
+        ],
         warnings=[],
-        suggestions=[]
+        suggestions=[],
     )
     blocked_review = build_pr_review_payload(blocked_resp, pr_info, "calc.py")
     assert blocked_review.event == "REQUEST_CHANGES"
@@ -729,7 +726,7 @@ def test_cli_zip_and_exports_all_formats(tmp_path):
     # 2. CLI Export commands
     sample_py = tmp_path / "module.py"
     sample_py.write_text("import sys\nprint(sys.version)\n", encoding="utf-8")
-    
+
     sarif_exp = tmp_path / "exp.sarif"
     export_sarif_command(file=sample_py, output=sarif_exp)
     assert sarif_exp.exists()
@@ -775,14 +772,20 @@ async def test_api_v1_error_handling_and_streaming():
         r_sq_404 = await ac.get("/api/v1/review/non_existent_id_9999/sonarqube", headers=auth_header)
         assert r_sq_404.status_code == 404
 
-        r_appr_404 = await ac.post("/api/v1/review/non_existent_id_9999/approve", json={"reviewer": "test"}, headers=auth_header)
+        r_appr_404 = await ac.post(
+            "/api/v1/review/non_existent_id_9999/approve", json={"reviewer": "test"}, headers=auth_header
+        )
         assert r_appr_404.status_code == 404
 
-        r_fb_404 = await ac.post("/api/v1/review/non_existent_id_9999/feedback", json={"rating": 5}, headers=auth_header)
+        r_fb_404 = await ac.post(
+            "/api/v1/review/non_existent_id_9999/feedback", json={"rating": 5}, headers=auth_header
+        )
         assert r_fb_404.status_code in (200, 404)
 
         # Invalid base64 in zip-base64
-        r_b64_err = await ac.post("/api/v1/review/zip-base64", json={"zip_base64": "!!!not_base64!!!"}, headers=auth_header)
+        r_b64_err = await ac.post(
+            "/api/v1/review/zip-base64", json={"zip_base64": "!!!not_base64!!!"}, headers=auth_header
+        )
         assert r_b64_err.status_code == 400
 
         # Corrupt zip
@@ -799,4 +802,3 @@ async def test_api_v1_error_handling_and_streaming():
         r_zip = await ac.post("/api/v1/review/zip", files=files, headers=auth_header)
         assert r_zip.status_code == 200
         assert "project_name" in r_zip.json() or "review_id" in r_zip.json()
-

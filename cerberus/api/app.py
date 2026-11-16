@@ -3,6 +3,7 @@ FastAPI Application Entry Point & Lifecycle Management.
 Includes Prometheus Metrics, CORS, and Embedded Web Dashboard.
 """
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -29,8 +30,23 @@ async def lifespan(app: FastAPI):
     await init_db()
     await cache_manager.connect()
     await rate_limiter.connect()
+
+    retention_task = None
+    if getattr(settings, "ENABLE_RETENTION_WORKER", True) and settings.ENVIRONMENT.lower() not in ("test", "testing"):
+        from cerberus.core.retention import retention_lifecycle_worker
+
+        retention_task = asyncio.create_task(retention_lifecycle_worker(interval_seconds=86400))
+
     yield
-    # Shutdown — close all provider clients and resources
+
+    # Shutdown — close background tasks and resources
+    if retention_task:
+        retention_task.cancel()
+        try:
+            await retention_task
+        except (asyncio.CancelledError, Exception):
+            pass
+
     from cerberus.agents.orchestrator import orchestrator
     from cerberus.core.database import engine
     from cerberus.providers import close_all_providers
@@ -77,24 +93,10 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # HTTP Request Body Size Enforcement Middleware
-    @app.middleware("http")
-    async def enforce_max_request_size(request: Request, call_next):
-        content_length = request.headers.get("content-length")
-        max_bytes = getattr(settings, "MAX_REQUEST_BODY_BYTES", 30 * 1024 * 1024)
-        if content_length:
-            try:
-                if int(content_length) > max_bytes:
-                    return JSONResponse(
-                        status_code=413,
-                        content={
-                            "error": "payload_too_large",
-                            "message": f"Request body exceeds maximum allowed size of {max_bytes} bytes.",
-                        },
-                    )
-            except ValueError:
-                pass
-        return await call_next(request)
+    # ASGI Request Body Size Enforcement Middleware (Terminates oversized chunked/streaming bodies at receive layer)
+    from cerberus.core.asgi_rate_limit import ASGIRequestSizeLimitMiddleware
+
+    app.add_middleware(ASGIRequestSizeLimitMiddleware)
 
     # Global Exception Handler (Prevents Internal Exception Traceback Leakage)
     @app.exception_handler(Exception)

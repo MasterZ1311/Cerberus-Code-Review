@@ -28,15 +28,9 @@ async def test_orchestrator_agent_crash_scoring_and_degraded_status():
 
     # Mock the security agent to raise an unhandled exception
     with patch.object(
-        orchestrator.registry["security"],
-        "analyze",
-        side_effect=RuntimeError("Simulated LLM network timeout or crash")
+        orchestrator.registry["security"], "analyze", side_effect=RuntimeError("Simulated LLM network timeout or crash")
     ):
-        request = CodeReviewRequest(
-            code="def sample(): pass",
-            language="python",
-            agents=["security", "performance"]
-        )
+        request = CodeReviewRequest(code="def sample(): pass", language="python", agents=["security", "performance"])
         response = await orchestrator.execute_review(request)
 
         # Status must be degraded, not completed
@@ -64,25 +58,13 @@ async def test_orchestrator_prevents_cache_poisoning_on_failure():
     unique_code = "def unique_func_cache_test_failure(): pass"
 
     # Compute expected cache key
-    cache_key = cache_manager.compute_cache_key(
-        code=unique_code,
-        language="python",
-        agents=["security"]
-    )
+    cache_key = cache_manager.compute_cache_key(code=unique_code, language="python", agents=["security"])
     # Ensure cache is clean before test
     if cache_key in cache_manager._memory_cache:
         del cache_manager._memory_cache[cache_key]
 
-    with patch.object(
-        orchestrator.registry["security"],
-        "analyze",
-        side_effect=Exception("Crash during analysis")
-    ):
-        request = CodeReviewRequest(
-            code=unique_code,
-            language="python",
-            agents=["security"]
-        )
+    with patch.object(orchestrator.registry["security"], "analyze", side_effect=Exception("Crash during analysis")):
+        request = CodeReviewRequest(code=unique_code, language="python", agents=["security"])
         response = await orchestrator.execute_review(request)
         assert response.status == "failed"
 
@@ -96,13 +78,11 @@ async def test_orchestrator_all_agents_crash():
     """Verify that when all active agents crash, review status is 'failed' and score is 0.0."""
     orchestrator = ReviewOrchestrator()
 
-    with patch.object(orchestrator.registry["security"], "analyze", side_effect=Exception("Fail 1")), \
-         patch.object(orchestrator.registry["performance"], "analyze", side_effect=Exception("Fail 2")):
-        request = CodeReviewRequest(
-            code="def sample(): pass",
-            language="python",
-            agents=["security", "performance"]
-        )
+    with (
+        patch.object(orchestrator.registry["security"], "analyze", side_effect=Exception("Fail 1")),
+        patch.object(orchestrator.registry["performance"], "analyze", side_effect=Exception("Fail 2")),
+    ):
+        request = CodeReviewRequest(code="def sample(): pass", language="python", agents=["security", "performance"])
         response = await orchestrator.execute_review(request)
 
         assert response.status == "failed"
@@ -134,11 +114,14 @@ def test_websocket_rejects_invalid_token():
 
 
 def test_websocket_accepts_valid_dev_token():
-    """Verify WebSocket endpoint accepts connection with valid token via query parameter."""
+    """Verify WebSocket endpoint accepts connection with valid token via Authorization header."""
     client = TestClient(app)
     review_id = "rev_test_ws_valid_dev"
 
-    with client.websocket_connect(f"/api/v1/review/{review_id}/ws?token={settings.DEFAULT_DEV_API_KEY}") as ws:
+    with client.websocket_connect(
+        f"/api/v1/review/{review_id}/ws",
+        headers={"Authorization": f"Bearer {settings.DEFAULT_DEV_API_KEY}"},
+    ) as ws:
         msg = ws.receive_json()
         assert msg["event"] == "connected"
         assert msg["review_id"] == review_id
@@ -152,7 +135,10 @@ def test_websocket_connection_cleanup_on_disconnect():
     # Before connection, review_id not in ws_connections
     assert review_id not in ws_connections
 
-    with client.websocket_connect(f"/api/v1/review/{review_id}/ws?token={settings.DEFAULT_DEV_API_KEY}") as ws:
+    with client.websocket_connect(
+        f"/api/v1/review/{review_id}/ws",
+        headers={"Authorization": f"Bearer {settings.DEFAULT_DEV_API_KEY}"},
+    ) as ws:
         msg = ws.receive_json()
         assert msg["event"] == "connected"
         # Connection should now be registered

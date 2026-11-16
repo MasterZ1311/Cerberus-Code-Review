@@ -36,6 +36,7 @@ runner = CliRunner()
 # 1. PILLAR 1: OPENTELEMETRY TRACING & MODULARITY (10.0 / 10)
 # =============================================================================
 
+
 def test_telemetry_span_and_w3c_traceparent():
     """Verify OpenTelemetry tracer creates valid spans and W3C traceparents."""
     tracer = Tracer()
@@ -46,7 +47,7 @@ def test_telemetry_span_and_w3c_traceparent():
         assert len(root.span_id) == 16
         header = root.to_w3c_traceparent()
         assert header.startswith("00-")
-        
+
         parsed_trace_id, parsed_span_id = tracer.parse_traceparent(header)
         assert parsed_trace_id == root.trace_id
         assert parsed_span_id == root.span_id
@@ -91,6 +92,7 @@ async def test_telemetry_async_span_context():
 # 2. PILLAR 3: MULTI-LANGUAGE AST PARSING & SYMBOL EXTRACTION (10.0 / 10)
 # =============================================================================
 
+
 def test_syntax_verifier_java_parsing():
     """Verify Java syntax parsing and structural symbol extraction."""
     verifier = SyntaxVerifier()
@@ -114,7 +116,7 @@ def test_syntax_verifier_java_parsing():
     valid, err = verifier.verify_java(java_code)
     assert valid is True
     assert err is None
-    
+
     meta = verifier.extract_ast_metadata(java_code, language="java")
     assert "PaymentProcessor" in meta["classes_or_structs"]
     assert "executeTransaction" in meta["functions"]
@@ -187,6 +189,7 @@ def test_syntax_verifier_csharp_parsing():
 # 3. PILLAR 5: CACHING & PERFORMANCE (10.0 / 10)
 # =============================================================================
 
+
 @pytest.mark.asyncio
 async def test_singleflight_stampede_deduplication():
     """Verify SingleFlight deduplicates identical concurrent calls to a single invocation."""
@@ -215,7 +218,7 @@ async def test_singleflight_stampede_deduplication():
 def test_cache_transparent_payload_compression():
     """Verify transparent zlib compression for payloads > 8KB."""
     manager = CacheManager()
-    
+
     # Small payload should remain uncompressed JSON
     small_data = {"key": "small value"}
     encoded_small = manager._encode_payload(small_data)
@@ -229,7 +232,7 @@ def test_cache_transparent_payload_compression():
     assert isinstance(encoded_large, str)
     assert encoded_large.startswith("__GZ__")
     assert len(encoded_large) < len(json.dumps(large_data))
-    
+
     # Decompression should restore exact original data
     decoded_large = manager._decode_payload(encoded_large)
     assert decoded_large == large_data
@@ -245,6 +248,7 @@ async def test_warm_connection_pool():
 # =============================================================================
 # 4. PILLAR 7: SONARQUBE GENERIC ISSUES EXPORT (10.0 / 10)
 # =============================================================================
+
 
 def test_sonarqube_generic_issue_export():
     """Verify OASIS / SonarQube generic issue format generation."""
@@ -296,6 +300,7 @@ def test_sonarqube_generic_issue_export():
 # =============================================================================
 # 5. PILLAR 9: CLI DIAGNOSTICS & AUTOMATION (10.0 / 10)
 # =============================================================================
+
 
 def test_cli_doctor_command():
     """Verify cerberus doctor CLI command runs diagnostics cleanly."""

@@ -32,11 +32,16 @@ from fastapi import (
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from cerberus.agents.orchestrator import orchestrator
-from cerberus.api.dependencies import require_scopes, validate_token_against_db, verify_api_key
+from cerberus.api.dependencies import (
+    get_key_record_for_token,
+    require_scopes,
+    verify_api_key,
+)
 from cerberus.config import settings
 from cerberus.core.cache import cache_manager
 from cerberus.core.database import AsyncSessionLocal
 from cerberus.core.github_app import build_pr_review_payload, parse_pull_request_event, post_pr_review_to_github
+from cerberus.core.privacy import redact_source_code_recursively
 from cerberus.core.sarif import (
     review_response_to_gitlab_code_quality,
     review_response_to_sarif,
@@ -100,6 +105,13 @@ def _store_review(review_id: str, response: CodeReviewResponse, owner_id: Option
     reviews_store[review_id] = response
     if owner_id:
         _review_owners[review_id] = owner_id
+        if cache_manager.redis_client:
+            try:
+                _create_background_task(
+                    cache_manager.redis_client.set(f"cvai:review_owner:{review_id}", owner_id, ex=86400)
+                )
+            except Exception:
+                pass
 
 
 def _store_zip_review(review_id: str, response: ZipReviewResponse, owner_id: Optional[str] = None) -> None:
@@ -113,6 +125,83 @@ def _store_zip_review(review_id: str, response: ZipReviewResponse, owner_id: Opt
     zip_reviews_store[review_id] = response
     if owner_id:
         _zip_review_owners[review_id] = owner_id
+        if cache_manager.redis_client:
+            try:
+                _create_background_task(
+                    cache_manager.redis_client.set(f"cvai:zip_owner:{review_id}", owner_id, ex=86400)
+                )
+            except Exception:
+                pass
+
+
+async def _resolve_review_owner(review_id: str) -> Optional[str]:
+    """Resolves owner tenant_id from memory, Redis, or database."""
+    if review_id in _review_owners:
+        return _review_owners[review_id]
+
+    if cache_manager.redis_client:
+        try:
+            val = await cache_manager.redis_client.get(f"cvai:review_owner:{review_id}")
+            if val:
+                _review_owners[review_id] = val
+                return val
+        except Exception:
+            pass
+
+    try:
+        async with AsyncSessionLocal() as session:
+            record = await session.get(CodeReviewRecord, review_id)
+            if record and record.owner_id:
+                _review_owners[review_id] = record.owner_id
+                return record.owner_id
+    except Exception:
+        pass
+
+    return None
+
+
+async def _resolve_zip_review_owner(zip_review_id: str) -> Optional[str]:
+    """Resolves project zip review owner tenant_id from memory, Redis, or database."""
+    if zip_review_id in _zip_review_owners:
+        return _zip_review_owners[zip_review_id]
+
+    if cache_manager.redis_client:
+        try:
+            val = await cache_manager.redis_client.get(f"cvai:zip_owner:{zip_review_id}")
+            if val:
+                _zip_review_owners[zip_review_id] = val
+                return val
+        except Exception:
+            pass
+
+    return None
+
+
+async def _lookup_review_response(review_id: str) -> Optional[CodeReviewResponse]:
+    """Resolves CodeReviewResponse from memory, populating from DB fallback if needed."""
+    if review_id in reviews_store:
+        reviews_store.move_to_end(review_id)
+        return reviews_store[review_id]
+
+    try:
+        async with AsyncSessionLocal() as session:
+            record = await session.get(CodeReviewRecord, review_id)
+            if record and record.results_json:
+                results_data = record.results_json
+                if isinstance(results_data, str):
+                    results_data = json.loads(results_data)
+                if isinstance(results_data, dict):
+                    if "created_at" not in results_data:
+                        results_data["created_at"] = (
+                            record.created_at.isoformat() if record.created_at else datetime.now(UTC).isoformat()
+                        )
+                    res = CodeReviewResponse(**results_data)
+                    _store_review(review_id, res, owner_id=record.owner_id)
+                    return res
+    except Exception as e:
+        logger.warning(f"DB lookup failed for {review_id}: {e}")
+
+    return None
 
 
 @router.post("", response_model=CodeReviewResponse, status_code=status.HTTP_200_OK)
@@ -135,7 +224,20 @@ async def submit_review(
     # Persist in background DB with owner attribution
     _create_background_task(_persist_review_record(request, response, owner_id=tenant_id))
 
-    # Notify connected WebSockets
+    # Publish to Redis pub/sub across workers for SSE & WebSocket synchronization
+    _create_background_task(
+        cache_manager.publish_review_event(
+            response.review_id,
+            {
+                "event": "review_completed",
+                "review_id": response.review_id,
+                "overall_score": response.overall_score,
+                "status": response.status,
+            },
+        )
+    )
+
+    # Notify connected local WebSockets
     if response.review_id in ws_connections:
         active_sockets = list(ws_connections[response.review_id])
         for ws in active_sockets:
@@ -169,38 +271,22 @@ async def get_review_status(
     Enforces multi-tenant isolation: non-owners receive HTTP 404.
     """
     tenant_id = getattr(http_req.state, "tenant_id", None)
-    scopes: set[str] = getattr(http_req.state, "api_key_scopes", set())
-    is_admin = "admin" in scopes
+    is_platform_admin = getattr(http_req.state, "is_platform_admin", False)
 
-    response: Optional[CodeReviewResponse] = None
-    owner_id: Optional[str] = _review_owners.get(review_id)
-
-    if review_id in reviews_store:
-        reviews_store.move_to_end(review_id)
-        response = reviews_store[review_id]
-
-    # Database fallback if missing from cache or owner_id not known
-    if response is None or owner_id is None:
-        try:
-            async with AsyncSessionLocal() as session:
-                record = await session.get(CodeReviewRecord, review_id)
-                if record:
-                    owner_id = record.owner_id
-                    if record.results_json:
-                        results_data = record.results_json
-                        if isinstance(results_data, str):
-                            results_data = json.loads(results_data)
-                        if isinstance(results_data, dict):
-                            response = CodeReviewResponse(**results_data)
-                            _store_review(review_id, response, owner_id=owner_id)
-        except Exception as e:
-            logger.warning(f"DB lookup failed for {review_id}: {e}")
+    owner_id: Optional[str] = await _resolve_review_owner(review_id)
+    response: Optional[CodeReviewResponse] = await _lookup_review_response(review_id)
 
     if response is None:
         raise HTTPException(status_code=404, detail=f"Review with ID '{review_id}' was not found.")
 
-    # Multi-tenant isolation: forbid cross-tenant access without admin scope
-    if owner_id and not is_admin and tenant_id and owner_id != tenant_id:
+    if not owner_id:
+        owner_id = await _resolve_review_owner(review_id)
+
+    # Multi-tenant isolation: forbid cross-tenant access without platform:admin scope
+    if owner_id and not is_platform_admin and tenant_id and owner_id != tenant_id:
+        raise HTTPException(status_code=404, detail=f"Review with ID '{review_id}' was not found.")
+
+    if not owner_id and settings.ENVIRONMENT.lower() in ("production", "prod") and not is_platform_admin:
         raise HTTPException(status_code=404, detail=f"Review with ID '{review_id}' was not found.")
 
     return response
@@ -573,21 +659,30 @@ async def approve_review(
 async def stream_review_sse(
     review_id: str,
     request: Request,
-    stream_token: Optional[str] = Query(None),
-    token: Optional[str] = Query(None),
+    stream_token: Optional[str] = Query(None, description="Scoped one-time stream token"),
+    token: Optional[str] = Query(None, description="Forbidden raw API key query parameter"),
     authorization: Optional[str] = Header(None),
 ):
     """
     Server-Sent Events (SSE) progress and completion stream.
-    Rejects raw API keys in query parameters in production.
-    Accepts scoped one-time stream tokens or Bearer Authorization headers.
+    Rejects raw API keys in query parameters across ALL environments.
+    Accepts scoped one-time stream tokens or Bearer Authorization headers with review ownership verification.
     """
-    is_authenticated = False
-    active_stream_token = stream_token or (token if token and (token.startswith("st_") or len(token) > 30) else None)
-    if active_stream_token:
-        token_data = await cache_manager.consume_stream_token(active_stream_token)
+    # 1. Reject raw API keys in query parameters
+    if token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Raw API keys in query parameters are forbidden. Generate a scoped stream token via POST /{review_id}/stream-token or use the Authorization header.",
+        )
+
+    tenant_id: Optional[str] = None
+    is_platform_admin = False
+
+    # 2. Authenticate via scoped stream token or Bearer header
+    if stream_token:
+        token_data = await cache_manager.consume_stream_token(stream_token)
         if token_data and token_data.get("review_id") == review_id:
-            is_authenticated = True
+            tenant_id = token_data.get("tenant_id")
         else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -595,35 +690,51 @@ async def stream_review_sse(
             )
     elif authorization and authorization.lower().startswith("bearer "):
         raw_key = authorization.split(" ", 1)[1].strip()
-        is_authenticated = await validate_token_against_db(raw_key)
-    elif token:
-        if settings.ENVIRONMENT.lower() in ("production", "prod"):
+        key_record = await get_key_record_for_token(raw_key)
+        if key_record:
+            tenant_id = key_record.tenant_id
+            scopes = set(key_record.scopes.split(",")) if key_record.scopes else set()
+            is_platform_admin = ("platform:admin" in scopes) or (raw_key == settings.DEFAULT_DEV_API_KEY)
+        else:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Raw API keys in URL query parameters are forbidden in production. Use Authorization header or generate a stream token.",
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid API key in Authorization header.",
             )
-        is_authenticated = await validate_token_against_db(token)
-
-    if not is_authenticated:
+    else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required. Provide Authorization header or scoped ?stream_token=.",
         )
 
+    # 3. Verify tenant ownership of the target review
+    owner_id: Optional[str] = await _resolve_review_owner(review_id)
+    if owner_id and not is_platform_admin and tenant_id and owner_id != tenant_id:
+        raise HTTPException(status_code=404, detail=f"Review with ID '{review_id}' was not found.")
+
     async def event_generator():
         yield f"event: connected\ndata: {json.dumps({'review_id': review_id, 'status': 'connected'})}\n\n"
-        if review_id in reviews_store:
-            res = reviews_store[review_id]
+
+        # Check if review already finished
+        # Check in-memory store and DB for already-completed reviews
+        res = await _lookup_review_response(review_id)
+        if res and res.status in ("completed", "approved", "failed"):
             yield f"event: completed\ndata: {json.dumps({'review_id': review_id, 'overall_score': res.overall_score, 'status': res.status})}\n\n"
             return
 
-        for _ in range(30):
-            await asyncio.sleep(0.5)
-            if review_id in reviews_store:
-                res = reviews_store[review_id]
-                yield f"event: completed\ndata: {json.dumps({'review_id': review_id, 'overall_score': res.overall_score, 'status': res.status})}\n\n"
+        # Stream via shared Redis pub/sub (guarantees cross-worker delivery)
+        saw_completion = False
+        async for evt in cache_manager.subscribe_review_events(review_id, timeout_seconds=30.0):
+            evt_type = evt.get("event", "message")
+            yield f"event: {evt_type}\ndata: {json.dumps(evt)}\n\n"
+            if evt_type in ("review_completed", "completed"):
+                saw_completion = True
                 return
-        yield f"event: ping\ndata: {json.dumps({'review_id': review_id, 'status': 'waiting'})}\n\n"
+
+        # Fallback: if pub/sub timed out without completion event, check DB once more
+        if not saw_completion:
+            latest = await _lookup_review_response(review_id)
+            if latest and latest.status in ("completed", "approved", "failed"):
+                yield f"event: completed\ndata: {json.dumps({'review_id': review_id, 'overall_score': latest.overall_score, 'status': latest.status})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
@@ -787,13 +898,12 @@ async def get_zip_review(
 ):
     """Retrieve full synthesized report of an uploaded project ZIP review with tenant isolation."""
     tenant_id = getattr(http_req.state, "tenant_id", None)
-    scopes: set[str] = getattr(http_req.state, "api_key_scopes", set())
-    is_admin = "admin" in scopes
+    is_platform_admin = getattr(http_req.state, "is_platform_admin", False)
 
     if zip_review_id in zip_reviews_store:
         zip_reviews_store.move_to_end(zip_review_id)
-        owner = _zip_review_owners.get(zip_review_id)
-        if owner and not is_admin and tenant_id and owner != tenant_id:
+        owner = await _resolve_zip_review_owner(zip_review_id)
+        if owner and not is_platform_admin and tenant_id and owner != tenant_id:
             raise HTTPException(status_code=404, detail=f"Project review '{zip_review_id}' was not found.")
         return zip_reviews_store[zip_review_id]
 
@@ -866,38 +976,65 @@ async def submit_feedback(
 async def websocket_review_stream(
     websocket: WebSocket,
     review_id: str,
-    stream_token: Optional[str] = Query(None),
-    token: Optional[str] = Query(None),
+    stream_token: Optional[str] = Query(None, description="Scoped one-time stream token"),
+    token: Optional[str] = Query(None, description="Forbidden raw API key query parameter"),
 ):
     """
-    Live WebSocket stream broadcasting agent lifecycle events and progress.
-    Rejects raw API keys in query parameters in production.
-    Accepts scoped one-time stream tokens or Bearer Authorization headers.
+    Live WebSocket stream broadcasting agent lifecycle events and progress across workers.
+    Rejects raw API keys in query parameters across ALL environments.
+    Accepts scoped one-time stream tokens or Bearer Authorization headers with review ownership verification.
     """
-    auth_header = websocket.headers.get("authorization")
-    raw_token = None
-    if auth_header and auth_header.lower().startswith("bearer "):
-        raw_token = auth_header.split(" ", 1)[1].strip()
+    if token:
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION,
+            reason="Raw API keys in query parameters are forbidden. Generate a stream token via POST /{review_id}/stream-token or use the Authorization header.",
+        )
+        return
 
-    is_authenticated = False
-    active_stream_token = stream_token or (token if token and (token.startswith("st_") or len(token) > 30) else None)
-    if active_stream_token:
-        token_data = await cache_manager.consume_stream_token(active_stream_token)
+    auth_header = websocket.headers.get("authorization")
+    raw_key = None
+    if auth_header and auth_header.lower().startswith("bearer "):
+        raw_key = auth_header.split(" ", 1)[1].strip()
+
+    tenant_id: Optional[str] = None
+    is_platform_admin = False
+
+    if stream_token:
+        token_data = await cache_manager.consume_stream_token(stream_token)
         if token_data and token_data.get("review_id") == review_id:
-            is_authenticated = True
-    elif raw_token:
-        is_authenticated = await validate_token_against_db(raw_token)
-    elif token:
-        if settings.ENVIRONMENT.lower() in ("production", "prod"):
+            tenant_id = token_data.get("tenant_id")
+        else:
             await websocket.close(
                 code=status.WS_1008_POLICY_VIOLATION,
-                reason="Raw API keys in query parameters are forbidden in production. Use ?stream_token=.",
+                reason="Invalid, expired, or already-consumed stream token.",
             )
             return
-        is_authenticated = await validate_token_against_db(token)
+    elif raw_key:
+        key_record = await get_key_record_for_token(raw_key)
+        if key_record:
+            tenant_id = key_record.tenant_id
+            scopes = set(key_record.scopes.split(",")) if key_record.scopes else set()
+            is_platform_admin = ("platform:admin" in scopes) or (raw_key == settings.DEFAULT_DEV_API_KEY)
+        else:
+            await websocket.close(
+                code=status.WS_1008_POLICY_VIOLATION,
+                reason="Invalid API key in Authorization header.",
+            )
+            return
+    else:
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION,
+            reason="Authentication required. Provide Authorization header or scoped ?stream_token=.",
+        )
+        return
 
-    if not is_authenticated:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Invalid or missing authentication")
+    # Enforce tenant ownership of target review
+    owner_id: Optional[str] = await _resolve_review_owner(review_id)
+    if owner_id and not is_platform_admin and tenant_id and owner_id != tenant_id:
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION,
+            reason="Review not found or unauthorized.",
+        )
         return
 
     await websocket.accept()
@@ -915,8 +1052,53 @@ async def websocket_review_stream(
                 }
             )
         )
-        while True:
-            await websocket.receive_text()
+
+        # If already completed in local store or DB, send completed event immediately
+        res = await _lookup_review_response(review_id)
+        if res and res.status in ("completed", "approved", "failed"):
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "event": "review_completed",
+                        "review_id": review_id,
+                        "overall_score": res.overall_score,
+                        "status": res.status,
+                    }
+                )
+            )
+
+        # Forward Redis pub/sub events to WebSocket in real-time across multiple workers
+        async def _forward_pubsub_events():
+            async for evt in cache_manager.subscribe_review_events(review_id, timeout_seconds=60.0):
+                try:
+                    await websocket.send_text(json.dumps(evt))
+                    if evt.get("event") in ("review_completed", "completed"):
+                        break
+                except Exception:
+                    break
+            # Fallback if pubsub ended without completion event
+            final_res = await _lookup_review_response(review_id)
+            if final_res and final_res.status in ("completed", "approved", "failed"):
+                try:
+                    await websocket.send_text(
+                        json.dumps(
+                            {
+                                "event": "review_completed",
+                                "review_id": review_id,
+                                "overall_score": final_res.overall_score,
+                                "status": final_res.status,
+                            }
+                        )
+                    )
+                except Exception:
+                    pass
+
+        pubsub_task = asyncio.create_task(_forward_pubsub_events())
+        try:
+            while True:
+                await websocket.receive_text()
+        finally:
+            pubsub_task.cancel()
     except (WebSocketDisconnect, Exception):
         pass
     finally:
@@ -932,18 +1114,21 @@ async def _persist_review_record(
 ) -> None:
     """Asynchronously persist review and findings to database with tenant ownership attribution."""
     try:
+        retain = getattr(settings, "RETAIN_SOURCE_CODE", False)
+        results_dump = response.model_dump()
+        if not retain:
+            results_dump = redact_source_code_recursively(results_dump)
+
         async with AsyncSessionLocal() as session:
             review_rec = CodeReviewRecord(
                 id=response.review_id,
                 owner_id=owner_id,
-                code_snippet="[REDACTED]"
-                if not getattr(settings, "RETAIN_SOURCE_CODE", False)
-                else request.code[:2000],
+                code_snippet="[REDACTED]" if not retain else request.code[:2000],
                 language=request.language or "python",
                 status=response.status,
                 overall_score=response.overall_score,
                 processing_time_ms=response.processing_time_ms,
-                results_json=response.model_dump(),
+                results_json=results_dump,
             )
             session.add(review_rec)
 
@@ -957,7 +1142,7 @@ async def _persist_review_record(
                     title=f.title,
                     message=f.message,
                     line_number=f.line,
-                    code_snippet=f.code_snippet if getattr(settings, "RETAIN_SOURCE_CODE", False) else None,
+                    code_snippet=f.code_snippet if retain else None,
                     remediation=f.recommendation,
                     suggestion=f.suggestion,
                     cwe_id=f.cwe_id,

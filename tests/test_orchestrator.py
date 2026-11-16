@@ -22,7 +22,7 @@ def bad_func(user_id):
             pass
 """,
         language="python",
-        agents=["security", "performance", "quality"]
+        agents=["security", "performance", "quality"],
     )
 
     response = await orchestrator.execute_review(request)
@@ -44,7 +44,7 @@ async def test_orchestrator_blocking_mode():
 API_KEY = "sk-1234567890abcdef12345678"
 """,
         language="python",
-        config=ReviewConfig(blocking_mode=True)
+        config=ReviewConfig(blocking_mode=True),
     )
 
     response = await orchestrator.execute_review(request)

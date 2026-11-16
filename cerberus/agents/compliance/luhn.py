@@ -23,7 +23,7 @@ def validate_luhn(card_candidate: str) -> bool:
         return False
 
     # Filter trivial sequences (e.g. 1234567890123456)
-    if digits in "012345678901234567890123456789" or digits in "987654321098765432109876543210":
+    if digits in ("0123456789" * 3) or digits in ("9876543210" * 3):
         return False
 
     # Check common IIN/BIN prefixes (Visa: 4, MC: 51-55/22-27, Amex: 34/37, Discover: 6011/65)

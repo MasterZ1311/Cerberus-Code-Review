@@ -39,6 +39,8 @@ cerberus.db
 .pytest_cache/
 .coverage
 coverage.json
+coverage.xml
+sbom.json
 htmlcov/
 .tox/
 .nox/

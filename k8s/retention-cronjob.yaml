@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cerberus-retention-purge
+  namespace: cerberus
+  labels:
+    app.kubernetes.io/name: cerberus-retention-purge
+    app.kubernetes.io/part-of: cerberus-system
+    app.kubernetes.io/component: cronjob
+spec:
+  schedule: "0 2 * * *" # Daily at 02:00 UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: cerberus-retention-purge
+            app.kubernetes.io/part-of: cerberus-system
+        spec:
+          serviceAccountName: cerberus-api-sa
+          automountServiceAccountToken: false
+          restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          volumes:
+            - name: tmp-volume
+              emptyDir:
+                sizeLimit: 128Mi
+          containers:
+            - name: retention-purge
+              image: cerberus-ai:0.1.0
+              imagePullPolicy: IfNotPresent
+              command:
+                - python
+                - -m
+                - cerberus.core.retention
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 1000
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: tmp-volume
+                  mountPath: /tmp
+              envFrom:
+                - configMapRef:
+                    name: cerberus-config
+                - secretRef:
+                    name: cerberus-secrets
+              resources:
+                requests:
+                  cpu: "200m"
+                  memory: "256Mi"
+                limits:
+                  cpu: "1000m"
+                  memory: "512Mi"

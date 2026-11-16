@@ -67,12 +67,12 @@ async def health_check():
 async def readiness_check(response: Response):
     """
     System readiness probe for traffic routing and load balancing.
-    Fails truthfully with HTTP 503 if mandatory database connectivity is unavailable.
+    Fails truthfully with HTTP 503 if mandatory database or configured Redis connectivity is unavailable.
     """
+    # 1. Database Connectivity Check
     try:
         async with AsyncSessionLocal() as session:
             await session.execute(text("SELECT 1"))
-        return {"status": "ready", "database": "connected"}
     except Exception as e:
         logger.error(f"Readiness check failed: Database unavailable ({e})")
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
@@ -82,3 +82,33 @@ async def readiness_check(response: Response):
             "reason": "database_unavailable",
             "error": "Database connectivity check failed",
         }
+
+    # 2. Redis Connectivity Check (enforced when Redis is configured or in production)
+    redis_status = "not_configured"
+    if cache_manager.enabled and (settings.REDIS_URL or settings.ENVIRONMENT.lower() in ("production", "prod")):
+        if cache_manager.redis_client:
+            try:
+                await cache_manager.redis_client.ping()
+                redis_status = "connected"
+            except Exception as e:
+                logger.error(f"Readiness check failed: Redis ping failed ({e})")
+                response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+                return {
+                    "status": "not_ready",
+                    "database": "connected",
+                    "redis": "unhealthy",
+                    "reason": "redis_unavailable",
+                    "error": "Redis connectivity check failed",
+                }
+        elif settings.ENVIRONMENT.lower() in ("production", "prod") and settings.REDIS_URL:
+            logger.error("Readiness check failed: Redis client not initialized in production")
+            response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+            return {
+                "status": "not_ready",
+                "database": "connected",
+                "redis": "uninitialized",
+                "reason": "redis_uninitialized",
+                "error": "Redis client is not connected",
+            }
+
+    return {"status": "ready", "database": "connected", "redis": redis_status}

@@ -261,7 +261,7 @@ def extract_code_from_zip(
             # Security check: Zip Slip traversal & nesting depth
             if not is_safe_zip_path(arcname):
                 logger.warning(f"Rejected potentially malicious zip entry (Zip Slip): {arcname}")
-                skipped_files.append(f"{arcname} (unsafe path)")
+                skipped_files.append(f"Skipped {arcname}: unsafe path")
                 continue
 
             # Security check: Duplicate entry rejection

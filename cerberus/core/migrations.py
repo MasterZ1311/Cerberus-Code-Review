@@ -46,6 +46,13 @@ MIGRATIONS: List[Tuple[str, str, str]] = [
         );
         """,
     ),
+    (
+        "004_tenant_identity_enforcement_and_backfill",
+        "Backfill legacy unowned records to explicit legacy_unassigned tenant",
+        """
+        SELECT 1;
+        """,
+    ),
 ]
 
 
@@ -70,6 +77,27 @@ async def _migrate_multitenancy_columns(conn) -> None:
                 await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type};"))
         except Exception as e:
             logger.debug(f"Schema migration column check ({table}.{col}): {e}")
+
+    # Safe backfill strategy for legacy unowned records to prevent silent access
+    backfill_statements = [
+        text(
+            "UPDATE api_keys SET tenant_id = 'legacy_unassigned' WHERE tenant_id IS NULL OR tenant_id = '' OR tenant_id = 'default';"
+        ),
+        text(
+            "UPDATE code_reviews SET owner_id = 'legacy_unassigned' WHERE owner_id IS NULL OR owner_id = '' OR owner_id = 'default';"
+        ),
+        text(
+            "UPDATE review_findings SET owner_id = 'legacy_unassigned' WHERE owner_id IS NULL OR owner_id = '' OR owner_id = 'default';"
+        ),
+        text(
+            "UPDATE review_feedback SET owner_id = 'legacy_unassigned' WHERE owner_id IS NULL OR owner_id = '' OR owner_id = 'default';"
+        ),
+    ]
+    for stmt in backfill_statements:
+        try:
+            await conn.execute(stmt)
+        except Exception as e:
+            logger.debug(f"Safe backfill check: {e}")
 
 
 async def run_migrations(engine: AsyncEngine) -> int:

@@ -6,7 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: cerberus-api
     app.kubernetes.io/part-of: cerberus-system
-    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/version: "0.1.0"
     app.kubernetes.io/component: backend
 spec:
   replicas: 3
@@ -24,13 +24,14 @@ spec:
       labels:
         app.kubernetes.io/name: cerberus-api
         app.kubernetes.io/part-of: cerberus-system
-        app.kubernetes.io/version: "1.0.0"
+        app.kubernetes.io/version: "0.1.0"
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8000"
         prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: cerberus-api-sa
+      automountServiceAccountToken: false
       terminationGracePeriodSeconds: 60
       affinity:
         podAntiAffinity:
@@ -51,18 +52,25 @@ spec:
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+      volumes:
+        - name: tmp-volume
+          emptyDir:
+            sizeLimit: 512Mi
       containers:
         - name: cerberus-api
-          image: cerberus-ai:latest
+          image: cerberus-ai:0.1.0
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             runAsNonRoot: true
             runAsUser: 1000
             capabilities:
               drop:
                 - ALL
+          volumeMounts:
+            - name: tmp-volume
+              mountPath: /tmp
           ports:
             - name: http
               containerPort: 8000
@@ -86,7 +94,7 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 6
+            failureThreshold: 12
           livenessProbe:
             httpGet:
               path: /api/v1/health

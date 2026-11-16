@@ -311,7 +311,7 @@ async def test_api_review_endpoints_full_lifecycle():
         res_empty = await client.post(
             "/api/v1/review",
             headers={"Authorization": "Bearer cvai_dev_key_123"},
-            json={"code": "   ", "language": "python"}
+            json={"code": "   ", "language": "python"},
         )
         assert res_empty.status_code == 400
 
@@ -319,7 +319,7 @@ async def test_api_review_endpoints_full_lifecycle():
         res_valid = await client.post(
             "/api/v1/review",
             headers={"Authorization": "Bearer cvai_dev_key_123"},
-            json={"code": "def hello():\n    return 'world'\n", "language": "python"}
+            json={"code": "def hello():\n    return 'world'\n", "language": "python"},
         )
         assert res_valid.status_code == 200
         data = res_valid.json()
@@ -327,16 +327,14 @@ async def test_api_review_endpoints_full_lifecycle():
 
         # 3. Status endpoint
         res_status = await client.get(
-            f"/api/v1/review/{review_id}/status",
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
+            f"/api/v1/review/{review_id}/status", headers={"Authorization": "Bearer cvai_dev_key_123"}
         )
         assert res_status.status_code == 200
         assert res_status.json()["review_id"] == review_id
 
         # 4. Results endpoint
         res_results = await client.get(
-            f"/api/v1/review/{review_id}/results",
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
+            f"/api/v1/review/{review_id}/results", headers={"Authorization": "Bearer cvai_dev_key_123"}
         )
         assert res_results.status_code == 200
 
@@ -344,7 +342,7 @@ async def test_api_review_endpoints_full_lifecycle():
         res_appr = await client.post(
             f"/api/v1/review/{review_id}/approve",
             headers={"Authorization": "Bearer cvai_dev_key_123"},
-            json={"reviewer": "Lead Architect", "override_blocking": True}
+            json={"reviewer": "Lead Architect", "override_blocking": True},
         )
         assert res_appr.status_code == 200
         assert res_appr.json()["status"] == "approved"
@@ -353,22 +351,17 @@ async def test_api_review_endpoints_full_lifecycle():
         res_fb = await client.post(
             f"/api/v1/review/{review_id}/feedback",
             headers={"Authorization": "Bearer cvai_dev_key_123"},
-            json={"rating": 5, "is_helpful": True, "comments": "Excellent review!"}
+            json={"rating": 5, "is_helpful": True, "comments": "Excellent review!"},
         )
         assert res_fb.status_code == 200
         assert res_fb.json()["status"] == "success"
 
         # 7. Config endpoint update model validation
-        res_cfg_get = await client.get(
-            "/api/v1/config",
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
-        )
+        res_cfg_get = await client.get("/api/v1/config", headers={"Authorization": "Bearer cvai_dev_key_123"})
         assert res_cfg_get.status_code == 200
 
         res_cfg_put = await client.put(
-            "/api/v1/config",
-            headers={"Authorization": "Bearer cvai_dev_key_123"},
-            json={"blocking_mode": False}
+            "/api/v1/config", headers={"Authorization": "Bearer cvai_dev_key_123"}, json={"blocking_mode": False}
         )
         assert res_cfg_put.status_code == 200
 

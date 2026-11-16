@@ -48,6 +48,7 @@ class MockLLMProvider(BaseLLMProvider):
 # 1. AI HELPER PARSING & SYNTHESIS TESTS
 # =====================================================================
 
+
 def test_parse_llm_json_raw():
     raw = '{"score": 85.0, "findings": [{"title": "Test Issue", "severity": "high"}]}'
     result = parse_llm_json(raw)
@@ -111,7 +112,7 @@ def test_build_findings_from_llm():
             "severity": "info",
             "title": "Informational Notice",
             "message": "General observation",
-        }
+        },
     ]
     code = "x = 1\ny = 2\nquery = 'SELECT * FROM u WHERE id = ' + uid\n"
     findings = build_findings_from_llm(raw_findings, "security", code)
@@ -134,7 +135,7 @@ def test_merge_findings_enrichment():
             line=4,
             code_snippet="query = 'SELECT * FROM users WHERE id = ' + user_id",
             cwe_id="CWE-89",
-            cvss_score=9.8
+            cvss_score=9.8,
         )
     ]
     llm_findings = [
@@ -156,7 +157,7 @@ def test_merge_findings_enrichment():
             title="Insecure Random Number Generator",
             message="Using random instead of secrets for token generation",
             line=10,
-        )
+        ),
     ]
     merged = merge_findings(heuristic_findings, llm_findings)
     assert len(merged) == 2
@@ -182,33 +183,36 @@ def test_compute_composite_score():
 # 2. SPECIALIZED AGENT AI INTEGRATION TESTS
 # =====================================================================
 
+
 @pytest.mark.asyncio
 async def test_security_agent_with_ai_provider():
-    ai_payload = json.dumps({
-        "score": 35.0,
-        "findings": [
-            {
-                "severity": "critical",
-                "category": "injection",
-                "title": "SQL Injection in User Query",
-                "message": "Dynamic query allows arbitrary SQL execution.",
-                "line": 4,
-                "explanation": "Untrusted input injected directly into DB query.",
-                "recommendation": "Use parameterized queries.",
-                "suggestion": "db.execute('SELECT * FROM users WHERE id = ?', (user_id,))",
-                "cwe_id": "CWE-89",
-                "cvss_score": 9.8
-            },
-            {
-                "severity": "high",
-                "category": "auth",
-                "title": "Missing Authorization Check",
-                "message": "Endpoint does not verify user roles before DB query.",
-                "line": 3,
-                "explanation": "Broken access control allows horizontal privilege escalation."
-            }
-        ]
-    })
+    ai_payload = json.dumps(
+        {
+            "score": 35.0,
+            "findings": [
+                {
+                    "severity": "critical",
+                    "category": "injection",
+                    "title": "SQL Injection in User Query",
+                    "message": "Dynamic query allows arbitrary SQL execution.",
+                    "line": 4,
+                    "explanation": "Untrusted input injected directly into DB query.",
+                    "recommendation": "Use parameterized queries.",
+                    "suggestion": "db.execute('SELECT * FROM users WHERE id = ?', (user_id,))",
+                    "cwe_id": "CWE-89",
+                    "cvss_score": 9.8,
+                },
+                {
+                    "severity": "high",
+                    "category": "auth",
+                    "title": "Missing Authorization Check",
+                    "message": "Endpoint does not verify user roles before DB query.",
+                    "line": 3,
+                    "explanation": "Broken access control allows horizontal privilege escalation.",
+                },
+            ],
+        }
+    )
     provider = MockLLMProvider(response_text=ai_payload)
     agent = SecurityAgent(provider=provider)
 
@@ -249,21 +253,23 @@ def get_user(user_id):
 
 @pytest.mark.asyncio
 async def test_performance_agent_with_ai_provider():
-    ai_payload = json.dumps({
-        "score": 50.0,
-        "findings": [
-            {
-                "severity": "high",
-                "category": "algorithmic_complexity",
-                "title": "O(N^2) Nested Iteration Bottleneck",
-                "message": "Nested iteration over list items causes quadratic scaling.",
-                "line": 3,
-                "explanation": "Doubling items increases CPU cycles by 4x.",
-                "recommendation": "Use set intersection for O(N) linear performance.",
-                "suggestion": "return list(set(items_a) & set(items_b))"
-            }
-        ]
-    })
+    ai_payload = json.dumps(
+        {
+            "score": 50.0,
+            "findings": [
+                {
+                    "severity": "high",
+                    "category": "algorithmic_complexity",
+                    "title": "O(N^2) Nested Iteration Bottleneck",
+                    "message": "Nested iteration over list items causes quadratic scaling.",
+                    "line": 3,
+                    "explanation": "Doubling items increases CPU cycles by 4x.",
+                    "recommendation": "Use set intersection for O(N) linear performance.",
+                    "suggestion": "return list(set(items_a) & set(items_b))",
+                }
+            ],
+        }
+    )
     provider = MockLLMProvider(response_text=ai_payload)
     agent = PerformanceAgent(provider=provider)
 
@@ -287,19 +293,21 @@ def compare(items_a, items_b):
 
 @pytest.mark.asyncio
 async def test_quality_agent_with_ai_provider():
-    ai_payload = json.dumps({
-        "score": 60.0,
-        "findings": [
-            {
-                "severity": "medium",
-                "category": "error_handling",
-                "title": "Suppressed Exception in Worker",
-                "message": "Silent pass statement conceals operational failures.",
-                "line": 4,
-                "recommendation": "Log exception or re-raise."
-            }
-        ]
-    })
+    ai_payload = json.dumps(
+        {
+            "score": 60.0,
+            "findings": [
+                {
+                    "severity": "medium",
+                    "category": "error_handling",
+                    "title": "Suppressed Exception in Worker",
+                    "message": "Silent pass statement conceals operational failures.",
+                    "line": 4,
+                    "recommendation": "Log exception or re-raise.",
+                }
+            ],
+        }
+    )
     provider = MockLLMProvider(response_text=ai_payload)
     agent = QualityAgent(provider=provider)
 
@@ -318,19 +326,21 @@ def process():
 
 @pytest.mark.asyncio
 async def test_architecture_agent_with_ai_provider():
-    ai_payload = json.dumps({
-        "score": 70.0,
-        "findings": [
-            {
-                "severity": "medium",
-                "category": "coupling",
-                "title": "Tight Coupling to Concrete Infrastructure",
-                "message": "Direct instantiation of PostgresDatabase in domain service violates DIP.",
-                "line": 5,
-                "recommendation": "Inject database interface via constructor."
-            }
-        ]
-    })
+    ai_payload = json.dumps(
+        {
+            "score": 70.0,
+            "findings": [
+                {
+                    "severity": "medium",
+                    "category": "coupling",
+                    "title": "Tight Coupling to Concrete Infrastructure",
+                    "message": "Direct instantiation of PostgresDatabase in domain service violates DIP.",
+                    "line": 5,
+                    "recommendation": "Inject database interface via constructor.",
+                }
+            ],
+        }
+    )
     provider = MockLLMProvider(response_text=ai_payload)
     agent = ArchitectureAgent(provider=provider)
 
@@ -349,19 +359,21 @@ class OrderService:
 
 @pytest.mark.asyncio
 async def test_compliance_agent_with_ai_provider():
-    ai_payload = json.dumps({
-        "score": 40.0,
-        "findings": [
-            {
-                "severity": "critical",
-                "category": "hipaa",
-                "title": "HIPAA 45 CFR §164.312 - Unencrypted ePHI Exposure",
-                "message": "Patient diagnosis logged to standard application logs without masking.",
-                "line": 4,
-                "recommendation": "Mask or tokenize all ePHI identifiers."
-            }
-        ]
-    })
+    ai_payload = json.dumps(
+        {
+            "score": 40.0,
+            "findings": [
+                {
+                    "severity": "critical",
+                    "category": "hipaa",
+                    "title": "HIPAA 45 CFR §164.312 - Unencrypted ePHI Exposure",
+                    "message": "Patient diagnosis logged to standard application logs without masking.",
+                    "line": 4,
+                    "recommendation": "Mask or tokenize all ePHI identifiers.",
+                }
+            ],
+        }
+    )
     provider = MockLLMProvider(response_text=ai_payload)
     agent = ComplianceAgent(provider=provider)
 
@@ -382,21 +394,24 @@ def log_patient(name, condition):
 # 3. END-TO-END ORCHESTRATOR REVIEW WITH AI PROVIDER
 # =====================================================================
 
+
 @pytest.mark.asyncio
 async def test_orchestrator_multi_agent_review_with_ai_provider():
-    ai_payload = json.dumps({
-        "score": 40.0,
-        "findings": [
-            {
-                "severity": "critical",
-                "category": "injection",
-                "title": "Remote Code Execution Hazard",
-                "message": "os.system receives unsanitized parameter",
-                "line": 4,
-                "suggestion": "subprocess.run(['ping', '-c', '1', host], check=True)"
-            }
-        ]
-    })
+    ai_payload = json.dumps(
+        {
+            "score": 40.0,
+            "findings": [
+                {
+                    "severity": "critical",
+                    "category": "injection",
+                    "title": "Remote Code Execution Hazard",
+                    "message": "os.system receives unsanitized parameter",
+                    "line": 4,
+                    "suggestion": "subprocess.run(['ping', '-c', '1', host], check=True)",
+                }
+            ],
+        }
+    )
     mock_provider = MockLLMProvider(response_text=ai_payload)
 
     orch = ReviewOrchestrator()
@@ -406,7 +421,7 @@ async def test_orchestrator_multi_agent_review_with_ai_provider():
     req = CodeReviewRequest(
         code="import os\ndef ping(host):\n    os.system('ping ' + host)\n",
         language="python",
-        agents=["security", "performance", "quality"]
+        agents=["security", "performance", "quality"],
     )
     res = await orch.execute_review(req)
     assert res.status == "completed"

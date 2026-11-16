@@ -52,7 +52,7 @@ def test_sensitive_data_log_masking():
         lineno=10,
         msg="Authenticated user with cvai_1234567890abcdef and token sk-1234567890abcdef123456 and Bearer secret_token_xyz",
         args=(),
-        exc_info=None
+        exc_info=None,
     )
     result = log_filter.filter(record)
     assert result is True
@@ -104,15 +104,14 @@ async def test_review_status_endpoint():
         sub_resp = await client.post(
             "/api/v1/review",
             headers={"Authorization": "Bearer cvai_dev_key_123"},
-            json={"code": "def hello():\n    return 'world'\n"}
+            json={"code": "def hello():\n    return 'world'\n"},
         )
         assert sub_resp.status_code == 200
         review_id = sub_resp.json()["review_id"]
 
         # 2. Query status endpoint
         status_resp = await client.get(
-            f"/api/v1/review/{review_id}/status",
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
+            f"/api/v1/review/{review_id}/status", headers={"Authorization": "Bearer cvai_dev_key_123"}
         )
         assert status_resp.status_code == 200
         data = status_resp.json()
@@ -131,10 +130,7 @@ async def test_review_approve_endpoint():
         sub_resp = await client.post(
             "/api/v1/review",
             headers={"Authorization": "Bearer cvai_dev_key_123"},
-            json={
-                "code": "import os; os.system('rm -rf /')",
-                "config": {"blocking_mode": True}
-            }
+            json={"code": "import os; os.system('rm -rf /')", "config": {"blocking_mode": True}},
         )
         assert sub_resp.status_code == 200
         review_id = sub_resp.json()["review_id"]
@@ -147,8 +143,8 @@ async def test_review_approve_endpoint():
             json={
                 "reviewer": "lead_security_architect",
                 "reason": "False positive in deployment container setup",
-                "override_blocking": True
-            }
+                "override_blocking": True,
+            },
         )
         assert appr_resp.status_code == 200
         appr_data = appr_resp.json()
@@ -158,8 +154,7 @@ async def test_review_approve_endpoint():
 
         # 3. Check status is now approved and should_block is False
         check_resp = await client.get(
-            f"/api/v1/review/{review_id}",
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
+            f"/api/v1/review/{review_id}", headers={"Authorization": "Bearer cvai_dev_key_123"}
         )
         assert check_resp.status_code == 200
         assert check_resp.json()["status"] == "approved"
@@ -175,12 +170,15 @@ async def test_review_stream_sse_endpoint():
         sub_resp = await client.post(
             "/api/v1/review",
             headers={"Authorization": "Bearer cvai_dev_key_123"},
-            json={"code": "def square(n): return n * n\n"}
+            json={"code": "def square(n): return n * n\n"},
         )
         review_id = sub_resp.json()["review_id"]
 
         # Connect to SSE stream
-        sse_resp = await client.get(f"/api/v1/review/{review_id}/stream?token=cvai_dev_key_123")
+        sse_resp = await client.get(
+            f"/api/v1/review/{review_id}/stream",
+            headers={"Authorization": "Bearer cvai_dev_key_123"},
+        )
         assert sse_resp.status_code == 200
         assert "text/event-stream" in sse_resp.headers.get("content-type", "")
         body = sse_resp.text
@@ -202,7 +200,7 @@ async def test_runtime_config_update_endpoint():
         put_resp = await client.put(
             "/api/v1/config",
             headers={"Authorization": "Bearer cvai_dev_key_123"},
-            json={"severity_threshold": "high", "blocking_mode": True}
+            json={"severity_threshold": "high", "blocking_mode": True},
         )
         assert put_resp.status_code == 200
         assert put_resp.json()["status"] == "success"
@@ -214,20 +212,14 @@ async def test_review_feedback_submission():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         sub_resp = await client.post(
-            "/api/v1/review",
-            headers={"Authorization": "Bearer cvai_dev_key_123"},
-            json={"code": "x = 42\n"}
+            "/api/v1/review", headers={"Authorization": "Bearer cvai_dev_key_123"}, json={"code": "x = 42\n"}
         )
         review_id = sub_resp.json()["review_id"]
 
         fb_resp = await client.post(
             f"/api/v1/review/{review_id}/feedback",
             headers={"Authorization": "Bearer cvai_dev_key_123"},
-            json={
-                "rating": 5,
-                "is_helpful": True,
-                "comments": "Accurate findings and great diff!"
-            }
+            json={"rating": 5, "is_helpful": True, "comments": "Accurate findings and great diff!"},
         )
         assert fb_resp.status_code == 200
         assert fb_resp.json()["status"] == "success"
@@ -245,7 +237,7 @@ async def test_database_migrations_idempotent():
 def test_cli_keys_commands():
     """Verify CLI list-api-keys and revoke-api-key commands."""
     runner = CliRunner()
-    
+
     # 1. Create a key to test
     create_res = runner.invoke(cli_app, ["create-api-key", "--name", "test-cli-key-10"])
     assert create_res.exit_code == 0
@@ -277,11 +269,7 @@ async def test_review_zip_base64_endpoint():
         resp = await client.post(
             "/api/v1/review/zip-base64",
             headers={"Authorization": "Bearer cvai_dev_key_123"},
-            json={
-                "zip_base64": b64_content,
-                "project_name": "code_package",
-                "blocking": False
-            }
+            json={"zip_base64": b64_content, "project_name": "code_package", "blocking": False},
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -302,9 +290,7 @@ async def test_review_zip_multipart_endpoint():
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         files = {"file": ("project.zip", zip_bytes, "application/zip")}
         resp = await client.post(
-            "/api/v1/review/zip",
-            headers={"Authorization": "Bearer cvai_dev_key_123"},
-            files=files
+            "/api/v1/review/zip", headers={"Authorization": "Bearer cvai_dev_key_123"}, files=files
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -321,10 +307,7 @@ async def test_review_approve_404_and_headers():
         resp = await client.post(
             "/api/v1/review/non_existent_id_9999/approve",
             headers={"Authorization": "Bearer cvai_dev_key_123"},
-            json={
-                "reviewer": "qa_lead",
-                "reason": "testing 404"
-            }
+            json={"reviewer": "qa_lead", "reason": "testing 404"},
         )
         assert resp.status_code == 404
         assert resp.headers.get("X-Content-Type-Options") == "nosniff"
@@ -335,7 +318,7 @@ def test_provider_factory_resolution():
     """Verify provider initialization and fallback logic in cerberus.providers."""
     from cerberus.providers import get_llm_provider, resolve_auto_provider
     from cerberus.providers.base import BaseLLMProvider
-    
+
     # Resolves to heuristic when no API keys are present in CI/offline environment
     auto_prov = resolve_auto_provider()
     assert auto_prov in ("heuristic", "groq", "openai", "anthropic", "gemini", "deepseek", "watsonx")
@@ -358,13 +341,13 @@ async def test_web_dashboard_ui_ux_features():
         assert resp.status_code == 200
         content = resp.text
         # Visual & Design System Tokens
-        assert "data-theme=\"dark\"" in content
+        assert 'data-theme="dark"' in content
         assert "--vsc-bg" in content
         assert "--vsc-diff-add-bg" in content
         # Interactive Controls & Accessibility
-        assert "role=\"tablist\"" in content
-        assert "role=\"tab\"" in content
-        assert "role=\"alert\"" in content
+        assert 'role="tablist"' in content
+        assert 'role="tab"' in content
+        assert 'role="alert"' in content
         # Progressive Loading & Feedback States
         assert "loading-stepper-card" in content
         assert "skeleton-card" in content
@@ -377,7 +360,3 @@ async def test_web_dashboard_ui_ux_features():
         assert "vscode-code-frame" in content
         assert "editor-gutter" in content
         assert "highlightVSCode" in content
-
-
-
-

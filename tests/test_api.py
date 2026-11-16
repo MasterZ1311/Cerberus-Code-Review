@@ -33,15 +33,8 @@ async def test_list_agents_endpoint():
 @pytest.mark.asyncio
 async def test_submit_review_endpoint():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        payload = {
-            "code": "def hello():\n    print('Hello World')",
-            "language": "python"
-        }
-        res = await client.post(
-            "/api/v1/review",
-            json=payload,
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
-        )
+        payload = {"code": "def hello():\n    print('Hello World')", "language": "python"}
+        res = await client.post("/api/v1/review", json=payload, headers={"Authorization": "Bearer cvai_dev_key_123"})
         assert res.status_code == 200
         data = res.json()
         assert data["status"] == "completed"
@@ -50,9 +43,6 @@ async def test_submit_review_endpoint():
 
         # Verify retrieval
         rev_id = data["review_id"]
-        res_get = await client.get(
-            f"/api/v1/review/{rev_id}",
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
-        )
+        res_get = await client.get(f"/api/v1/review/{rev_id}", headers={"Authorization": "Bearer cvai_dev_key_123"})
         assert res_get.status_code == 200
         assert res_get.json()["review_id"] == rev_id

@@ -1,5 +1,12 @@
 version: '3.8'
 
+# =========================================================================
+# Cerberus Multi-Agent Platform - Production Docker Compose Definition
+# Strict production security: All secrets must be explicitly provided via environment.
+# For local development with zero-setup defaults, use:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# =========================================================================
+
 services:
   api:
     build:
@@ -12,9 +19,9 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=8000
-      - ENVIRONMENT=${ENVIRONMENT:-development}
-      - SECRET_KEY=${SECRET_KEY:-cerberus_dev_secret_key_change_in_production_32chars}
-      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-cerberus}:${DB_PASSWORD:-cerberus_dev_password_do_not_use_in_prod}@db:5432/${DB_NAME:-cerberus_db}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY environment variable is required (min 32 characters)}
+      - DATABASE_URL=postgresql+asyncpg://${DB_USER:-cerberus}:${DB_PASSWORD:?DB_PASSWORD environment variable is required}@db:5432/${DB_NAME:-cerberus_db}
       - REDIS_URL=redis://redis:6379/0
       - CACHE_ENABLED=true
       - LLM_PROVIDER=${LLM_PROVIDER:-heuristic}
@@ -25,6 +32,8 @@ services:
       - GROQ_API_KEY=${GROQ_API_KEY:-}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - ENABLED_AGENTS=security,performance,quality,architecture,compliance
+      - RETAIN_SOURCE_CODE=${RETAIN_SOURCE_CODE:-false}
+      - DATA_RETENTION_DAYS=${DATA_RETENTION_DAYS:-30}
     depends_on:
       db:
         condition: service_healthy
@@ -39,7 +48,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-cerberus}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-cerberus_dev_password_do_not_use_in_prod}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD environment variable is required}
       POSTGRES_DB: ${DB_NAME:-cerberus_db}
     # Security: Database is isolated within private internal bridge network; not exposed to host 0.0.0.0
     expose:
@@ -97,7 +106,7 @@ services:
     ports:
       - "127.0.0.1:3001:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin_change_in_production}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD environment variable is required}
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana

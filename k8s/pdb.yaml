@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cerberus-api-pdb
+  namespace: cerberus
+  labels:
+    app.kubernetes.io/name: cerberus-api
+    app.kubernetes.io/part-of: cerberus-system
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cerberus-api

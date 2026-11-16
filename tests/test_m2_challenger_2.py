@@ -59,6 +59,7 @@ def _make_dummy_response(review_id: str = None) -> CodeReviewResponse:
 # PART 1: PROVIDER SESSION POOLING & LIFECYCLE
 # =====================================================================
 
+
 @pytest.mark.asyncio
 async def test_ollama_provider_session_reuse_across_calls(monkeypatch):
     """Verify OllamaProvider reuses the exact same AsyncClient session across multiple calls."""
@@ -77,7 +78,9 @@ async def test_ollama_provider_session_reuse_across_calls(monkeypatch):
     async def mock_post(url, json=None, timeout=None):
         nonlocal post_call_count
         post_call_count += 1
-        return httpx.Response(200, json={"response": f"Ollama answer {post_call_count}"}, request=httpx.Request("POST", url))
+        return httpx.Response(
+            200, json={"response": f"Ollama answer {post_call_count}"}, request=httpx.Request("POST", url)
+        )
 
     monkeypatch.setattr(client, "get", mock_get)
     monkeypatch.setattr(client, "post", mock_post)
@@ -119,9 +122,7 @@ async def test_openai_provider_session_reuse_across_calls(monkeypatch):
     async def mock_post(url, json=None, headers=None, timeout=None):
         nonlocal call_count
         call_count += 1
-        payload = {
-            "choices": [{"message": {"content": f"OpenAI answer {call_count}"}}]
-        }
+        payload = {"choices": [{"message": {"content": f"OpenAI answer {call_count}"}}]}
         return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
 
     monkeypatch.setattr(client, "post", mock_post)
@@ -154,11 +155,11 @@ async def test_watsonx_provider_session_reuse_across_calls(monkeypatch):
     async def mock_post(url, *args, **kwargs):
         nonlocal call_count
         if "iam.cloud.ibm.com" in str(url):
-            return httpx.Response(200, json={"access_token": "mock-iam-token", "expires_in": 3600}, request=httpx.Request("POST", url))
+            return httpx.Response(
+                200, json={"access_token": "mock-iam-token", "expires_in": 3600}, request=httpx.Request("POST", url)
+            )
         call_count += 1
-        payload = {
-            "results": [{"generated_text": f"watsonx granite result {call_count}"}]
-        }
+        payload = {"results": [{"generated_text": f"watsonx granite result {call_count}"}]}
         return httpx.Response(200, json=payload, request=httpx.Request("POST", url))
 
     monkeypatch.setattr(client, "post", mock_post)
@@ -286,6 +287,7 @@ async def test_provider_connection_pool_limits_configuration():
 # PART 2: BATCH REVIEW CONCURRENCY & BOUNDARY TESTS
 # =====================================================================
 
+
 @pytest.mark.asyncio
 async def test_batch_review_concurrency_ceiling_under_heavy_load(monkeypatch):
     """Stress test: 25 files submitted; concurrent orchestrator executions must never exceed MAX_CONCURRENT_BATCH_REVIEWS."""
@@ -314,15 +316,14 @@ async def test_batch_review_concurrency_ceiling_under_heavy_load(monkeypatch):
     monkeypatch.setattr(orchestrator, "execute_review", instrumented_execute_review)
 
     batch_requests = [
-        CodeReviewRequest(code=f"def worker_code_{i}(): return {i}", language="python")
-        for i in range(25)
+        CodeReviewRequest(code=f"def worker_code_{i}(): return {i}", language="python") for i in range(25)
     ]
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post(
             "/api/v1/review/batch",
             json={"files": [f.model_dump() for f in batch_requests]},
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
+            headers={"Authorization": "Bearer cvai_dev_key_123"},
         )
 
         assert res.status_code == 200
@@ -369,16 +370,13 @@ async def test_batch_review_concurrency_with_dynamic_semaphore(monkeypatch):
 
     monkeypatch.setattr(orchestrator, "execute_review", instrumented_execute_review)
 
-    batch_requests = [
-        CodeReviewRequest(code=f"def snippet_{i}(): pass", language="python")
-        for i in range(12)
-    ]
+    batch_requests = [CodeReviewRequest(code=f"def snippet_{i}(): pass", language="python") for i in range(12)]
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post(
             "/api/v1/review/batch",
             json={"files": [f.model_dump() for f in batch_requests]},
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
+            headers={"Authorization": "Bearer cvai_dev_key_123"},
         )
         assert res.status_code == 200
         assert res.json()["total_files"] == 12
@@ -395,14 +393,13 @@ async def test_batch_review_rejection_over_max_batch_size():
         for excess in [1, 10, 100]:
             total_size = limit + excess
             oversized_files = [
-                CodeReviewRequest(code=f"def f_{i}(): pass", language="python")
-                for i in range(total_size)
+                CodeReviewRequest(code=f"def f_{i}(): pass", language="python") for i in range(total_size)
             ]
 
             res = await client.post(
                 "/api/v1/review/batch",
                 json={"files": [f.model_dump() for f in oversized_files]},
-                headers={"Authorization": "Bearer cvai_dev_key_123"}
+                headers={"Authorization": "Bearer cvai_dev_key_123"},
             )
 
             assert res.status_code == 400
@@ -420,16 +417,13 @@ async def test_batch_review_boundary_exact_max_batch_size(monkeypatch):
 
     monkeypatch.setattr(orchestrator, "execute_review", fast_mock_review)
 
-    boundary_files = [
-        CodeReviewRequest(code=f"def bound_{i}(): pass", language="python")
-        for i in range(limit)
-    ]
+    boundary_files = [CodeReviewRequest(code=f"def bound_{i}(): pass", language="python") for i in range(limit)]
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post(
             "/api/v1/review/batch",
             json={"files": [f.model_dump() for f in boundary_files]},
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
+            headers={"Authorization": "Bearer cvai_dev_key_123"},
         )
 
         assert res.status_code == 200
@@ -443,9 +437,7 @@ async def test_batch_review_boundary_zero_files():
     """Verify empty batch request (0 files) returns 200 OK with empty reviews list."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post(
-            "/api/v1/review/batch",
-            json={"files": []},
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
+            "/api/v1/review/batch", json={"files": []}, headers={"Authorization": "Bearer cvai_dev_key_123"}
         )
 
         assert res.status_code == 200
@@ -460,8 +452,7 @@ async def test_batch_review_unauthenticated_request_rejected():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Missing auth
         res1 = await client.post(
-            "/api/v1/review/batch",
-            json={"files": [{"code": "def f(): pass", "language": "python"}]}
+            "/api/v1/review/batch", json={"files": [{"code": "def f(): pass", "language": "python"}]}
         )
         assert res1.status_code == 401
 
@@ -469,7 +460,7 @@ async def test_batch_review_unauthenticated_request_rejected():
         res2 = await client.post(
             "/api/v1/review/batch",
             json={"files": [{"code": "def f(): pass", "language": "python"}]},
-            headers={"Authorization": "Bearer cvai_unregistered_key_999"}
+            headers={"Authorization": "Bearer cvai_unregistered_key_999"},
         )
         assert res2.status_code == 401
 
@@ -488,10 +479,7 @@ async def test_batch_review_semaphore_cleanup_on_file_exceptions(monkeypatch):
 
     monkeypatch.setattr(orchestrator, "execute_review", failing_execute_review)
 
-    batch_requests = [
-        CodeReviewRequest(code=f"def code_{i}(): pass", language="python")
-        for i in range(6)
-    ]
+    batch_requests = [CodeReviewRequest(code=f"def code_{i}(): pass", language="python") for i in range(6)]
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         # Since asyncio.gather doesn't catch exceptions without return_exceptions=True,
@@ -500,7 +488,7 @@ async def test_batch_review_semaphore_cleanup_on_file_exceptions(monkeypatch):
             res = await client.post(
                 "/api/v1/review/batch",
                 json={"files": [f.model_dump() for f in batch_requests]},
-                headers={"Authorization": "Bearer cvai_dev_key_123"}
+                headers={"Authorization": "Bearer cvai_dev_key_123"},
             )
             # If FastAPI handles uncaught exceptions, it yields 500
             assert res.status_code in (500, 200)
@@ -517,7 +505,7 @@ async def test_batch_review_semaphore_cleanup_on_file_exceptions(monkeypatch):
         res_after = await client.post(
             "/api/v1/review/batch",
             json={"files": [{"code": "def recovery(): pass", "language": "python"}]},
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
+            headers={"Authorization": "Bearer cvai_dev_key_123"},
         )
         assert res_after.status_code == 200
         assert res_after.json()["total_files"] == 1
@@ -535,16 +523,13 @@ async def test_batch_review_results_stored_in_reviews_store(monkeypatch):
 
     monkeypatch.setattr(orchestrator, "execute_review", mock_review)
 
-    batch_requests = [
-        CodeReviewRequest(code=f"def stored_file_{i}(): pass", language="python")
-        for i in range(5)
-    ]
+    batch_requests = [CodeReviewRequest(code=f"def stored_file_{i}(): pass", language="python") for i in range(5)]
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post(
             "/api/v1/review/batch",
             json={"files": [f.model_dump() for f in batch_requests]},
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
+            headers={"Authorization": "Bearer cvai_dev_key_123"},
         )
         assert res.status_code == 200
 

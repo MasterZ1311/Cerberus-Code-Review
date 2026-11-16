@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cerberus-config
+  namespace: cerberus
+  labels:
+    app.kubernetes.io/name: cerberus-api
+    app.kubernetes.io/part-of: cerberus-system
+data:
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "INFO"
+  HOST: "0.0.0.0"
+  PORT: "8000"
+  RETAIN_SOURCE_CODE: "false"
+  DATA_RETENTION_DAYS: "30"
+  ENABLE_RETENTION_WORKER: "true"
+  CACHE_ENABLED: "true"
+  REDIS_URL: "redis://cerberus-redis:6379/0"
+  RATE_LIMIT_PER_HOUR: "100"
+  ENABLE_TREE_SITTER: "true"
+  PROMETHEUS_ENABLED: "true"
+  MAX_ZIP_UPLOAD_BYTES: "26214400"
+  MAX_REQUEST_BODY_BYTES: "31457280"
+  CORS_ORIGINS: "https://cerberus.example.com"

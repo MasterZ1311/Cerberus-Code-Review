@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   lint-and-static-analysis:
-    name: Lint, Format & Type Checking
+    name: Lint, Format, Types & Static Security
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -24,11 +24,11 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - name: Install Linting & Typing Tools
+      - name: Install Linting, Typing & Analysis Tools
         run: |
           python -m pip install --upgrade pip
-          pip install ruff bandit mypy
-          pip install -r requirements.txt
+          pip install ruff bandit mypy semgrep
+          pip install -r requirements-lock.txt
 
       - name: Ruff Linter Check
         run: |
@@ -46,8 +46,12 @@ jobs:
         run: |
           bandit -r cerberus/ -c pyproject.toml
 
+      - name: Semgrep Policy Security Scan
+        run: |
+          semgrep scan --config semgrep.yaml --error cerberus/
+
   security-and-supply-chain:
-    name: Dependency Audit, Secret Scan & SBOM
+    name: Dependency Audit, Trivy, Secret Scan & SBOM
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -68,7 +72,16 @@ jobs:
 
       - name: Dependency Vulnerability Audit (pip-audit)
         run: |
-          pip-audit -r requirements.txt
+          pip-audit -r requirements-lock.txt
+
+      - name: Filesystem Security Scan (Trivy)
+        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
 
       - name: Secret Scanning (TruffleHog)
         uses: trufflesecurity/trufflehog@a2ca10c3b2f6efad0544f5fb2b339f4ff8d927d6 # v3.88.2
@@ -80,7 +93,7 @@ jobs:
 
       - name: Generate CycloneDX SBOM
         run: |
-          cyclonedx-py requirements requirements.txt -o sbom.json
+          cyclonedx-py requirements requirements-lock.txt -o sbom.json
 
       - name: Upload SBOM Security Artifact
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
@@ -88,6 +101,24 @@ jobs:
           name: cerberus-cyclonedx-sbom
           path: sbom.json
           retention-days: 30
+
+  kubernetes-validation:
+    name: Kubernetes Manifest & Kustomize Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up kubectl & Kustomize
+        uses: azure/setup-kubectl@3e0c5de189cb6a6bc373ec7303570743e339e070 # v4.0.0
+
+      - name: Validate Kustomize Build
+        run: |
+          kubectl kustomize k8s/
+
+      - name: Validate Kubernetes Manifests (Dry-Run Apply)
+        run: |
+          kubectl apply --dry-run=client -k k8s/
 
   test:
     name: Test Suite (Python ${{ matrix.python-version }})
@@ -132,12 +163,17 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
 
-      - name: Install dependencies
+      - name: Install dependencies from lockfile
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pytest pytest-asyncio pytest-cov httpx
+          pip install -r requirements-lock.txt
+          pip install pytest pytest-asyncio pytest-cov httpx playwright
           pip install -e .
+
+      - name: Install Playwright Browsers
+        if: matrix.python-version == '3.11'
+        run: |
+          playwright install --with-deps chromium
 
       - name: Syntax & Import Sanity Check
         run: |
@@ -162,7 +198,7 @@ jobs:
           retention-days: 14
 
   docker-verification:
-    name: Docker Build & Deployment Smoke Test
+    name: Docker Build, Trivy & Compose Smoke Test
     needs: [test]
     runs-on: ubuntu-latest
     steps:
@@ -179,6 +215,30 @@ jobs:
           push: false
           tags: cerberus-ai:ci-test
 
+      - name: Scan Built Docker Image (Trivy)
+        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
+        with:
+          image-ref: 'cerberus-ai:ci-test'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Real Docker Compose Startup Smoke Test
+        env:
+          SECRET_KEY: cerberus_dev_secret_key_change_in_production_32chars
+          DB_PASSWORD: cerberus_dev_password_do_not_use_in_prod
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+          echo "Waiting for services to become healthy..."
+          timeout 90 bash -c 'until curl -sf http://localhost:8000/api/v1/ready; do sleep 2; done'
+          echo "Service is ready! Verifying authentication..."
+          HTTP_ANON=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/review -X POST -H "Content-Type: application/json" -d '{"code":"x=1"}')
+          [ "$HTTP_ANON" -eq 401 ]
+          HTTP_AUTH=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/review -X POST -H "Content-Type: application/json" -H "Authorization: Bearer cvai_dev_key_123" -d '{"code":"x=1","filename":"test.py","language":"python"}')
+          [ "$HTTP_AUTH" -eq 200 ]
+          echo "Clean shutdown of Compose services..."
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v
+
       - name: Set up Python 3.11
         uses: actions/setup-python@0b93645e9fea7318edeed2796c01d3ab981bc87a # v5.3.0
         with:
@@ -186,9 +246,9 @@ jobs:
 
       - name: Install requirements for smoke test
         run: |
-          pip install -r requirements.txt
+          pip install -r requirements-lock.txt
           pip install httpx
 
-      - name: Execute Deployment Smoke Test
+      - name: Execute Deployment Smoke Test Script
         run: |
           python scripts/test_deployment_smoke.py

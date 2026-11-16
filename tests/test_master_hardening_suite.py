@@ -52,8 +52,8 @@ async def test_webhook_replay_protection(app):
             "pull_request": {
                 "number": 101,
                 "title": "Fix security vulnerability",
-                "body": "```python\ndef safe_code():\n    return True\n```"
-            }
+                "body": "```python\ndef safe_code():\n    return True\n```",
+            },
         }
         body_bytes = json.dumps(payload).encode("utf-8")
         secret = settings.GITHUB_WEBHOOK_SECRET or settings.SECRET_KEY
@@ -64,7 +64,7 @@ async def test_webhook_replay_protection(app):
             "X-Hub-Signature-256": sig,
             "X-GitHub-Event": "pull_request",
             "X-GitHub-Delivery": delivery_id,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
 
         # First request: processed
@@ -91,7 +91,7 @@ async def test_webhook_tamper_and_missing_signatures(app, monkeypatch):
         r_missing = await client.post(
             "/api/v1/review/webhooks/github",
             content=body,
-            headers={"X-GitHub-Event": "ping", "Content-Type": "application/json"}
+            headers={"X-GitHub-Event": "ping", "Content-Type": "application/json"},
         )
         assert r_missing.status_code == 401
         assert "Missing" in str(r_missing.json()["detail"])
@@ -103,8 +103,8 @@ async def test_webhook_tamper_and_missing_signatures(app, monkeypatch):
             headers={
                 "X-Hub-Signature-256": "sha256=0000000000000000000000000000000000000000000000000000000000000000",
                 "X-GitHub-Event": "ping",
-                "Content-Type": "application/json"
-            }
+                "Content-Type": "application/json",
+            },
         )
         assert r_tampered.status_code == 401
         assert "Invalid GitHub X-Hub-Signature-256" in str(r_tampered.json()["detail"])
@@ -119,20 +119,14 @@ async def test_rbac_scope_enforcement_and_key_crud(app):
         raw_ro, hash_ro, prefix_ro = generate_api_key(name="read-only-worker")
         async with AsyncSessionLocal() as session:
             ro_rec = ApiKeyRecord(
-                name="read-only-worker",
-                key_hash=hash_ro,
-                prefix=prefix_ro,
-                scopes="review:read",
-                is_active=True
+                name="read-only-worker", key_hash=hash_ro, prefix=prefix_ro, scopes="review:read", is_active=True
             )
             session.add(ro_rec)
             await session.commit()
 
         # 2. Attempt admin action with unprivileged key -> 403 Forbidden
         r_forbidden = await client.post(
-            "/api/v1/keys",
-            headers={"Authorization": f"Bearer {raw_ro}"},
-            json={"name": "sub-key"}
+            "/api/v1/keys", headers={"Authorization": f"Bearer {raw_ro}"}, json={"name": "sub-key"}
         )
         assert r_forbidden.status_code == 403
         assert r_forbidden.json()["detail"]["error"] == "insufficient_scope"
@@ -142,7 +136,7 @@ async def test_rbac_scope_enforcement_and_key_crud(app):
         r_create = await client.post(
             "/api/v1/keys",
             headers=admin_headers,
-            json={"name": "audited-service-key", "scopes": ["review:read", "review:write"], "expires_in_days": 30}
+            json={"name": "audited-service-key", "scopes": ["review:read", "review:write"], "expires_in_days": 30},
         )
         assert r_create.status_code == 201
         key_data = r_create.json()
@@ -215,10 +209,7 @@ def test_multi_stage_patch_verification_pipeline():
     # Stage 1: Clean valid patch
     repaired_code = 'def add(a: int, b: int) -> int:\n    """Return the sum of a and b."""\n    return a + b\n'
     res_valid = PatchVerificationPipeline.verify_patch(
-        original_code,
-        repaired_code,
-        language="python",
-        filename="math_utils.py"
+        original_code, repaired_code, language="python", filename="math_utils.py"
     )
     assert res_valid.is_valid is True
     assert res_valid.stage == PatchVerificationStage.REGRESSION_FREE
@@ -228,22 +219,16 @@ def test_multi_stage_patch_verification_pipeline():
     # Stage 2: Patch introducing syntax error
     syntax_error_code = "def broken(:\n    return False\n"
     res_syn_err = PatchVerificationPipeline.verify_patch(
-        original_code,
-        syntax_error_code,
-        language="python",
-        filename="math_utils.py"
+        original_code, syntax_error_code, language="python", filename="math_utils.py"
     )
     assert res_syn_err.is_valid is False
     assert res_syn_err.stage == PatchVerificationStage.REJECTED
     assert len(res_syn_err.syntax_errors) > 0
 
     # Stage 3: Patch introducing critical security vulnerability (eval)
-    malicious_patch = 'def add(a, b):\n    eval(str(a))\n    return a + b\n'
+    malicious_patch = "def add(a, b):\n    eval(str(a))\n    return a + b\n"
     res_sec_err = PatchVerificationPipeline.verify_patch(
-        original_code,
-        malicious_patch,
-        language="python",
-        filename="math_utils.py"
+        original_code, malicious_patch, language="python", filename="math_utils.py"
     )
     assert res_sec_err.is_valid is False
     assert res_sec_err.stage == PatchVerificationStage.REJECTED

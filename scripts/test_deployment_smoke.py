@@ -103,7 +103,7 @@ def test_production_settings_validation():
 
 
 def test_live_asgi_readiness_probe():
-    print("[4/4] Validating live service health and readiness endpoints...")
+    print("[4/5] Validating live service health and readiness endpoints...")
     import asyncio
     from httpx import ASGITransport, AsyncClient
     from cerberus.api.app import app
@@ -119,7 +119,7 @@ def test_live_asgi_readiness_probe():
             assert health_resp.json()["status"] == "healthy"
 
             # 2. Readiness probe
-            ready_resp = await client.get("/api/v1/health/ready")
+            ready_resp = await client.get("/api/v1/ready")
             assert ready_resp.status_code == 200, f"Readiness check failed: {ready_resp.text}"
             assert ready_resp.json()["status"] == "ready"
 
@@ -136,6 +136,53 @@ def test_live_asgi_readiness_probe():
     print("  -> Live ASGI endpoints passed all health, readiness, and metrics verification.")
 
 
+def test_live_asgi_authentication_and_tenancy():
+    print("[5/5] Validating ASGI live authentication and tenant boundary enforcement...")
+    import asyncio
+    from httpx import ASGITransport, AsyncClient
+    from cerberus.api.app import app
+    from cerberus.core.database import init_db
+
+    async def _test_auth():
+        await init_db()
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            # 1. Anonymous request without API key must be rejected with 401
+            anon_resp = await client.post(
+                "/api/v1/review",
+                json={"code": "def foo(): pass", "filename": "test.py", "language": "python"},
+            )
+            assert anon_resp.status_code == 401, f"Expected 401, got {anon_resp.status_code}"
+
+            # 2. Invalid API key must be rejected with 401
+            invalid_resp = await client.post(
+                "/api/v1/review",
+                headers={"Authorization": "Bearer cvai_invalid_key_99999999"},
+                json={"code": "def foo(): pass", "filename": "test.py", "language": "python"},
+            )
+            assert invalid_resp.status_code == 401, f"Expected 401, got {invalid_resp.status_code}"
+
+            # 3. Valid key request succeeds
+            dev_key = "cvai_dev_key_123"
+            valid_resp = await client.post(
+                "/api/v1/review",
+                headers={"Authorization": f"Bearer {dev_key}"},
+                json={"code": "def valid(): return 42", "filename": "valid.py", "language": "python"},
+            )
+            assert valid_resp.status_code == 200, f"Expected 200, got {valid_resp.status_code}: {valid_resp.text}"
+            review_id = valid_resp.json()["review_id"]
+
+            # 4. Same tenant can fetch review status
+            status_resp = await client.get(
+                f"/api/v1/review/{review_id}",
+                headers={"Authorization": f"Bearer {dev_key}"},
+            )
+            assert status_resp.status_code == 200
+
+    asyncio.run(_test_auth())
+    print("  -> Live ASGI authentication and tenant boundaries verified successfully.")
+
+
 def main():
     print("=== Running Cerberus Deployment Smoke Test Suite ===")
     try:
@@ -143,7 +190,8 @@ def main():
         test_docker_compose_configuration()
         test_production_settings_validation()
         test_live_asgi_readiness_probe()
-        print("\n=== [PASS] All 4 Deployment Smoke Tests Succeeded ===")
+        test_live_asgi_authentication_and_tenancy()
+        print("\n=== [PASS] All 5 Deployment Smoke Tests Succeeded ===")
         return 0
     except Exception as e:
         print(f"\n[FAIL] Smoke test failed: {e}", file=sys.stderr)

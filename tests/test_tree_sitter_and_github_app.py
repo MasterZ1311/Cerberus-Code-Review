@@ -26,7 +26,9 @@ from cerberus.models.schemas import (
 client = TestClient(app)
 
 
-@pytest.mark.skipif(not SyntaxVerifier.is_tree_sitter_supported("typescript"), reason="tree-sitter typescript grammar not installed")
+@pytest.mark.skipif(
+    not SyntaxVerifier.is_tree_sitter_supported("typescript"), reason="tree-sitter typescript grammar not installed"
+)
 def test_tree_sitter_typescript_syntax():
     """Verify Tree-sitter TypeScript AST validation and error detection."""
     valid_ts = """
@@ -109,7 +111,9 @@ def test_tree_sitter_go_syntax():
     assert "SyntaxError" in err
 
 
-@pytest.mark.skipif(not SyntaxVerifier.is_tree_sitter_supported("rust"), reason="tree-sitter rust grammar not installed")
+@pytest.mark.skipif(
+    not SyntaxVerifier.is_tree_sitter_supported("rust"), reason="tree-sitter rust grammar not installed"
+)
 def test_tree_sitter_rust_syntax():
     """Verify Tree-sitter Rust AST validation and error detection."""
     valid_rs = """
@@ -187,13 +191,9 @@ def test_github_app_parse_pull_request_event():
             "head": {"sha": "c0ffee1234", "ref": "feat/timing-safe"},
             "base": {"ref": "main"},
             "diff_url": "https://github.com/org/repo/pull/108.diff",
-            "html_url": "https://github.com/org/repo/pull/108"
+            "html_url": "https://github.com/org/repo/pull/108",
         },
-        "repository": {
-            "name": "cerberus",
-            "owner": {"login": "cerberus-ai"},
-            "full_name": "cerberus-ai/cerberus"
-        }
+        "repository": {"name": "cerberus", "owner": {"login": "cerberus-ai"}, "full_name": "cerberus-ai/cerberus"},
     }
     pr_info = parse_pull_request_event(payload)
     assert pr_info is not None
@@ -214,7 +214,7 @@ def test_github_app_build_pr_review_payload():
         repo_owner="acme",
         full_name="acme/core",
         title="Sample PR",
-        head_sha="headsha456"
+        head_sha="headsha456",
     )
     mock_review = CodeReviewResponse(
         review_id="rev-gh-1",
@@ -230,11 +230,11 @@ def test_github_app_build_pr_review_payload():
                 title="Timing Attack",
                 message="Use hmac.compare_digest",
                 line=12,
-                recommendation="Replace =="
+                recommendation="Replace ==",
             )
         ],
         suggestions=[],
-        unified_patch="--- a/auth.py\n+++ b/auth.py\n@@ -12,1 +12,1 @@\n-if a == b:\n+if timing_safe_compare(a, b):"
+        unified_patch="--- a/auth.py\n+++ b/auth.py\n@@ -12,1 +12,1 @@\n-if a == b:\n+if timing_safe_compare(a, b):",
     )
 
     review_payload = build_pr_review_payload(mock_review, pr_info, filename="auth.py")
@@ -259,13 +259,9 @@ def test_github_webhook_pull_request_opened_flow():
             "title": "Add auth_user",
             "body": "Adds user authentication routine",
             "head": {"sha": "sha777", "ref": "feat-auth"},
-            "base": {"ref": "main"}
+            "base": {"ref": "main"},
         },
-        "repository": {
-            "name": "my-app",
-            "owner": {"login": "corp"},
-            "full_name": "corp/my-app"
-        }
+        "repository": {"name": "my-app", "owner": {"login": "corp"}, "full_name": "corp/my-app"},
     }
     raw_payload = json.dumps(payload_dict).encode("utf-8")
     sig = generate_webhook_signature(raw_payload, secret)
@@ -273,11 +269,7 @@ def test_github_webhook_pull_request_opened_flow():
     response = client.post(
         "/api/v1/review/webhooks/github",
         content=raw_payload,
-        headers={
-            "Content-Type": "application/json",
-            "X-GitHub-Event": "pull_request",
-            "X-Hub-Signature-256": sig
-        }
+        headers={"Content-Type": "application/json", "X-GitHub-Event": "pull_request", "X-Hub-Signature-256": sig},
     )
     assert response.status_code == 200
     data = response.json()
@@ -303,11 +295,7 @@ def test_github_webhook_ping_event():
     response = client.post(
         "/api/v1/review/webhooks/github",
         content=ping_payload,
-        headers={
-            "Content-Type": "application/json",
-            "X-GitHub-Event": "ping",
-            "X-Hub-Signature-256": sig
-        }
+        headers={"Content-Type": "application/json", "X-GitHub-Event": "ping", "X-Hub-Signature-256": sig},
     )
     assert response.status_code == 200
     data = response.json()
@@ -329,8 +317,8 @@ def test_github_webhook_tamper_signature_rejection():
         headers={
             "Content-Type": "application/json",
             "X-GitHub-Event": "pull_request",
-            "X-Hub-Signature-256": sig  # Signature does not match tampered payload
-        }
+            "X-Hub-Signature-256": sig,  # Signature does not match tampered payload
+        },
     )
     assert response.status_code == 401
     assert "Invalid GitHub X-Hub-Signature-256" in response.json()["detail"]

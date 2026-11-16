@@ -36,8 +36,8 @@ class AnthropicProvider(BaseLLMProvider):
             return None
 
         try:
-            headers = {
-                "x-api-key": self.effective_api_key,
+            headers: dict[str, str] = {
+                "x-api-key": self.effective_api_key or "",
                 "anthropic-version": "2023-06-01",
                 "content-type": "application/json",
             }

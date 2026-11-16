@@ -6,7 +6,7 @@ Enforces Granular Role-Based Access Control (RBAC requiring 'admin' scope).
 from datetime import UTC, datetime, timedelta
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -20,9 +20,13 @@ router = APIRouter(prefix="/api/v1/keys", tags=["API Keys"])
 
 class CreateApiKeyRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, description="Human-readable name or owner of the API key")
+    tenant_id: Optional[str] = Field(
+        default=None,
+        description="Explicit tenant identifier. Non-platform admins can only create keys for their own tenant.",
+    )
     scopes: Optional[List[str]] = Field(
         default=["review:read", "review:write"],
-        description="Granted permissions (e.g., 'review:read', 'review:write', 'admin')",
+        description="Granted permissions (e.g., 'review:read', 'review:write', 'admin', 'platform:admin')",
     )
     expires_in_days: Optional[int] = Field(
         default=None, ge=1, le=365, description="Key lifespan in days (null for non-expiring service keys)"
@@ -31,6 +35,7 @@ class CreateApiKeyRequest(BaseModel):
 
 class CreateApiKeyResponse(BaseModel):
     id: str
+    tenant_id: str
     name: str
     raw_key: str
     prefix: str
@@ -43,6 +48,7 @@ class CreateApiKeyResponse(BaseModel):
 
 class ApiKeySummaryResponse(BaseModel):
     id: str
+    tenant_id: str
     name: str
     prefix: str
     scopes: List[str]
@@ -54,6 +60,7 @@ class ApiKeySummaryResponse(BaseModel):
 class RotateApiKeyResponse(BaseModel):
     old_key_id: str
     new_key_id: str
+    tenant_id: str
     name: str
     raw_key: str
     prefix: str
@@ -65,12 +72,28 @@ class RotateApiKeyResponse(BaseModel):
 
 
 @router.post("", response_model=CreateApiKeyResponse, status_code=status.HTTP_201_CREATED)
-async def create_api_key(request: CreateApiKeyRequest, _admin: str = Depends(require_scopes("admin"))):
+async def create_api_key(
+    request: CreateApiKeyRequest,
+    http_req: Request,
+    _admin: str = Depends(require_scopes("admin")),
+):
     """
     Generate and persist a new cryptographically secure API key.
-    Requires administrator authorization ('admin' scope).
+    Requires administrator authorization ('admin' scope). Key creation is tenant-scoped by default.
+    Platform administrators with 'platform:admin' scope can explicitly provision keys for other tenants.
     Note: The raw_key is returned only once upon creation.
     """
+    caller_tenant = getattr(http_req.state, "tenant_id", "default")
+    is_platform_admin = getattr(http_req.state, "is_platform_admin", False)
+
+    if request.tenant_id and request.tenant_id.strip() != caller_tenant and not is_platform_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied: Only platform administrators can provision API keys for other tenants.",
+        )
+
+    assigned_tenant = request.tenant_id.strip() if (request.tenant_id and request.tenant_id.strip()) else caller_tenant
+
     raw_key, key_hash, prefix = generate_api_key(name=request.name)
     now = datetime.now(UTC)
     expires_at = now + timedelta(days=request.expires_in_days) if request.expires_in_days else None
@@ -79,6 +102,7 @@ async def create_api_key(request: CreateApiKeyRequest, _admin: str = Depends(req
     async with AsyncSessionLocal() as session:
         record = ApiKeyRecord(
             name=request.name.strip(),
+            tenant_id=assigned_tenant,
             key_hash=key_hash,
             prefix=prefix,
             scopes=scopes_str,
@@ -93,6 +117,7 @@ async def create_api_key(request: CreateApiKeyRequest, _admin: str = Depends(req
 
     return CreateApiKeyResponse(
         id=str(key_id),
+        tenant_id=assigned_tenant,
         name=request.name.strip(),
         raw_key=raw_key,
         prefix=prefix,
@@ -105,13 +130,36 @@ async def create_api_key(request: CreateApiKeyRequest, _admin: str = Depends(req
 
 
 @router.get("", response_model=List[ApiKeySummaryResponse])
-async def list_api_keys(_admin: str = Depends(require_scopes("admin"))):
+async def list_api_keys(
+    http_req: Request,
+    tenant_id: Optional[str] = Query(None, description="Optional tenant filter (platform admins only)"),
+    _admin: str = Depends(require_scopes("admin")),
+):
     """
-    List all registered API keys and metadata without exposing raw tokens or hashes.
-    Requires administrator authorization ('admin' scope).
+    List registered API keys and metadata without exposing raw tokens or hashes.
+    Tenant-scoped by default: tenant administrators only view keys belonging to their own tenant.
+    Platform administrators ('platform:admin') can view all keys or filter by tenant_id.
     """
+    caller_tenant = getattr(http_req.state, "tenant_id", "default")
+    is_platform_admin = getattr(http_req.state, "is_platform_admin", False)
+
     async with AsyncSessionLocal() as session:
-        stmt = select(ApiKeyRecord).order_by(ApiKeyRecord.created_at.desc())
+        if is_platform_admin:
+            if tenant_id:
+                stmt = (
+                    select(ApiKeyRecord)
+                    .where(ApiKeyRecord.tenant_id == tenant_id)
+                    .order_by(ApiKeyRecord.created_at.desc())
+                )
+            else:
+                stmt = select(ApiKeyRecord).order_by(ApiKeyRecord.created_at.desc())
+        else:
+            stmt = (
+                select(ApiKeyRecord)
+                .where(ApiKeyRecord.tenant_id == caller_tenant)
+                .order_by(ApiKeyRecord.created_at.desc())
+            )
+
         result = await session.execute(stmt)
         records = result.scalars().all()
 
@@ -123,6 +171,7 @@ async def list_api_keys(_admin: str = Depends(require_scopes("admin"))):
         items.append(
             ApiKeySummaryResponse(
                 id=str(r.id),
+                tenant_id=str(r.tenant_id or "default"),
                 name=str(r.name),
                 prefix=str(r.prefix),
                 scopes=scopes_list,
@@ -135,11 +184,18 @@ async def list_api_keys(_admin: str = Depends(require_scopes("admin"))):
 
 
 @router.delete("/{key_id}")
-async def revoke_api_key(key_id: str, _admin: str = Depends(require_scopes("admin"))):
+async def revoke_api_key(
+    key_id: str,
+    http_req: Request,
+    _admin: str = Depends(require_scopes("admin")),
+):
     """
     Revoke an active API key by ID (or name fallback).
-    Requires administrator authorization ('admin' scope).
+    Enforces tenant scoping: tenant admins can only revoke their own tenant's keys.
     """
+    caller_tenant = getattr(http_req.state, "tenant_id", "default")
+    is_platform_admin = getattr(http_req.state, "is_platform_admin", False)
+
     async with AsyncSessionLocal() as session:
         record = await session.get(ApiKeyRecord, key_id)
         if not record:
@@ -150,23 +206,35 @@ async def revoke_api_key(key_id: str, _admin: str = Depends(require_scopes("admi
         if not record:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"API Key '{key_id}' was not found.")
 
+        # Multi-tenant isolation: non-platform admins cannot revoke keys outside their tenant
+        if not is_platform_admin and record.tenant_id != caller_tenant:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"API Key '{key_id}' was not found.")
+
         record.is_active = False
         await session.commit()
 
     return {
         "status": "revoked",
         "key_id": record.id,
+        "tenant_id": record.tenant_id,
         "name": record.name,
         "message": f"API key '{record.name}' ({record.id}) has been revoked.",
     }
 
 
 @router.post("/{key_id}/rotate", response_model=RotateApiKeyResponse)
-async def rotate_api_key(key_id: str, _admin: str = Depends(require_scopes("admin"))):
+async def rotate_api_key(
+    key_id: str,
+    http_req: Request,
+    _admin: str = Depends(require_scopes("admin")),
+):
     """
-    Atomically revoke an existing API key and issue a replacement with identical scopes.
-    Requires administrator authorization ('admin' scope).
+    Atomically revoke an existing API key and issue a replacement with identical scopes and tenant identity.
+    Preserves tenant identity unconditionally upon rotation.
     """
+    caller_tenant = getattr(http_req.state, "tenant_id", "default")
+    is_platform_admin = getattr(http_req.state, "is_platform_admin", False)
+
     async with AsyncSessionLocal() as session:
         old_record = await session.get(ApiKeyRecord, key_id)
         if not old_record:
@@ -179,14 +247,21 @@ async def rotate_api_key(key_id: str, _admin: str = Depends(require_scopes("admi
                 status_code=status.HTTP_404_NOT_FOUND, detail=f"API Key '{key_id}' was not found for rotation."
             )
 
+        # Multi-tenant isolation
+        if not is_platform_admin and old_record.tenant_id != caller_tenant:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=f"API Key '{key_id}' was not found for rotation."
+            )
+
         # Deactivate previous key
         old_record.is_active = False
 
-        # Generate replacement key with same identity and scopes
+        # Generate replacement key with same identity, scopes, and tenant identity
         raw_key, key_hash, prefix = generate_api_key(name=f"{old_record.name}")
         now = datetime.now(UTC)
         new_record = ApiKeyRecord(
             name=old_record.name,
+            tenant_id=old_record.tenant_id,  # Unconditionally preserve tenant identity
             key_hash=key_hash,
             prefix=prefix,
             scopes=old_record.scopes,
@@ -202,6 +277,7 @@ async def rotate_api_key(key_id: str, _admin: str = Depends(require_scopes("admi
     return RotateApiKeyResponse(
         old_key_id=str(old_record.id),
         new_key_id=str(new_record.id),
+        tenant_id=str(new_record.tenant_id),
         name=str(new_record.name),
         raw_key=raw_key,
         prefix=prefix,
@@ -209,5 +285,5 @@ async def rotate_api_key(key_id: str, _admin: str = Depends(require_scopes("admi
         is_active=True,
         created_at=now.isoformat(),
         expires_at=new_record.expires_at.isoformat() if new_record.expires_at else None,
-        message="Previous key was revoked; new replacement key created successfully.",
+        message="Previous key was revoked; new replacement key created successfully with preserved tenant identity.",
     )

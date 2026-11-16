@@ -37,6 +37,7 @@ from cerberus.providers.watsonx_provider import WatsonxProvider
 # 1. CacheManager Bounded LRU & Lifecycle Tests
 # =====================================================================
 
+
 @pytest.mark.asyncio
 async def test_cache_bounded_capacity_and_lru_eviction():
     """CacheManager must evict the least-recently used entry when capacity is exceeded."""
@@ -101,6 +102,7 @@ async def test_cache_prune_expired_and_clear():
 # =====================================================================
 # 2. RateLimiter Bounded Storage & Cleanup Tests
 # =====================================================================
+
 
 def test_rate_limiter_prunes_empty_identifier_keys():
     """When all timestamps for an identifier expire, the identifier key is deleted."""
@@ -181,6 +183,7 @@ def test_rate_limiter_sliding_window_enforcement():
 # 3. LLM Providers Client Pooling & Lifecycle Tests
 # =====================================================================
 
+
 class ConcreteProvider(BaseLLMProvider):
     async def is_available(self) -> bool:
         return True
@@ -235,9 +238,11 @@ async def test_provider_subclasses_client_lifecycle():
 # 4. Review API Bounded Store, DB Fallback & Batch Throttling Tests
 # =====================================================================
 
+
 def test_reviews_store_bounded_eviction(monkeypatch):
     """_store_review must bound memory and evict the oldest review when capacity is reached."""
     import cerberus.api.v1.review as review_module
+
     monkeypatch.setattr(review_module, "REVIEWS_STORE_MAX_ITEMS", 3)
 
     for i in range(4):
@@ -299,8 +304,7 @@ async def test_get_review_status_fallback_to_database():
     # Query API endpoint: should fall back to DB and succeed with 200
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.get(
-            f"/api/v1/review/{evicted_review_id}",
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
+            f"/api/v1/review/{evicted_review_id}", headers={"Authorization": "Bearer cvai_dev_key_123"}
         )
         assert res.status_code == 200
         data = res.json()
@@ -317,15 +321,14 @@ async def test_batch_review_exceeds_max_batch_size_rejected():
     from cerberus.models.schemas import CodeReviewRequest
 
     oversized_files = [
-        CodeReviewRequest(code=f"def f_{i}(): pass", language="python")
-        for i in range(settings.MAX_BATCH_SIZE + 5)
+        CodeReviewRequest(code=f"def f_{i}(): pass", language="python") for i in range(settings.MAX_BATCH_SIZE + 5)
     ]
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post(
             "/api/v1/review/batch",
             json={"files": [f.model_dump() for f in oversized_files]},
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
+            headers={"Authorization": "Bearer cvai_dev_key_123"},
         )
         assert res.status_code == 400
         assert f"exceeds maximum allowed of {settings.MAX_BATCH_SIZE}" in res.json()["detail"]
@@ -359,16 +362,13 @@ async def test_batch_review_concurrency_bounded_by_semaphore(monkeypatch):
 
     monkeypatch.setattr(orchestrator, "execute_review", tracking_execute_review)
 
-    batch_files = [
-        CodeReviewRequest(code=f"def file_{i}(): return {i}", language="python")
-        for i in range(12)
-    ]
+    batch_files = [CodeReviewRequest(code=f"def file_{i}(): return {i}", language="python") for i in range(12)]
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post(
             "/api/v1/review/batch",
             json={"files": [f.model_dump() for f in batch_files]},
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
+            headers={"Authorization": "Bearer cvai_dev_key_123"},
         )
         assert res.status_code == 200
         data = res.json()
@@ -437,16 +437,13 @@ async def test_batch_review_exact_max_boundary(monkeypatch):
 
     monkeypatch.setattr(orchestrator, "execute_review", fast_mock_review)
 
-    batch_files = [
-        CodeReviewRequest(code="def f(): pass", language="python")
-        for _ in range(settings.MAX_BATCH_SIZE)
-    ]
+    batch_files = [CodeReviewRequest(code="def f(): pass", language="python") for _ in range(settings.MAX_BATCH_SIZE)]
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         res = await client.post(
             "/api/v1/review/batch",
             json={"files": [f.model_dump() for f in batch_files]},
-            headers={"Authorization": "Bearer cvai_dev_key_123"}
+            headers={"Authorization": "Bearer cvai_dev_key_123"},
         )
         assert res.status_code == 200
         data = res.json()

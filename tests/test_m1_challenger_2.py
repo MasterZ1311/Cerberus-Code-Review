@@ -36,6 +36,7 @@ def ensure_db():
 # Category 1: Production Secrets Validation Stress Tests
 # ============================================================================
 
+
 class TestProductionSecretsValidation:
     """Stress tests for Settings initialization and production security validator."""
 
@@ -66,16 +67,19 @@ class TestProductionSecretsValidation:
 
     # 1.4 Valid Secrets (>= 32 chars) in Production / Prod
     @pytest.mark.parametrize("env", ["production", "prod", "PRODUCTION", "PROD"])
-    @pytest.mark.parametrize("valid_secret", [
-        "a" * 32,                                          # Exact boundary: 32 chars
-        "12345678901234567890123456789012",                # 32 numeric chars
-        "f4c6e7a8b9d0e1f2a3b4c5d6e7f8a9b0",                # 32 hex chars
-        "x" * 64,                                          # 64 chars
-        "super_secret_production_key_with_high_entropy_123", # Descriptive high entropy
-        secrets.token_urlsafe(32),                          # 43 chars urlsafe
-        secrets.token_hex(32),                              # 64 hex chars
-        "🔒" * 32,                                         # 32 unicode chars
-    ])
+    @pytest.mark.parametrize(
+        "valid_secret",
+        [
+            "a" * 32,  # Exact boundary: 32 chars
+            "12345678901234567890123456789012",  # 32 numeric chars
+            "f4c6e7a8b9d0e1f2a3b4c5d6e7f8a9b0",  # 32 hex chars
+            "x" * 64,  # 64 chars
+            "super_secret_production_key_with_high_entropy_123",  # Descriptive high entropy
+            secrets.token_urlsafe(32),  # 43 chars urlsafe
+            secrets.token_hex(32),  # 64 hex chars
+            "🔒" * 32,  # 32 unicode chars
+        ],
+    )
     def test_production_accepts_valid_high_entropy_secrets(self, env: str, valid_secret: str):
         """Production environments must accept secrets with length >= 32 that are not default."""
         s = Settings(ENVIRONMENT=env, SECRET_KEY=valid_secret)
@@ -83,24 +87,30 @@ class TestProductionSecretsValidation:
         assert s.SECRET_KEY == valid_secret
 
     # 1.5 Non-Production Environments (development, test, staging, etc.)
-    @pytest.mark.parametrize("env", [
-        "development",
-        "dev",
-        "DEVELOPMENT",
-        "test",
-        "testing",
-        "TEST",
-        "staging",
-        "local",
-        "ci",
-    ])
-    @pytest.mark.parametrize("dev_secret", [
-        "cerberus_dev_secret_key_change_in_production_32chars", # Default dev key
-        "short",                                                # Short key < 32 chars
-        "secret",                                               # Known weak secret
-        "123",                                                  # Very short
-        "a" * 32,                                               # 32 chars
-    ])
+    @pytest.mark.parametrize(
+        "env",
+        [
+            "development",
+            "dev",
+            "DEVELOPMENT",
+            "test",
+            "testing",
+            "TEST",
+            "staging",
+            "local",
+            "ci",
+        ],
+    )
+    @pytest.mark.parametrize(
+        "dev_secret",
+        [
+            "cerberus_dev_secret_key_change_in_production_32chars",  # Default dev key
+            "short",  # Short key < 32 chars
+            "secret",  # Known weak secret
+            "123",  # Very short
+            "a" * 32,  # 32 chars
+        ],
+    )
     def test_non_production_allows_defaults_and_short_keys(self, env: str, dev_secret: str):
         """Non-production environments (development, test, staging) must not be blocked by prod validator."""
         s = Settings(ENVIRONMENT=env, SECRET_KEY=dev_secret)
@@ -126,6 +136,7 @@ class TestProductionSecretsValidation:
 # Category 2: CLI Key Generation & Lifecycle Stress Tests
 # ============================================================================
 
+
 class TestCLIKeyLifecycle:
     """Stress tests for CLI key creation, SQLite persistence, and API authentication."""
 
@@ -135,7 +146,7 @@ class TestCLIKeyLifecycle:
 
     def _extract_key(self, output: str) -> str:
         """Helper to extract generated raw API key from CLI output."""
-        match = re.search(r'(cvai_[0-9a-fA-F]+)', output)
+        match = re.search(r"(cvai_[0-9a-fA-F]+)", output)
         assert match, f"Could not extract API key from output: {output}"
         return match.group(1)
 
@@ -149,13 +160,16 @@ class TestCLIKeyLifecycle:
         assert len(raw_key) == 5 + 48  # prefix (5) + 24 bytes hex (48) = 53 chars
 
     # 2.2 CLI Key Creation with Custom Names
-    @pytest.mark.parametrize("key_name", [
-        "ci-pipeline-runner",
-        "github-actions-bot",
-        "qa-tester-key",
-        "key with spaces",
-        "special_chars-123.456@test",
-    ])
+    @pytest.mark.parametrize(
+        "key_name",
+        [
+            "ci-pipeline-runner",
+            "github-actions-bot",
+            "qa-tester-key",
+            "key with spaces",
+            "special_chars-123.456@test",
+        ],
+    )
     def test_cli_create_api_key_custom_name(self, runner, key_name: str):
         """Creating keys with various names succeeds and includes name in output."""
         res = runner.invoke(cli_app, ["create-api-key", "--name", key_name])
@@ -166,18 +180,21 @@ class TestCLIKeyLifecycle:
 
     # 2.3 Verify Database Persistence in SQLite `api_keys` Table
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("key_name", [
-        "db-verify-test-1",
-        "db-verify-test-2",
-        "security-scanner-prod",
-    ])
+    @pytest.mark.parametrize(
+        "key_name",
+        [
+            "db-verify-test-1",
+            "db-verify-test-2",
+            "security-scanner-prod",
+        ],
+    )
     async def test_cli_key_stored_in_sqlite(self, key_name: str):
         """CLI generated keys must exist in the SQLite database with correct schema fields."""
         runner = CliRunner()
         res = await asyncio.to_thread(runner.invoke, cli_app, ["create-api-key", "-n", key_name])
         assert res.exit_code == 0
 
-        raw_key = re.search(r'(cvai_[0-9a-fA-F]+)', res.stdout).group(1)
+        raw_key = re.search(r"(cvai_[0-9a-fA-F]+)", res.stdout).group(1)
         computed_hash = hash_api_key(raw_key)
 
         async with AsyncSessionLocal() as session:
@@ -202,7 +219,7 @@ class TestCLIKeyLifecycle:
         runner = CliRunner()
         res = await asyncio.to_thread(runner.invoke, cli_app, ["create-api-key", "--name", "e2e-api-auth-key"])
         assert res.exit_code == 0
-        raw_key = re.search(r'(cvai_[0-9a-fA-F]+)', res.stdout).group(1)
+        raw_key = re.search(r"(cvai_[0-9a-fA-F]+)", res.stdout).group(1)
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             headers = {"Authorization": f"Bearer {raw_key}"}
@@ -239,7 +256,7 @@ class TestCLIKeyLifecycle:
         """If a CLI-generated key is marked is_active=False in DB, API access is immediately revoked."""
         runner = CliRunner()
         res = await asyncio.to_thread(runner.invoke, cli_app, ["create-api-key", "--name", "revocation-target"])
-        raw_key = re.search(r'(cvai_[0-9a-fA-F]+)', res.stdout).group(1)
+        raw_key = re.search(r"(cvai_[0-9a-fA-F]+)", res.stdout).group(1)
         computed_hash = hash_api_key(raw_key)
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -268,7 +285,7 @@ class TestCLIKeyLifecycle:
         """If a CLI-generated key has an expires_at in the past, API access is rejected with 401."""
         runner = CliRunner()
         res = await asyncio.to_thread(runner.invoke, cli_app, ["create-api-key", "--name", "expiration-target"])
-        raw_key = re.search(r'(cvai_[0-9a-fA-F]+)', res.stdout).group(1)
+        raw_key = re.search(r"(cvai_[0-9a-fA-F]+)", res.stdout).group(1)
         computed_hash = hash_api_key(raw_key)
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -296,7 +313,7 @@ class TestCLIKeyLifecycle:
         for i in range(5):
             res = await asyncio.to_thread(runner.invoke, cli_app, ["create-api-key", "--name", f"multi-key-{i}"])
             assert res.exit_code == 0
-            keys.append(re.search(r'(cvai_[0-9a-fA-F]+)', res.stdout).group(1))
+            keys.append(re.search(r"(cvai_[0-9a-fA-F]+)", res.stdout).group(1))
 
         # Ensure all generated keys are unique
         assert len(set(keys)) == 5

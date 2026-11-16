@@ -313,15 +313,11 @@ async def test_stream_token_lifecycle():
         assert len(stream_token) >= 32
 
         # Token allows stream access
-        stream_resp = await client.get(
-            f"/api/v1/review/{rev_id}/stream?token={stream_token}"
-        )
+        stream_resp = await client.get(f"/api/v1/review/{rev_id}/stream?stream_token={stream_token}")
         assert stream_resp.status_code == 200
 
         # One-time use: second attempt with same token is rejected
-        second_resp = await client.get(
-            f"/api/v1/review/{rev_id}/stream?token={stream_token}"
-        )
+        second_resp = await client.get(f"/api/v1/review/{rev_id}/stream?stream_token={stream_token}")
         assert second_resp.status_code == 401
 
 
@@ -330,9 +326,7 @@ async def test_raw_api_key_query_param_rejected_in_production():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         with patch.object(settings, "ENVIRONMENT", "production"):
-            resp = await client.get(
-                "/api/v1/review/rev_12345/stream?api_key=crb_live_some_key"
-            )
+            resp = await client.get("/api/v1/review/rev_12345/stream?api_key=crb_live_some_key")
             assert resp.status_code == 401
 
 

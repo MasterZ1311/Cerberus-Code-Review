@@ -185,10 +185,7 @@ def process_secure_payment(amount: float, card_token: str):
     # an over-aggressive LLM from dragging a clean result into the failing band.
     assert result.score >= 70.0, f"Expected score>=70 for clean code, got {result.score}"
     # No critical violations should be raised on clearly clean code
-    critical_findings = [
-        f for f in result.findings
-        if f.severity == SeverityEnum.CRITICAL
-    ]
+    critical_findings = [f for f in result.findings if f.severity == SeverityEnum.CRITICAL]
     assert len(critical_findings) == 0, (
         f"Unexpected critical findings on clean code: {[f.title for f in critical_findings]}"
     )
@@ -207,7 +204,7 @@ API_KEY = "sk-live-1234567890abcdef"
 cvv = "Column(String(4))"
 """,
         language="python",
-        agents=["compliance"]
+        agents=["compliance"],
     )
     response = await orchestrator.execute_review(req)
     assert response.status == "completed"

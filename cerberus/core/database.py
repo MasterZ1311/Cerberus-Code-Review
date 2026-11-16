@@ -96,7 +96,7 @@ async def init_db() -> None:
                         name="Default Development Key",
                         tenant_id="dev_tenant",
                         prefix=settings.API_KEY_PREFIX,
-                        scopes="review:read,review:write,admin",
+                        scopes="review:read,review:write,admin,platform:admin",
                         is_active=True,
                     )
                     session.add(dev_record)

@@ -13,9 +13,9 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg" alt="Python: 3.11+"></a>
   <a href="https://github.com/MasterZ1311/MultiAgent-CodeReview/actions/workflows/ci.yml"><img src="https://github.com/MasterZ1311/MultiAgent-CodeReview/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
-  <a href="tests/"><img src="https://img.shields.io/badge/tests-536%20passed-brightgreen.svg" alt="Tests Passing"></a>
-  <a href="pyproject.toml"><img src="https://img.shields.io/badge/coverage-85.36%25%20branch-brightgreen.svg" alt="Coverage: 85.36% Branch"></a>
-  <a href="reports/MASTER_ENGINEERING_AUDIT.md"><img src="https://img.shields.io/badge/Score-10%2F10%20(Production%20Verified)-success.svg" alt="Overall Score"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/tests-passing-brightgreen.svg" alt="Tests Passing"></a>
+  <a href="pyproject.toml"><img src="https://img.shields.io/badge/coverage-%E2%89%A585%25%20branch-brightgreen.svg" alt="Coverage: >=85% Branch Enforced"></a>
+  <a href="SECURITY.md"><img src="https://img.shields.io/badge/security-hardened-success.svg" alt="Security Hardened"></a>
   <a href="CONTRIBUTING.md"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"></a>
 </p>
 
@@ -277,8 +277,15 @@ curl -X POST http://localhost:8000/api/v1/review/{review_id}/approve \
   -H "Content-Type: application/json" \
   -d '{"reviewer": "Senior Lead", "override_blocking": true}'
 
-# Live Server-Sent Events (SSE) Stream
-curl -N http://localhost:8000/api/v1/review/{review_id}/stream?token=cvai_dev_key_123
+# Generate short-lived single-use stream token
+curl -X POST http://localhost:8000/api/v1/review/{review_id}/stream-token \
+  -H "Authorization: Bearer cvai_dev_key_123"
+
+# Live Server-Sent Events (SSE) Stream (via Authorization header or stream_token query param)
+curl -N http://localhost:8000/api/v1/review/{review_id}/stream \
+  -H "Authorization: Bearer cvai_dev_key_123"
+# Or:
+curl -N "http://localhost:8000/api/v1/review/{review_id}/stream?stream_token=<SINGLE_USE_TOKEN>"
 
 # Prometheus Telemetry Metrics
 curl http://localhost:8000/metrics

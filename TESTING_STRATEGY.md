@@ -29,6 +29,7 @@
    - 5.4 Suite D: Multi-Agent Orchestrator, Fault Tolerance & Scoring (Tests 31–40)
    - 5.5 Suite E: API Endpoints, Asynchronous Workers & WebSockets (Tests 41–47)
    - 5.6 Suite F: End-to-End Enterprise System Workflows (Tests 48–52)
+   - 5.7 Suite G: Hardened Production Integration Suites (Tests 53–80+)
 6. [Locust Distributed Performance & Load Testing](#6-locust-distributed-performance--load-testing)
    - 6.1 Enterprise Load Test Architecture (`locustfile.py`)
    - 6.2 Realistic Review Workflow Simulation
@@ -1534,6 +1535,49 @@ def load_payload(untrusted_bytes):
     assert data["should_block"] is True
     assert "critical" in data["block_reason"].lower() or "cwe-502" in data["block_reason"].lower()
 ```
+
+### 5.7 Suite G: Hardened Production Integration Suites (Tests 53–80+)
+
+Cerberus includes dedicated integration test suites proving production readiness across tenancy, scaling, privacy, and infrastructure resilience:
+
+1. **Multi-Tenant Isolation (`tests/test_multi_tenant_isolation.py`)**:
+   - Explicit tenant API key generation, scoping, rotation, and revocation.
+   - Proves Tenant B cannot read, update, or approve Tenant A reviews across all REST, SARIF, GitLab, SonarQube, and ZIP endpoints (HTTP 404).
+   - Proves cache fallback to database strictly enforces tenant boundaries.
+   - Enforces key revocation and expiration with immediate rejection (HTTP 401).
+   - Enforces unowned key rejection in production environments (`unowned_api_key`).
+
+2. **Horizontal Streaming & Concurrency (`tests/test_streaming_horizontal_scaling.py`)**:
+   - Zero raw API keys in query parameters across development and production modes (`WS_1008_POLICY_VIOLATION` / HTTP 400).
+   - Atomic stream token generation and single-use consumption in Redis via Lua / `GETDEL`.
+   - Proves tokens cannot be consumed twice under high concurrent race conditions.
+   - Verifies cross-worker review status event delivery via Redis pub/sub.
+
+3. **ASGI Receive-Layer Request Limits (`tests/test_asgi_request_limits.py`)**:
+   - Early rejection when `Content-Length` exceeds configured byte caps (HTTP 413 `payload_too_large`).
+   - Metered ASGI receive loop terminating oversized streaming or chunked payloads when `Content-Length` is absent.
+   - Traps and terminates attacks using misleading or forged `Content-Length` headers.
+   - Defense-in-depth inspection of zip bombs and path traversal archives.
+
+4. **Privacy & Source Code Retention (`tests/test_privacy_and_retention.py`)**:
+   - Recursive source code and snippet redaction (`[REDACTED BY PRIVACY POLICY]`) when `RETAIN_SOURCE_CODE=false`.
+   - Guaranteed absence of proprietary code from database records, JSON blobs, child findings, L1/L2 caches, and OpenTelemetry spans.
+   - Distributed-locked retention lifecycle worker purging expired reviews and findings past retention cutoff.
+   - Typer CLI `cerberus retention purge` command verification.
+
+5. **Browser Accessibility & Assistive Tech (`tests/test_browser_accessibility.py`)**:
+   - Playwright headless Chromium tests asserting WCAG 2.1 AA keyboard navigation.
+   - Verification of ARIA landmarks (`role="main"`, `role="region"`, `aria-label`).
+   - High-contrast visual tokens and `prefers-reduced-motion` compliance.
+   - Interactive theme toggling and focus ring visibility.
+
+6. **Infrastructure Failure Modes & Chaos Resilience (`tests/test_failure_modes.py`)**:
+   - Graceful fallback to in-memory caching when Redis is offline.
+   - SQLAlchemy database transaction retries with exponential backoff on transient disconnects.
+   - Fail-closed database migrations when validation fails.
+   - Concurrent retention lock contention handling (distributed Redis lock vs. local fallback).
+   - Distributed rate limiter exhaustion returning HTTP 429 with `Retry-After`.
+   - GitHub webhook replay prevention using delivery ID deduplication.
 
 ---
 

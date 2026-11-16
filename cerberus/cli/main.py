@@ -958,7 +958,41 @@ def uninstall_git_hooks(
     console.print("[bold green]cerberus</> Git hooks uninstalled cleanly.[/bold green]")
 
 
+retention_app = typer.Typer(name="retention", help="Manage data retention and compliance purge lifecycle")
+
+
+@retention_app.command(name="purge")
+def retention_purge_cmd(
+    days: Optional[int] = typer.Option(None, "--days", "-d", help="Purge reviews older than N days"),
+):
+    """Execute data retention purge across expired reviews, findings, and feedback."""
+    from cerberus.core.retention import run_retention_purge
+
+    console.print(
+        f"[bold cyan]Running data retention purge (days={days or settings.DATA_RETENTION_DAYS})...[/bold cyan]"
+    )
+    res = asyncio.run(run_retention_purge(retention_days=days))
+    if res.get("status") == "success":
+        console.print(
+            Panel(
+                f"[bold green]Retention Purge Completed Successfully[/bold green]\n\n"
+                f"- Reviews purged: {res.get('reviews_purged', 0)}\n"
+                f"- Findings purged: {res.get('findings_purged', 0)}\n"
+                f"- Feedback purged: {res.get('feedback_purged', 0)}\n"
+                f"- Duration: {res.get('duration_seconds', 0)}s",
+                title="[bold green]Retention Success[/bold green]",
+                border_style="green",
+            )
+        )
+    elif res.get("status") == "skipped":
+        console.print(f"[yellow]Retention purge skipped: {res.get('message')}[/yellow]")
+    else:
+        console.print(f"[bold red]Retention purge failed:[/bold red] {res.get('error')}")
+        raise typer.Exit(code=1)
+
+
 app.add_typer(hooks_app)
+app.add_typer(retention_app)
 
 
 if __name__ == "__main__":

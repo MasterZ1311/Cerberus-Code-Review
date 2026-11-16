@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cerberus-api-ingress
+  namespace: cerberus
+  labels:
+    app.kubernetes.io/name: cerberus-api
+    app.kubernetes.io/part-of: cerberus-system
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "30m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    nginx.ingress.kubernetes.io/websocket-services: "cerberus-api-service"
+spec:
+  tls:
+    - hosts:
+        - cerberus.example.com
+      secretName: cerberus-api-tls
+  rules:
+    - host: cerberus.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: cerberus-api-service
+                port:
+                  number: 8000

@@ -9,7 +9,7 @@ import time
 from contextlib import asynccontextmanager, contextmanager
 from typing import Any, Dict, List, Optional, Tuple
 
-from prometheus_client import Counter, Histogram, generate_latest
+from prometheus_client import Counter, Gauge, Histogram, generate_latest
 
 # Configure application-wide logger
 logging.basicConfig(
@@ -44,6 +44,23 @@ FINDINGS_DETECTED_TOTAL = Counter(
 CACHE_HITS_TOTAL = Counter("cerberus_cache_hits_total", "Number of review requests served directly from cache")
 
 CACHE_MISSES_TOTAL = Counter("cerberus_cache_misses_total", "Number of review requests requiring fresh agent analysis")
+
+RETENTION_RUNS_TOTAL = Counter(
+    "cerberus_retention_runs_total",
+    "Total executions of data retention purge",
+    ["status"],
+)
+
+RETENTION_PURGED_RECORDS_TOTAL = Counter(
+    "cerberus_retention_purged_records_total",
+    "Total records purged by retention policy",
+    ["entity"],
+)
+
+RETENTION_LAST_RUN_TIMESTAMP_SECONDS = Gauge(
+    "cerberus_retention_last_run_timestamp_seconds",
+    "Timestamp of the last data retention purge execution",
+)
 
 
 def get_prometheus_metrics() -> bytes:
@@ -123,6 +140,20 @@ class Span:
         return f"00-{self.trace_id}-{self.span_id}-01"
 
     def to_dict(self) -> Dict[str, Any]:
+        attrs = dict(self.attributes)
+        events_list = list(self.events)
+
+        # Enforce source code privacy in traces
+        try:
+            from cerberus.config import settings
+            from cerberus.core.privacy import redact_source_code_recursively
+
+            if not getattr(settings, "RETAIN_SOURCE_CODE", False):
+                attrs = redact_source_code_recursively(attrs)
+                events_list = redact_source_code_recursively(events_list)
+        except Exception:
+            pass
+
         return {
             "name": self.name,
             "trace_id": self.trace_id,
@@ -134,8 +165,8 @@ class Span:
             "start_time": self.start_time,
             "end_time": self.end_time,
             "duration_ms": self.duration_ms,
-            "attributes": self.attributes,
-            "events": self.events,
+            "attributes": attrs,
+            "events": events_list,
         }
 
 

@@ -14,17 +14,18 @@ from cerberus.core.security import hash_api_key, rate_limiter, timing_safe_compa
 from cerberus.models.database import ApiKeyRecord
 
 
-async def validate_token_against_db(token: Optional[str]) -> bool:
+async def get_key_record_for_token(token: Optional[str]) -> Optional[ApiKeyRecord]:
     """
-    Validates a raw API key against stored database credentials or dev fallback.
-    Returns True if valid and active, False otherwise.
+    Retrieves and validates an active ApiKeyRecord from the database for the given raw token.
+    Enforces active status and expiration timestamps. Returns None if invalid or expired.
     """
     if not token or not token.strip():
-        return False
+        return None
 
     token = token.strip()
     token_hash = hash_api_key(token)
 
+    key_record: Optional[ApiKeyRecord] = None
     try:
         async with AsyncSessionLocal() as session:
             stmt = select(ApiKeyRecord).where(ApiKeyRecord.key_hash == token_hash)
@@ -35,23 +36,39 @@ async def validate_token_against_db(token: Optional[str]) -> bool:
 
     if key_record is not None:
         if not key_record.is_active:
-            return False
+            return None
         if key_record.expires_at is not None:
             exp = key_record.expires_at
             if exp.tzinfo is None:
                 exp = exp.replace(tzinfo=UTC)
             if exp < datetime.now(UTC):
-                return False
-        return True
+                return None
+        return key_record
 
     if (
         settings.ENVIRONMENT.lower() not in ("production", "prod")
         and settings.DEFAULT_DEV_API_KEY
         and timing_safe_compare(token, settings.DEFAULT_DEV_API_KEY)
     ):
-        return True
+        return ApiKeyRecord(
+            id="dev_key_id",
+            name="Default Dev Key",
+            tenant_id="dev_tenant",
+            key_hash=token_hash,
+            prefix=settings.API_KEY_PREFIX,
+            scopes="review:read,review:write,admin,platform:admin",
+            is_active=True,
+        )
 
-    return False
+    return None
+
+
+async def validate_token_against_db(token: Optional[str]) -> bool:
+    """
+    Validates a raw API key against stored database credentials or dev fallback.
+    Returns True if valid and active, False otherwise.
+    """
+    return (await get_key_record_for_token(token)) is not None
 
 
 async def verify_api_key(request: Request, authorization: Optional[str] = Header(None)) -> str:
@@ -117,12 +134,24 @@ async def verify_api_key(request: Request, authorization: Optional[str] = Header
     if key_record is not None:
         scopes_str = key_record.scopes if key_record.scopes else "review:read,review:write"
         scopes_set = {s.strip().lower() for s in scopes_str.split(",") if s.strip()}
-        tenant_id = key_record.tenant_id or key_record.id or "default_tenant"
+        tenant_id = (key_record.tenant_id or "").strip()
+        if not tenant_id:
+            if settings.ENVIRONMENT.lower() in ("production", "prod"):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail={"error": "unowned_api_key", "message": "API key lacks an explicit tenant identity."},
+                )
+            tenant_id = "dev_tenant"
     else:
-        tenant_id = "default_dev_tenant"
+        tenant_id = "dev_tenant"
+        scopes_set = {"review:read", "review:write", "admin", "platform:admin"}
+
+    is_platform_admin = ("platform:admin" in scopes_set) or (token == settings.DEFAULT_DEV_API_KEY)
+
     request.state.api_key_record = key_record
     request.state.api_key_scopes = scopes_set
     request.state.tenant_id = tenant_id
+    request.state.is_platform_admin = is_platform_admin
 
     # Check Rate Limit (distributed Redis with automatic in-memory fallback)
     allowed, remaining, retry_after = await rate_limiter.is_allowed_async(token)

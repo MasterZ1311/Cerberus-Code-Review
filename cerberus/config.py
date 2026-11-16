@@ -6,7 +6,7 @@ Supports loading from environment variables and .env files.
 from pathlib import Path
 from typing import List, Optional
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 INSECURE_DEFAULT_SECRETS = {
@@ -39,8 +39,8 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     # Security Settings
-    SECRET_KEY: str = "cerberus_dev_secret_key_change_in_production_32chars"
-    API_KEY_PREFIX: str = "cvai_"
+    SECRET_KEY: str = Field(default="cerberus_dev_secret_key_change_in_production_32chars")
+    API_KEY_PREFIX: str = Field(default="cvai_")
     RATE_LIMIT_PER_HOUR: int = 100
     RATE_LIMIT_MAX_TRACKED: int = 10000
     DEFAULT_DEV_API_KEY: Optional[str] = "cvai_dev_key_123"
@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     # Source Code Retention & Privacy Controls
     RETAIN_SOURCE_CODE: bool = False
     DATA_RETENTION_DAYS: int = 30
+    ENABLE_RETENTION_WORKER: bool = True
     MAX_ZIP_UPLOAD_BYTES: int = 25 * 1024 * 1024  # 25 MB
     MAX_REQUEST_BODY_BYTES: int = 30 * 1024 * 1024  # 30 MB
 

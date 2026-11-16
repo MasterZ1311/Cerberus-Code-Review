@@ -64,6 +64,7 @@ def test_circuit_breaker_lifecycle():
 
     # Wait for recovery timeout
     import time
+
     time.sleep(0.25)
     assert cb.can_execute() is True
     assert cb.state == CircuitState.HALF_OPEN
@@ -126,7 +127,7 @@ async def test_multi_language_code_repair():
             message="Avoid bare except clauses.",
             line=3,
             code_snippet="except:",
-            suggestion="except Exception:"
+            suggestion="except Exception:",
         )
     ]
     repaired_py = fixer._apply_heuristic_fixes(py_code, findings, language="python")
@@ -144,7 +145,7 @@ async def test_multi_language_code_repair():
             message="Avoid loose equality operator ==",
             line=2,
             code_snippet="return a == b;",
-            suggestion="return a === b;"
+            suggestion="return a === b;",
         )
     ]
     repaired_ts = fixer._apply_heuristic_fixes(ts_code, ts_findings, language="typescript")
@@ -173,9 +174,7 @@ async def test_orchestrator_lifecycle_hooks():
     orch.register_post_hook(custom_post_hook)
 
     req = CodeReviewRequest(
-        code="def add(a, b):\n    return a + b\n",
-        language="python",
-        config=ReviewConfig(blocking_mode=False)
+        code="def add(a, b):\n    return a + b\n", language="python", config=ReviewConfig(blocking_mode=False)
     )
     res = await orch.execute_review(req)
 
@@ -199,9 +198,9 @@ def test_gitlab_code_quality_export():
                 title="SQL Injection",
                 message="Untrusted SQL concatenation",
                 line=12,
-                cwe_id="CWE-89"
+                cwe_id="CWE-89",
             )
-        ]
+        ],
     )
     gl_report = review_response_to_gitlab_code_quality(review, filename="app/db.py")
     assert isinstance(gl_report, list)
@@ -229,9 +228,9 @@ def test_github_check_run_payload_generation():
                 severity=SeverityEnum.LOW,
                 title="Missing Docstring",
                 message="Add docstring to helper function",
-                line=5
+                line=5,
             )
-        ]
+        ],
     )
     pr_info = GitHubPullRequestInfo(
         action="opened",
@@ -240,7 +239,7 @@ def test_github_check_run_payload_generation():
         repo_name="demo-repo",
         repo_owner="test-owner",
         full_name="test-owner/demo-repo",
-        head_sha="a1b2c3d4"
+        head_sha="a1b2c3d4",
     )
     check_payload = build_github_check_run_payload(review, pr_info, filename="src/helper.py")
     assert check_payload["name"] == "cerberus</> Autonomous Multi-Agent QA"
@@ -294,15 +293,17 @@ async def test_gitlab_api_endpoint():
                 severity=SeverityEnum.LOW,
                 title="PEP 8 naming convention",
                 message="Variable should be snake_case",
-                line=4
+                line=4,
             )
-        ]
+        ],
     )
     _store_review(fake_review.review_id, fake_review)
 
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        res = await ac.get(f"/api/v1/review/{fake_review.review_id}/gitlab", headers={"Authorization": "Bearer cvai_dev_key_123"})
+        res = await ac.get(
+            f"/api/v1/review/{fake_review.review_id}/gitlab", headers={"Authorization": "Bearer cvai_dev_key_123"}
+        )
         assert res.status_code == 200
         data = res.json()
         assert isinstance(data, list)
@@ -317,10 +318,12 @@ async def test_openrouter_provider_generate_response_mocked(monkeypatch):
 
     class MockAsyncClient:
         is_closed = False
+
         async def post(self, url, json=None, headers=None, timeout=None):
-            return Response(status_code=200, json={
-                "choices": [{"message": {"content": "OpenRouter refactored code successfully"}}]
-            })
+            return Response(
+                status_code=200, json={"choices": [{"message": {"content": "OpenRouter refactored code successfully"}}]}
+            )
+
         async def aclose(self):
             pass
 
@@ -368,9 +371,9 @@ def test_zip_gitlab_code_quality_export():
                 severity=SeverityEnum.HIGH,
                 title="Quadratic Complexity",
                 message="Nested loops O(N^2)",
-                line=25
+                line=25,
             )
-        ]
+        ],
     )
     zip_resp = ZipReviewResponse(
         review_id="zip_rev_123",
@@ -391,9 +394,9 @@ def test_zip_gitlab_code_quality_export():
                 language="python",
                 lines_of_code=50,
                 score=80.0,
-                review=rev
+                review=rev,
             )
-        ]
+        ],
     )
     gl_issues = zip_review_response_to_gitlab_code_quality(zip_resp)
     assert len(gl_issues) == 1
@@ -409,16 +412,12 @@ def test_dynamic_agent_registration():
         name = "custom"
         version = "1.0.0"
         purpose = "Custom test agent"
+
         def get_capabilities(self):
             return ["Custom AST verification"]
+
         async def analyze(self, code, language="python", context=None):
-            return AgentResult(
-                agent_name="custom",
-                score=100.0,
-                execution_time_ms=5.0,
-                status="completed",
-                findings=[]
-            )
+            return AgentResult(agent_name="custom", score=100.0, execution_time_ms=5.0, status="completed", findings=[])
 
     orch.register_agent("custom", CustomAgent())
     agents = orch.list_agents()
@@ -445,4 +444,3 @@ def test_cli_formats_gitlab_and_check_run(tmp_path):
     res_cr = runner.invoke(app, ["review", str(test_file), "--format", "check-run"])
     assert res_cr.exit_code == 0
     assert "cerberus</> Autonomous Multi-Agent QA" in res_cr.stdout
-

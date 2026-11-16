@@ -9,7 +9,7 @@ from cerberus.core.cache import CacheManager
 @pytest.mark.asyncio
 async def test_cache_hashing_and_lifecycle():
     manager = CacheManager()
-    
+
     code1 = "def add(a, b):\n    return a + b"
     code2 = "def add(a, b):\n    return a + b  # extra comment"
 

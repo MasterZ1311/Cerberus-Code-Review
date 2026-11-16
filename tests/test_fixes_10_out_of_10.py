@@ -20,6 +20,7 @@ from cerberus.agents.architecture_agent import ArchitectureAgent
 # 1. Security & Production Guard Tests
 # ============================================================================
 
+
 def test_production_guard_disables_insecure_dev_key():
     """Production mode must automatically neutralize insecure default dev api key."""
     s = Settings(
@@ -45,6 +46,7 @@ def test_production_guard_accepts_clean_production_settings():
 # 2. Distributed Rate Limiter & Fallback Tests
 # ============================================================================
 
+
 @pytest.mark.asyncio
 async def test_rate_limiter_async_fallback_to_in_memory():
     """is_allowed_async gracefully falls back to local in-memory sliding window."""
@@ -67,6 +69,7 @@ async def test_rate_limiter_async_fallback_to_in_memory():
 @pytest.mark.asyncio
 async def test_rate_limiter_async_with_mock_redis():
     """Verify is_allowed_async sliding window with simulated Redis pipeline."""
+
     class MockPipeline:
         def __init__(self):
             self.actions = []
@@ -111,6 +114,7 @@ async def test_rate_limiter_async_with_mock_redis():
 # ============================================================================
 # 3. Heuristic Engine: False Positive Reduction Tests
 # ============================================================================
+
 
 def test_heuristic_security_ignores_commented_sqli():
     """SQL injection patterns in comments must NOT be flagged."""
@@ -157,6 +161,7 @@ def test_login():
 # ============================================================================
 # 4. Advanced Architecture Agent & Heuristics
 # ============================================================================
+
 
 def test_heuristic_architecture_detects_god_class():
     """Classes with excessive methods (>15) must trigger God Object warning."""
@@ -210,6 +215,7 @@ async def test_architecture_agent_capabilities():
 # ============================================================================
 # 5. Schema Harmonization Tests
 # ============================================================================
+
 
 def test_review_results_schema_and_dictionary_access():
     """ReviewResults supports both attribute and dict-like key access for backwards compatibility."""

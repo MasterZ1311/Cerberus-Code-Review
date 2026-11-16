@@ -271,9 +271,10 @@ async def test_cache_manager_lru_and_error_handling():
     token = await cm.create_stream_token("rev_123", "tenant_abc", ttl_seconds=60)
     assert token.startswith("st_")
 
-    mock_redis.get.return_value = json.dumps(
-        {"review_id": "rev_123", "tenant_id": "tenant_abc", "expires_at": time.time() + 60}
-    )
+    payload_json = json.dumps({"review_id": "rev_123", "tenant_id": "tenant_abc", "expires_at": time.time() + 60})
+    mock_redis.get.return_value = payload_json
+    mock_redis.getdel.return_value = payload_json
+    mock_redis.eval.return_value = payload_json
     mock_redis.delete.return_value = 1
     consumed_data = await cm.consume_stream_token(token)
     assert consumed_data is not None
@@ -427,7 +428,7 @@ async def test_code_fixer_repairs():
     assert "===" in repaired_ts
 
     # 3. Go error check
-    code_go = 'package main\nfunc check() {\n    f, err := openFile()\n    if err != nil { panic(err) }\n}\n'
+    code_go = "package main\nfunc check() {\n    f, err := openFile()\n    if err != nil { panic(err) }\n}\n"
     f_go = Finding(
         category="quality",
         severity=SeverityEnum.HIGH,
@@ -665,7 +666,10 @@ async def test_review_feedback_and_approval():
 
     # 7. WebSocket Live Streaming Connection
     with TestClient(app) as ws_client:
-        with ws_client.websocket_connect(f"/api/v1/review/{rev_id}/ws?token={dev_key}") as ws:
+        with ws_client.websocket_connect(
+            f"/api/v1/review/{rev_id}/ws",
+            headers={"Authorization": f"Bearer {dev_key}"},
+        ) as ws:
             msg = ws.receive_json()
             assert msg["event"] == "connected"
             assert msg["review_id"] == rev_id
@@ -748,7 +752,7 @@ async def test_heuristic_engine_multi_language_coverage():
     assert isinstance(findings_qual, list)
 
     # Rust inspection
-    rs_code = 'fn compute(v: Option<i32>) -> i32 {\n    v.unwrap()\n}\n'
+    rs_code = "fn compute(v: Option<i32>) -> i32 {\n    v.unwrap()\n}\n"
     findings_arch, _ = HeuristicEngine.analyze_architecture(rs_code, language="rust", filename="lib.rs")
     assert isinstance(findings_arch, list)
 
@@ -796,4 +800,3 @@ async def test_review_upload_and_validation_edge_cases():
 
         nf_token = await client.post("/api/v1/review/non_existent_rev_123/stream-token", headers=headers)
         assert nf_token.status_code == 404
-

@@ -108,7 +108,7 @@ def test_sarif_v2_1_0_generation():
             recommendation="Use parameterized query.",
             suggestion='db.execute("SELECT * FROM users WHERE id = :id", {"id": user_id})',
             cwe_id="CWE-89",
-            cvss_score=9.8
+            cvss_score=9.8,
         )
     ]
     resp = CodeReviewResponse(
@@ -116,7 +116,7 @@ def test_sarif_v2_1_0_generation():
         status="completed",
         created_at="2026-11-14T21:00:00Z",
         overall_score=60.0,
-        critical_issues=findings
+        critical_issues=findings,
     )
 
     sarif = review_response_to_sarif(resp, filename="database.py")
@@ -139,9 +139,7 @@ async def test_sarif_endpoint():
         # First submit review
         headers = {"Authorization": "Bearer cvai_dev_key_123"}
         review_res = await client.post(
-            "/api/v1/review",
-            headers=headers,
-            json={"code": "import os; os.system('echo hi')", "language": "python"}
+            "/api/v1/review", headers=headers, json={"code": "import os; os.system('echo hi')", "language": "python"}
         )
         assert review_res.status_code == 200
         rev_id = review_res.json()["review_id"]
@@ -161,21 +159,14 @@ async def test_github_webhook_endpoint():
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         payload = {
             "action": "opened",
-            "pull_request": {
-                "title": "Fix security vulnerability",
-                "body": "import os; os.system('ping 8.8.8.8')"
-            },
-            "number": 42
+            "pull_request": {"title": "Fix security vulnerability", "body": "import os; os.system('ping 8.8.8.8')"},
+            "number": 42,
         }
         body_bytes = json.dumps(payload).encode("utf-8")
         secret = settings.SECRET_KEY
         sig = generate_webhook_signature(body_bytes, secret)
 
-        headers = {
-            "X-Hub-Signature-256": sig,
-            "X-GitHub-Event": "pull_request",
-            "Content-Type": "application/json"
-        }
+        headers = {"X-Hub-Signature-256": sig, "X-GitHub-Event": "pull_request", "Content-Type": "application/json"}
 
         res = await client.post("/api/v1/review/webhooks/github", headers=headers, content=body_bytes)
         assert res.status_code == 200

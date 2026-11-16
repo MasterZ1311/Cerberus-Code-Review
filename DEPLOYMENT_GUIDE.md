@@ -230,7 +230,16 @@ ENTRYPOINT ["python", "-m", "cerberus.cli", "serve", "--host", "0.0.0.0", "--por
 
 ## 3. Production Local & Development Docker Compose Stack
 
-The `docker-compose.yml` provides a fully realized, self-contained development and staging environment with complete dependency isolation, health checks, resource ceilings, and an IBM watsonx Orchestrate mock service for offline testing.
+Cerberus strictly separates production container configuration from local development overrides:
+
+- **`docker-compose.yml` (Production Baseline)**:
+  - Requires all sensitive secrets explicitly via host environment variables (`${SECRET_KEY:?}`, `${DB_PASSWORD:?}`, `${REDIS_PASSWORD:?}`, etc.).
+  - Retains zero embedded fallback credentials or default passwords.
+  - Pins base image digest: `python:3.11-slim@sha256:d8c525f0ad0289a4ffad6d14902b79a52de0db126e855fa316d2eb1fcebc95ba`.
+  - Runs container healthchecks against `/api/v1/ready` (strict readiness evaluating active DB connections, migrations, and memory constraints), preventing degraded instances from routing traffic.
+- **`docker-compose.dev.yml` (Development Overrides)**:
+  - Supplies pre-configured development secrets, hot-reloading volume mounts, and local debug settings.
+  - Invoked with: `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`
 
 ```yaml
 # File: docker-compose.yml
@@ -543,7 +552,33 @@ services:
 
 ## 4. Production Kubernetes Manifests (k8s/)
 
-All Kubernetes manifests conform to production security standards: strict non-root execution, dropped capabilities, read-only root filesystems, inter-pod anti-affinity, and horizontal auto-scaling.
+The `k8s/` directory contains complete, deployable Kubernetes manifests managed as a declarative Kustomize overlay (`k8s/kustomization.yaml`):
+
+| Manifest File | Resource Kind | Security & Operational Purpose |
+|:---|:---|:---|
+| `k8s/namespace.yaml` | `Namespace` | Creates isolated `cerberus` namespace with Pod Security Standard `restricted` enforcement |
+| `k8s/serviceaccount.yaml` | `ServiceAccount` | Hardened workload identity with `automountServiceAccountToken: false` |
+| `k8s/rbac.yaml` | `Role`, `RoleBinding` | Least-privilege role restricted to reading local configmaps |
+| `k8s/configmap.yaml` | `ConfigMap` | Non-sensitive runtime flags, telemetry configuration, and agent toggles |
+| `k8s/secrets.yaml.example` | `Secret` template | Template for production database, redis, and API secrets (no plaintext secrets committed) |
+| `k8s/deployment.yaml` | `Deployment` | Hardened API deployment (`readOnlyRootFilesystem: true`, `/tmp` `emptyDir`, immutable image reference, readiness probe on `/api/v1/ready`) |
+| `k8s/service.yaml` | `Service` | Internal ClusterIP exposing port 8000 |
+| `k8s/ingress.yaml` | `Ingress` | NGINX ingress with TLS termination and security headers |
+| `k8s/networkpolicy.yaml` | `NetworkPolicy` | Zero-trust ingress/egress rules allowing only authorized traffic |
+| `k8s/hpa.yaml` | `HorizontalPodAutoscaler` | Autoscaling from 3 to 20 replicas based on CPU & Memory utilization |
+| `k8s/pdb.yaml` | `PodDisruptionBudget` | Guarantees high availability (`minAvailable: 2`) during node maintenance |
+| `k8s/retention-cronjob.yaml` | `CronJob` | Nightly 02:00 UTC execution of `cerberus retention purge` |
+| `k8s/kustomization.yaml` | `Kustomization` | Unified deployment root validated via `kubectl apply -k k8s/` |
+
+### Validation & Deployment Commands
+
+```bash
+# Validate manifests via dry-run
+kustomize build k8s/ | kubectl apply --dry-run=client -f -
+
+# Deploy complete production overlay
+kubectl apply -k k8s/
+```
 
 ### 4.1 k8s/deployment.yaml
 
