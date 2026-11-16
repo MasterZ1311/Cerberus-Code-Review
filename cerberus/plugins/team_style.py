@@ -39,9 +39,15 @@ class TeamStyleConventionsPlugin(BasePlugin):
             from cerberus.models.schemas import ReviewContext
 
             request.context = ReviewContext(custom={"team_convention_enforced": True})
-        elif request.context.custom is None:
+        elif isinstance(request.context, dict):
+            custom = request.context.setdefault("custom", {})
+            if isinstance(custom, dict):
+                custom["team_convention_enforced"] = True
+            else:
+                request.context["custom"] = {"team_convention_enforced": True}
+        elif getattr(request.context, "custom", None) is None:
             request.context.custom = {"team_convention_enforced": True}
-        else:
+        elif isinstance(request.context.custom, dict):
             request.context.custom["team_convention_enforced"] = True
         return request
 

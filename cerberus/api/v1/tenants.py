@@ -22,6 +22,7 @@ class UpgradeTierRequest(BaseModel):
 
 
 @router.get("/current", status_code=status.HTTP_200_OK)
+@router.get("/quota", status_code=status.HTTP_200_OK)
 async def get_current_tenant_quota(
     request: Request,
     token: str = Depends(verify_api_key),

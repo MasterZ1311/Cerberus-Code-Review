@@ -2208,6 +2208,135 @@
         scroll-behavior: auto !important;
       }
     }
+
+    /* =========================================================================
+       RESPONSIVE DESIGN & MOBILE OPTIMIZATION (iPhone, iPad, Foldables)
+       ========================================================================= */
+    @media (max-width: 768px) {
+      header {
+        padding: 0.65rem 1rem !important;
+        flex-wrap: wrap !important;
+        gap: 0.65rem !important;
+      }
+
+      .brand {
+        gap: 0.5rem;
+      }
+
+      .brand-title {
+        font-size: 1.05rem !important;
+      }
+
+      .header-actions {
+        flex-wrap: wrap !important;
+        gap: 0.35rem !important;
+        justify-content: flex-end;
+      }
+
+      .btn-header-action {
+        padding: 0.32rem 0.65rem !important;
+        font-size: 0.72rem !important;
+        min-height: 36px;
+      }
+
+      .status-beacon-pill {
+        padding: 0.28rem 0.6rem !important;
+        font-size: 0.68rem !important;
+      }
+
+      main {
+        padding: 0.75rem 0.75rem 2rem 0.75rem !important;
+        gap: 1rem !important;
+      }
+
+      .panel {
+        padding: 1rem !important;
+        border-radius: 14px !important;
+      }
+
+      .modal-card {
+        max-width: calc(100vw - 1.5rem) !important;
+        padding: 1.25rem 1rem !important;
+        border-radius: 16px !important;
+        max-height: 92vh !important;
+      }
+
+      .analytics-kpis {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.65rem !important;
+      }
+
+      .summary-cards {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 0.5rem !important;
+      }
+
+      .rings-wrapper {
+        width: 130px !important;
+        height: 130px !important;
+      }
+
+      .rings-svg {
+        width: 130px !important;
+        height: 130px !important;
+      }
+
+      .vscode-window-header {
+        padding: 0.45rem 0.65rem !important;
+      }
+
+      .tab-btn {
+        padding: 0.45rem 0.85rem !important;
+        font-size: 0.78rem !important;
+      }
+
+      .action-bar {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 0.65rem !important;
+      }
+
+      .btn-run-review {
+        width: 100% !important;
+        justify-content: center !important;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .analytics-kpis {
+        grid-template-columns: 1fr !important;
+      }
+
+      .overview-grid {
+        grid-template-columns: 1fr !important;
+        gap: 1rem !important;
+      }
+
+      .summary-cards {
+        grid-template-columns: 1fr 1fr !important;
+      }
+
+      .stat-badge {
+        padding: 0.5rem 0.4rem !important;
+      }
+
+      .preset-chips {
+        gap: 0.35rem !important;
+      }
+
+      .btn-preset {
+        padding: 0.3rem 0.55rem !important;
+        font-size: 0.7rem !important;
+      }
+
+      .header-actions .btn-header-action span:not(.sound-bars) {
+        display: none;
+      }
+
+      .header-actions .btn-header-action {
+        padding: 0.35rem 0.5rem !important;
+      }
+    }
   </style>
 </head>
 

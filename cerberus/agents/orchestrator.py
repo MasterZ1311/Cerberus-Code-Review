@@ -176,7 +176,14 @@ class ReviewOrchestrator:
 
         async def _compute_review() -> CodeReviewResponse:
             # 3. Execute Primary Agents in Parallel
-            agent_context = request.context.model_dump() if request.context else {}
+            if request.context:
+                agent_context = (
+                    request.context.model_dump()
+                    if hasattr(request.context, "model_dump")
+                    else dict(request.context)
+                )
+            else:
+                agent_context = {}
             if request.filename and not agent_context.get("filename"):
                 agent_context["filename"] = request.filename
 
@@ -438,7 +445,11 @@ class ReviewOrchestrator:
         try:
             tenant_id = "default"
             if request.context:
-                tenant_id = getattr(request.context, "tenant_id", None) or "default"
+                tenant_id = (
+                    request.context.get("tenant_id")
+                    if isinstance(request.context, dict)
+                    else getattr(request.context, "tenant_id", None)
+                ) or "default"
             await quota_manager.record_review(tenant_id)
         except Exception as e:
             logger.warning("Error recording tenant quota: %s", e)

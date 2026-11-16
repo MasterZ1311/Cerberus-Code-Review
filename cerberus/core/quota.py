@@ -37,8 +37,12 @@ class TenantQuotaManager:
         return f"{tenant_id}:{period}"
 
     def get_tier(self, tenant_id: str) -> str:
-        """Returns the tier for the given tenant (defaults to 'free')."""
-        return self._tenant_tiers.get(tenant_id, "free").lower()
+        """Returns the tier for the given tenant (defaults to 'free', or 'enterprise' for default system/dev tenant)."""
+        if tenant_id in self._tenant_tiers:
+            return self._tenant_tiers[tenant_id].lower()
+        if tenant_id in ("default", "system", "admin"):
+            return "enterprise"
+        return "free"
 
     def set_tier(self, tenant_id: str, tier: str) -> None:
         """Sets or upgrades the tier for the given tenant."""

@@ -72,7 +72,7 @@ def test_quota_api_endpoints():
     assert "pro" in tier_names
     assert "enterprise" in tier_names
 
-    # 2. Get current tenant quota
+    # 2. Get current tenant quota (via both /current and /quota alias)
     res_cur = client.get("/api/v1/tenants/current", headers=headers)
     assert res_cur.status_code == 200
     cur_data = res_cur.json()
@@ -80,6 +80,10 @@ def test_quota_api_endpoints():
     assert "tier" in cur_data
     assert "used" in cur_data
     assert "limit" in cur_data
+
+    res_quota_alias = client.get("/api/v1/tenants/quota", headers=headers)
+    assert res_quota_alias.status_code == 200
+    assert res_quota_alias.json()["tenant_id"] == cur_data["tenant_id"]
 
     # 3. Upgrade tenant tier
     res_up = client.post(

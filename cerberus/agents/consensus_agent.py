@@ -242,11 +242,12 @@ class ConsensusAgent(BaseAgent):
                 if llm_parsed and isinstance(llm_parsed, dict):
                     proposed_action = llm_parsed.get("pr_action")
                     if proposed_action in ("MERGE_READY", "BLOCKED_ON_ISSUES", "NEEDS_REVISION"):
-                        # Safety Invariant: Never allow LLM to downgrade BLOCKED_ON_ISSUES to MERGE_READY if critical issues are active
+                        # Safety Invariant: Never allow LLM to downgrade BLOCKED_ON_ISSUES to MERGE_READY if critical or multiple high issues are active
                         critical_count = sum(1 for f in findings if f.severity == SeverityEnum.CRITICAL)
-                        if critical_count > 0 and proposed_action == "MERGE_READY":
+                        high_count = sum(1 for f in findings if f.severity == SeverityEnum.HIGH)
+                        if (critical_count > 0 or high_count >= 2) and proposed_action == "MERGE_READY":
                             logger.warning(
-                                "Safety Invariant Enforced: Refusing LLM attempt to downgrade critical blocking verdict to MERGE_READY."
+                                "Safety Invariant Enforced: Refusing LLM attempt to downgrade critical/multiple-high blocking verdict to MERGE_READY."
                             )
                             consensus_data["pr_action"] = "BLOCKED_ON_ISSUES"
                         else:
