@@ -1,0 +1,42 @@
+groups:
+  - name: cerberus_alerts
+    rules:
+      - alert: CerberusHighErrorRate
+        expr: rate(cerberus_review_requests_total{status="failed"}[5m]) / rate(cerberus_review_requests_total[5m]) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+          service: cerberus-ai
+        annotations:
+          summary: "Cerberus API error rate exceeds 1% SLO threshold"
+          description: "Over the last 5 minutes, review failures have exceeded 1% of total requests."
+
+      - alert: CerberusLatencySLOBreach
+        expr: histogram_quantile(0.95, sum(rate(cerberus_review_duration_seconds_bucket[5m])) by (le)) > 0.200
+        for: 3m
+        labels:
+          severity: warning
+          service: cerberus-ai
+        annotations:
+          summary: "Cerberus P95 review latency exceeds 200ms SLO target"
+          description: "P95 latency is currently {{ $value }}s on heuristic reviews."
+
+      - alert: CerberusDbConnectionPoolHighUtilization
+        expr: cerberus_database_connection_pool_active / cerberus_database_connection_pool_limit > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          service: cerberus-ai
+        annotations:
+          summary: "PostgreSQL connection pool utilization > 85%"
+          description: "Active database connections are nearing pool capacity limits."
+
+      - alert: CerberusReplayAttackSurge
+        expr: rate(cerberus_webhook_events_total{status="replay_blocked"}[5m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+          service: cerberus-ai
+        annotations:
+          summary: "High volume of webhook replay attempts detected"
+          description: "Possible webhook replay attack in progress on GitHub webhook ingress."

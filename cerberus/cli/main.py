@@ -991,6 +991,55 @@ def retention_purge_cmd(
         raise typer.Exit(code=1)
 
 
+@app.command(name="list-plugins")
+def list_plugins_cmd():
+    """List all registered plugins and custom rule counts."""
+    from cerberus.core.plugins import plugin_manager
+
+    plugins = plugin_manager.list_plugins()
+    table = Table(title=f"cerberus</> Registered Plugins ({len(plugins)})", header_style="bold cyan")
+    table.add_column("Plugin Name", style="bold green")
+    table.add_column("Version", width=10)
+    table.add_column("Status", width=10)
+    table.add_column("Author")
+    table.add_column("Custom Rules", justify="right")
+    table.add_column("Description")
+
+    for p in plugins:
+        table.add_row(
+            p["name"],
+            p["version"],
+            "[green]ENABLED[/green]" if p["is_enabled"] else "[red]DISABLED[/red]",
+            p["author"],
+            str(p["custom_rules_count"]),
+            p["description"],
+        )
+    console.print(table)
+
+
+@app.command(name="quotas")
+def quotas_cmd(
+    tenant_id: str = typer.Option("default", "--tenant", "-t", help="Tenant identifier to inspect"),
+):
+    """Inspect tenant monthly review usage and quota meter."""
+    from cerberus.core.quota import quota_manager
+
+    status_data = asyncio.run(quota_manager.get_quota_status(tenant_id))
+    console.print(
+        Panel(
+            f"[bold]Tenant ID:[/bold] {status_data['tenant_id']}\n"
+            f"[bold]Subscription Tier:[/bold] [cyan]{status_data['tier'].upper()}[/cyan]\n"
+            f"[bold]Billing Period:[/bold] {status_data['billing_period']}\n"
+            f"[bold]Reviews Used:[/bold] [yellow]{status_data['used']:,}[/yellow] / [green]{status_data['limit']:,}[/green]\n"
+            f"[bold]Quota Remaining:[/bold] [bold green]{status_data['remaining']:,}[/bold green] ({100 - status_data['percent_used']:.1f}% free)\n"
+            f"[bold]Resets At:[/bold] {status_data['resets_at']}\n"
+            f"[bold]Status:[/bold] [green]{status_data['status'].upper()}[/green]",
+            title="[bold cyan]Multi-Tenant Quota & Billing Meter[/bold cyan]",
+            border_style="cyan",
+        )
+    )
+
+
 app.add_typer(hooks_app)
 app.add_typer(retention_app)
 

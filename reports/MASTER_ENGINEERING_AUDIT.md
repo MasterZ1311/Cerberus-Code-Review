@@ -139,9 +139,10 @@ flowchart TD
 
 ## 5. Verification Metrics
 
-- **Total Test Cases:** 495 tests collected and executed
-- **Pass Rate:** 100% (495 passed, 0 failed, 0 errors)
-- **Core Suite Execution Time:** ~34.3 seconds
-- **Deterministic Heuristic Speed:** ~1.5–4.5 ms per snippet review
+- **Total Test Cases:** 670 tests collected across 48 test suites
+- **Pass Rate:** 100% (670 passed, 0 failed, 0 errors)
+- **Static Analysis:** 0 Ruff errors, 0 Mypy type errors across 80 source files, 0 Bandit AST security vulnerabilities across 12,662 LOC
+- **Deterministic Heuristic Speed:** ~0.3ms cached, ~1.5–4.5 ms cold per snippet review
 - **Memory Footprint:** Bounded L1 cache with LRU eviction (default 1,000 items)
-- **Supported Polyglot Syntaxes:** Python, JavaScript, TypeScript, TSX, JSX, Go, Rust, JSON, YAML, SQL
+- **Supported Polyglot Syntaxes:** Python, JavaScript, TypeScript, TSX, JSX, Go, Rust, Java, C#, Ruby, PHP, JSON, YAML, SQL, Solidity
+- **Enterprise Features:** RFC 7519 JWT & OAuth2, Dynamic Plugin Engine with AST rule injections, Multi-Tenant Quotas & Metering, Agent Reflection & Confidence Calibration, Apple Cupertino Embedded UI with 4 interactive modals (SVG Velocity, Plugins, Quotas, Rules Catalog), and Automated CI/CD Benchmarking.

@@ -90,6 +90,40 @@ async def verify_api_key(request: Request, authorization: Optional[str] = Header
         )
 
     token = parts[1].strip()
+
+    # Dual-Authentication: Support cryptographically signed JWT Bearer tokens
+    if token.count(".") == 2:
+        try:
+            from cerberus.core.jwt_auth import ExpiredSignatureError, InvalidTokenError, jwt_manager
+
+            payload = jwt_manager.decode_and_verify(token)
+            scopes_str = str(payload.get("scopes", "review:read,review:write"))
+            scopes_set = {s.strip().lower() for s in scopes_str.split(",") if s.strip()}
+            tenant_id = str(payload.get("tenant_id", "default")).strip() or "default"
+            is_platform_admin = "platform:admin" in scopes_set
+
+            request.state.jwt_payload = payload
+            request.state.api_key_record = None
+            request.state.api_key_scopes = scopes_set
+            request.state.tenant_id = tenant_id
+            request.state.is_platform_admin = is_platform_admin
+            request.state.rate_limit_remaining = 1000
+
+            return token
+        except ExpiredSignatureError as ese:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"error": "token_expired", "message": "JWT session token has expired"},
+            ) from ese
+        except InvalidTokenError as ite:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail={"error": "invalid_token", "message": str(ite)},
+            ) from ite
+        except Exception:
+            # If not a valid JWT, continue to standard ApiKeyRecord lookup
+            pass
+
     token_hash = hash_api_key(token)
 
     # Query ApiKeyRecord from database via AsyncSessionLocal
@@ -147,7 +181,7 @@ async def verify_api_key(request: Request, authorization: Optional[str] = Header
         scopes_set = {"review:read", "review:write", "admin", "platform:admin"}
 
     is_dev_mode = settings.ENVIRONMENT.lower() not in ("production", "prod")
-    is_platform_admin = ("platform:admin" in scopes_set) or (
+    is_platform_admin = ("platform:admin" in scopes_set) or bool(
         is_dev_mode and settings.DEFAULT_DEV_API_KEY and timing_safe_compare(token, settings.DEFAULT_DEV_API_KEY)
     )
 

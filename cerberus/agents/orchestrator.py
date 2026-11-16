@@ -20,6 +20,8 @@ from cerberus.agents.quality_agent import QualityAgent
 from cerberus.agents.security_agent import SecurityAgent
 from cerberus.config import settings
 from cerberus.core.cache import cache_manager
+from cerberus.core.plugins import plugin_manager
+from cerberus.core.quota import quota_manager
 from cerberus.core.telemetry import (
     AGENT_EXECUTION_SECONDS,
     CACHE_HITS_TOTAL,
@@ -60,6 +62,8 @@ class ReviewOrchestrator:
         }
         self._pre_hooks: List[Any] = []
         self._post_hooks: List[Any] = []
+        # Synchronize with the enterprise dynamic plugin manager
+        plugin_manager.set_orchestrator(self)
 
     def register_pre_hook(self, hook: Any) -> None:
         """Register a pre-review transformation or validation hook."""
@@ -96,8 +100,8 @@ class ReviewOrchestrator:
         """
         Execute full multi-agent review with two-tier caching and prioritization.
         """
-        # 0. Execute Pre-Review Lifecycle Hooks
-        current_request = request
+        # 0. Execute Plugin and Registered Pre-Review Lifecycle Hooks
+        current_request = await plugin_manager.execute_pre_review_hooks(request)
         for hook in self._pre_hooks:
             try:
                 res = hook(current_request)
@@ -165,6 +169,7 @@ class ReviewOrchestrator:
                 except Exception as e:
                     logger.warning("Error executing post-review hook on cache hit: %s", e)
 
+            cached_resp = await plugin_manager.execute_post_review_hooks(cached_resp)
             return cached_resp
 
         CACHE_MISSES_TOTAL.inc()
@@ -302,6 +307,7 @@ class ReviewOrchestrator:
                         cf = consensus_res.findings[0]
                         consensus_summary = cf.message
                         plan_items = [p.strip() for p in cf.recommendation.split(" • ")] if cf.recommendation else []
+                        confidence = round(cf.cvss_score / 10.0, 2) if cf.cvss_score else 0.95
                         collaborative_consensus = {
                             "status": "completed",
                             "summary": cf.message,
@@ -311,6 +317,8 @@ class ReviewOrchestrator:
                             .replace(" ", "_"),
                             "verdict": cf.explanation,
                             "priority_action_plan": plan_items,
+                            "confidence_score": confidence,
+                            "confidence_reflection": cf.recommendation,
                         }
                         if "consensus" in active_agents:
                             agents_payload.append(consensus_res.model_dump())
@@ -423,6 +431,17 @@ class ReviewOrchestrator:
                     response = res
             except Exception as e:
                 logger.warning("Error executing post-review hook: %s", e)
+
+        response = await plugin_manager.execute_post_review_hooks(response)
+
+        # 9. Record Tenant Usage Quota
+        try:
+            tenant_id = "default"
+            if request.context:
+                tenant_id = getattr(request.context, "tenant_id", None) or "default"
+            await quota_manager.record_review(tenant_id)
+        except Exception as e:
+            logger.warning("Error recording tenant quota: %s", e)
 
         return response
 

@@ -68,6 +68,7 @@ class ReviewContext(BaseModel):
     git_branch: Optional[str] = None
     repo_owner: Optional[str] = None
     repo_name: Optional[str] = None
+    tenant_id: Optional[str] = "default"
     custom: Optional[Dict[str, Any]] = None
 
 

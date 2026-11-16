@@ -35,6 +35,23 @@ class HeuristicEngine:
         return any(ind in normalized for ind in test_indicators)
 
     _ast_cache: dict = {}
+    _custom_rules: dict = {}
+
+    @classmethod
+    def register_custom_rules(cls, language: str, rules: List[dict]) -> None:
+        """Registers custom analysis rules for a specific language."""
+        lang = language.lower()
+        if lang not in cls._custom_rules:
+            cls._custom_rules[lang] = []
+        cls._custom_rules[lang].extend(rules)
+
+    @classmethod
+    def clear_custom_rules(cls, language: Optional[str] = None) -> None:
+        """Clears custom rules for one or all languages."""
+        if language:
+            cls._custom_rules.pop(language.lower(), None)
+        else:
+            cls._custom_rules.clear()
 
     @classmethod
     def get_parsed_ast(cls, code: Optional[str]) -> Optional[ast.AST]:
@@ -557,6 +574,42 @@ class HeuristicEngine:
                                 cvss_score=5.5,
                             )
                         )
+
+        # Evaluate dynamically registered custom plugin rules
+        custom = HeuristicEngine._custom_rules.get(language.lower(), [])
+        for rule in custom:
+            pat = rule.get("pattern")
+            if not pat:
+                continue
+            for idx, line in enumerate(lines, 1):
+                if HeuristicEngine._is_comment_or_docstring_line(line, doc_lines, idx):
+                    continue
+                flags = re.IGNORECASE if rule.get("ignore_case", True) else 0
+                if re.search(pat, line, flags):
+                    sev_raw = rule.get("severity", "medium")
+                    if isinstance(sev_raw, SeverityEnum):
+                        sev_enum = sev_raw
+                    else:
+                        try:
+                            sev_enum = SeverityEnum(str(sev_raw).lower())
+                        except Exception:
+                            sev_enum = SeverityEnum.MEDIUM
+                    findings.append(
+                        Finding(
+                            id=f"{rule.get('id', 'CUSTOM')}-{idx}",
+                            severity=sev_enum,
+                            category=rule.get("category", "security"),
+                            title=rule.get("title", "Custom Plugin Rule Finding"),
+                            message=rule.get("message", "Custom rule pattern matched."),
+                            line=idx,
+                            code_snippet=line.strip(),
+                            explanation=rule.get("explanation", "Detected by registered custom plugin rule."),
+                            recommendation=rule.get("recommendation", "Review custom rule compliance requirements."),
+                            suggestion=rule.get("suggestion"),
+                            cwe_id=rule.get("cwe_id"),
+                            cvss_score=rule.get("cvss_score", 5.0),
+                        )
+                    )
 
         # Calculate security score (100 minus deductions)
         score = 100.0
