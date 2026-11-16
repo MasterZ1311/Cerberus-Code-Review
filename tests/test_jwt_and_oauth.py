@@ -103,11 +103,98 @@ def test_auth_api_endpoints():
 
     # 4. OAuth Authorize Redirect URLs
     for provider in ["github", "gitlab", "google"]:
-        res_oauth = client.get(
-            f"/api/v1/auth/oauth/{provider}/authorize?redirect_uri=https://app.cerberus.io/callback"
-        )
+        res_oauth = client.get(f"/api/v1/auth/oauth/{provider}/authorize?redirect_uri=https://app.cerberus.io/callback")
         assert res_oauth.status_code == 200
         oauth_data = res_oauth.json()
         assert oauth_data["provider"] == provider
         assert "authorization_url" in oauth_data
         assert "redirect_uri=" in oauth_data["authorization_url"]
+
+    # 5. Unsupported OAuth provider -> 400
+    res_bad_oauth = client.get("/api/v1/auth/oauth/unknown/authorize?redirect_uri=https://app.cerberus.io/callback")
+    assert res_bad_oauth.status_code == 400
+
+
+def test_auth_edge_cases_and_error_handling():
+    client = TestClient(app)
+
+    # Missing api_key when requested
+    res = client.post("/api/v1/auth/token", json={"grant_type": "api_key", "api_key": ""})
+    assert res.status_code == 400
+
+    # Invalid api_key
+    res = client.post("/api/v1/auth/token", json={"grant_type": "api_key", "api_key": "invalid_key_xyz"})
+    assert res.status_code == 401
+
+    # Unsupported grant type
+    res = client.post("/api/v1/auth/token", json={"grant_type": "invalid_grant"})
+    assert res.status_code == 400
+
+    # Password grant missing credentials
+    res = client.post("/api/v1/auth/token", json={"grant_type": "password"})
+    assert res.status_code == 400
+
+    # Password grant invalid credentials
+    res = client.post("/api/v1/auth/token", json={"grant_type": "password", "username": "bad", "password": "bad"})
+    assert res.status_code == 401
+
+    # Password grant valid dev/admin credentials
+    res = client.post("/api/v1/auth/token", json={"grant_type": "password", "username": "admin", "password": "admin"})
+    assert res.status_code == 200
+    admin_token = res.json()["access_token"]
+
+    # Scope escalation rejection
+    res = client.post(
+        "/api/v1/auth/token",
+        json={"grant_type": "api_key", "api_key": "cvai_dev_key_123", "requested_scopes": "super_admin_unauthorized"},
+    )
+    assert res.status_code == 400
+
+    # Scope subset valid
+    res = client.post(
+        "/api/v1/auth/token",
+        json={"grant_type": "api_key", "api_key": "cvai_dev_key_123", "requested_scopes": "review:read"},
+    )
+    assert res.status_code == 200
+
+    # Refresh with non-refresh token (use access_token)
+    res = client.post("/api/v1/auth/refresh", json={"refresh_token": admin_token})
+    assert res.status_code == 400
+
+    # Refresh with expired token
+    expired_token = create_jwt_token({"sub": "user", "type": "refresh"}, expires_delta_seconds=-10)
+    res = client.post("/api/v1/auth/refresh", json={"refresh_token": expired_token})
+    assert res.status_code == 401
+
+    # Refresh with tampered token
+    res = client.post("/api/v1/auth/refresh", json={"refresh_token": "not.a.valid.jwt"})
+    assert res.status_code == 401
+
+
+def test_jwt_manager_direct_edge_cases():
+    import pytest
+
+    from cerberus.core.jwt_auth import (
+        InvalidTokenError,
+        jwt_manager,
+    )
+
+    # Non-string or empty token
+    with pytest.raises(InvalidTokenError):
+        jwt_manager.decode_and_verify("")
+
+    # Invalid dot count
+    with pytest.raises(InvalidTokenError):
+        jwt_manager.decode_and_verify("abc.def")
+
+    # Malformed signature base64
+    with pytest.raises(InvalidTokenError):
+        jwt_manager.decode_and_verify("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.@@@invalid_base64@@@")
+
+    # Token with future nbf claim
+    import time
+
+    future_nbf = int(time.time()) + 1000
+    future_token = jwt_manager.create_token(subject="user", extra_claims={"nbf": future_nbf})
+    with pytest.raises(InvalidTokenError):
+        jwt_manager.decode_and_verify(future_token)

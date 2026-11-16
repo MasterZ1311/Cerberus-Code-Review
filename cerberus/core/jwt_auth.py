@@ -87,9 +87,7 @@ class JWTManager:
             "exp": exp,
         }
         if extra_claims:
-            for k, v in extra_claims.items():
-                if k not in payload:
-                    payload[k] = v
+            payload.update(extra_claims)
 
         header_b64 = _base64url_encode(json.dumps(header, separators=(",", ":")).encode("utf-8"))
         payload_b64 = _base64url_encode(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
@@ -169,7 +167,9 @@ def create_jwt_token(
     tenant_id = str(payload.get("tenant_id", "default"))
     scopes = payload.get("scopes", "review:read,review:write")
     token_type = str(payload.get("type", "access"))
-    extra = {k: v for k, v in payload.items() if k not in ("sub", "tenant_id", "scopes", "type", "exp", "iat", "iss", "nbf")}
+    extra = {
+        k: v for k, v in payload.items() if k not in ("sub", "tenant_id", "scopes", "type", "exp", "iat", "iss", "nbf")
+    }
     return mgr.create_token(
         subject=sub,
         tenant_id=tenant_id,

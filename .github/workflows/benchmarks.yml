@@ -1,6 +1,8 @@
 name: Performance Regression Benchmarking
 
 on:
+  push:
+    branches: [ "main", "MZ-Main", "master" ]
   pull_request:
     branches: [ "main", "MZ-Main", "master" ]
   workflow_dispatch:
@@ -32,5 +34,13 @@ jobs:
         env:
           ENVIRONMENT: testing
           LLM_PROVIDER: heuristic
+          PYTHONPATH: .
         run: |
-          python tests/performance/benchmark_review.py
+          python tests/performance/benchmark_review.py | tee benchmark_results.txt
+
+      - name: Upload Benchmark Results Artifact
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: benchmark-results
+          path: benchmark_results.txt
+          retention-days: 14

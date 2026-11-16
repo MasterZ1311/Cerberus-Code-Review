@@ -180,3 +180,56 @@ def test_plugins_api_endpoints():
     res_rel = client.post("/api/v1/plugins/reload", headers=headers)
     assert res_rel.status_code == 200
     assert res_rel.json()["reloaded"] is True
+
+    # Reload single plugin
+    res_rel_single = client.post("/api/v1/plugins/secret_scanner/reload", headers=headers)
+    assert res_rel_single.status_code == 200
+    assert res_rel_single.json()["status"] == "success"
+
+    # Non-existent plugin operations -> 404
+    assert client.post("/api/v1/plugins/non_existent/enable", headers=headers).status_code == 404
+    assert client.post("/api/v1/plugins/non_existent/disable", headers=headers).status_code == 404
+    assert client.post("/api/v1/plugins/non_existent/reload", headers=headers).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_plugin_hook_error_resilience():
+    class FaultyPlugin(BasePlugin):
+        def __init__(self) -> None:
+            super().__init__()
+            self.name = "faulty_plugin"
+
+        async def pre_review_hook(self, request: CodeReviewRequest) -> CodeReviewRequest:
+            raise RuntimeError("Intentional hook error")
+
+        async def post_review_hook(self, response: CodeReviewResponse) -> CodeReviewResponse:
+            raise ValueError("Intentional post hook error")
+
+    pm = PluginManager()
+    plugin = FaultyPlugin()
+    pm.register_plugin(plugin)
+
+    # Pre-review hook error should be safely caught and not crash
+    req = CodeReviewRequest(code="x = 1", language="python")
+    result_req = await pm.execute_pre_review_hooks(req)
+    assert result_req.code == "x = 1"
+
+    # Post-review hook error should be safely caught and not crash
+    res = CodeReviewResponse(
+        review_id="rev-fault-123",
+        status="completed",
+        created_at="2026-11-16T12:00:00Z",
+        overall_score=9.0,
+        summary="Fault test",
+        critical_issues=[],
+        warnings=[],
+        suggestions=[],
+        agents_scheduled=[],
+        results={},
+    )
+    result_res = await pm.execute_post_review_hooks(res)
+    assert result_res.review_id == "rev-fault-123"
+
+    pm.enable_plugin("faulty_plugin")
+    assert pm.get_plugin("faulty_plugin").is_enabled is True
+    pm.unregister_plugin("faulty_plugin")

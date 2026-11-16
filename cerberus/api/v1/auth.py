@@ -147,7 +147,10 @@ async def refresh_access_token(payload: RefreshRequest) -> TokenResponse:
     except ExpiredSignatureError as ese:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail={"error": "refresh_token_expired", "message": "Refresh token has expired; please authenticate again"},
+            detail={
+                "error": "refresh_token_expired",
+                "message": "Refresh token has expired; please authenticate again",
+            },
         ) from ese
     except InvalidTokenError as ite:
         raise HTTPException(
