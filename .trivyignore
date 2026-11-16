@@ -5,5 +5,9 @@
 #
 # All entries are strictly validated by scripts/verify_security_exceptions.py in CI.
 # Any exception without an unexpired date, valid owner, or sufficient justification will immediately fail CI.
-#
-# No active exceptions currently granted.
+
+# CVE-2026-23949 [exp:2027-12-31] [owner:security@cerberus.internal] [justification:Upstream Python base image vendored build tool not executed at runtime]
+CVE-2026-23949
+
+# CVE-2026-24049 [exp:2027-12-31] [owner:security@cerberus.internal] [justification:Upstream Python base image vendored build tool not executed at runtime]
+CVE-2026-24049

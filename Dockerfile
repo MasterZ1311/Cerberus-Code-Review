@@ -35,10 +35,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH" \
     ENVIRONMENT=production
 
-# Install curl for container healthcheck probe and security updates
+# Install curl for container healthcheck probe and security updates, strip base build artifacts
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/local/lib/python3.11/site-packages/setuptools* \
+              /usr/local/lib/python3.11/site-packages/wheel* \
+              /usr/local/lib/python3.11/site-packages/pip*
 
 # Dedicated unprivileged non-root user
 RUN groupadd -g 1000 cerberus && \
@@ -53,6 +56,10 @@ COPY --chown=cerberus:cerberus . /app
 # Install application package in non-editable standard distribution mode and harden runtime
 RUN pip install --no-cache-dir --no-deps . && \
     pip uninstall -y pip setuptools wheel && \
+    rm -rf /opt/venv/lib/python3.11/site-packages/setuptools* \
+           /opt/venv/lib/python3.11/site-packages/wheel* \
+           /opt/venv/lib/python3.11/site-packages/pip* \
+           /root/.cache && \
     chown -R cerberus:cerberus /app /opt/venv
 
 USER cerberus
