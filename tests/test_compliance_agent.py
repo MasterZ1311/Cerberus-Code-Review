@@ -215,6 +215,7 @@ cvv = "Column(String(4))"
 @pytest.mark.asyncio
 async def test_ccpa_dsar_identity_verification():
     from cerberus.agents.compliance.ccpa_evaluator import CCPARegulatoryEvaluator
+
     code = """
 def process_ccpa_request(user_id):
     # Missing verify_identity check
@@ -227,6 +228,7 @@ def process_ccpa_request(user_id):
 @pytest.mark.asyncio
 async def test_gdpr_raw_ip_and_consent_and_erasure():
     from cerberus.agents.compliance.gdpr_evaluator import GDPRRegulatoryEvaluator
+
     code = """
 import logging
 logger = logging.getLogger(__name__)

@@ -57,8 +57,12 @@ async def benchmark_review_latency(samples: int = 100) -> dict:
         results[size_name] = {
             "size_bytes": len(code),
             "cold_p50": statistics.median(cold_latencies),
-            "cold_p95": statistics.quantiles(cold_latencies, n=20)[18] if len(cold_latencies) >= 20 else max(cold_latencies),
-            "cold_p99": statistics.quantiles(cold_latencies, n=100)[98] if len(cold_latencies) >= 100 else max(cold_latencies),
+            "cold_p95": statistics.quantiles(cold_latencies, n=20)[18]
+            if len(cold_latencies) >= 20
+            else max(cold_latencies),
+            "cold_p99": statistics.quantiles(cold_latencies, n=100)[98]
+            if len(cold_latencies) >= 100
+            else max(cold_latencies),
             "warm_p50": statistics.median(warm_latencies),
             "warm_p95": statistics.quantiles(warm_latencies, n=20)[18],
             "warm_p99": statistics.quantiles(warm_latencies, n=100)[98],

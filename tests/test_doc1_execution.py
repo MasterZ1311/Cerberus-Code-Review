@@ -2,7 +2,6 @@
 Empirical test for PHASE_1_DETAILED_IMPLEMENTATION.md code block execution.
 """
 
-
 import pytest
 
 from scripts.verify_python_blocks import ROOT, extract_python_blocks

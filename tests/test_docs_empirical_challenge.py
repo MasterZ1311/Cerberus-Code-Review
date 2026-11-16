@@ -217,8 +217,10 @@ def test_doc6_prometheus_alerting_rules_yaml_and_promql():
     """Verify Prometheus AlertManager rules YAML syntax and extract PromQL expressions."""
     blocks = extract_code_blocks(DOC6_PATH)
     yaml_blocks = [
-        b for b in blocks
-        if b["lang"] == "yaml" and ("codevault-alerts.yaml" in b["content"][:100] or "cerberus-alerts.yaml" in b["content"][:100])
+        b
+        for b in blocks
+        if b["lang"] == "yaml"
+        and ("codevault-alerts.yaml" in b["content"][:100] or "cerberus-alerts.yaml" in b["content"][:100])
     ]
     assert len(yaml_blocks) >= 1, "cerberus-alerts.yaml not found in MONITORING_OPERATIONS.md"
 
@@ -269,8 +271,10 @@ def test_doc6_grafana_dashboard_json():
     """Verify Grafana dashboard JSON syntax and 20+ panels across domains."""
     blocks = extract_code_blocks(DOC6_PATH)
     json_blocks = [
-        b for b in blocks
-        if b["lang"] == "json" and ("codevault-overview.json" in b["content"][:100] or "cerberus-overview.json" in b["content"][:100])
+        b
+        for b in blocks
+        if b["lang"] == "json"
+        and ("codevault-overview.json" in b["content"][:100] or "cerberus-overview.json" in b["content"][:100])
     ]
     assert len(json_blocks) >= 1, "Grafana dashboard JSON block not found"
 
@@ -423,7 +427,8 @@ def test_empirical_promql_syntax_error_in_doc6():
     """
     blocks = extract_code_blocks(DOC6_PATH)
     alert_block = [
-        b for b in blocks
+        b
+        for b in blocks
         if ("codevault-alerts.yaml" in b["content"][:100] or "cerberus-alerts.yaml" in b["content"][:100])
     ][0]
     data = yaml.safe_load(alert_block["content"])

@@ -211,6 +211,15 @@ jobs:
         run: |
           python -m compileall cerberus tests
 
+      - name: Initialize Database Schema & Migrations
+        env:
+          ENVIRONMENT: testing
+          LLM_PROVIDER: heuristic
+          PYTHONPATH: .
+          DATABASE_URL: postgresql+asyncpg://cerberus:cerberus_ci_test_password@localhost:5432/cerberus_test_db
+        run: |
+          python -c "import asyncio; from cerberus.core.database import init_db; asyncio.run(init_db())"
+
       - name: Run Test Suite with Branch Coverage Enforcement
         env:
           ENVIRONMENT: testing

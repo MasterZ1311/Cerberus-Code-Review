@@ -4,6 +4,8 @@ Supports SQLite (zero-config local) and PostgreSQL (production).
 """
 
 import logging
+import os
+import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, Optional
@@ -31,6 +33,14 @@ if "sqlite+aiosqlite:///./cerberus.db" in db_url:
         if fallback_db.exists():
             db_url = f"sqlite+aiosqlite:///{fallback_db.as_posix()}"
 
+is_testing = (
+    settings.ENVIRONMENT.lower() in ("testing", "test")
+    or os.getenv("ENVIRONMENT", "").lower() in ("testing", "test")
+    or "pytest" in sys.modules
+    or "PYTEST_CURRENT_TEST" in os.environ
+    or any("pytest" in arg for arg in sys.argv)
+)
+
 connect_args: Dict[str, Any] = {}
 engine_kwargs: Dict[str, Any] = {
     "echo": False,
@@ -38,9 +48,10 @@ engine_kwargs: Dict[str, Any] = {
     "pool_pre_ping": True,
 }
 
-if "sqlite" in db_url:
-    connect_args["check_same_thread"] = False
-    connect_args["timeout"] = 30.0
+if "sqlite" in db_url or is_testing:
+    if "sqlite" in db_url:
+        connect_args["check_same_thread"] = False
+        connect_args["timeout"] = 30.0
     engine_kwargs["poolclass"] = NullPool
 else:
     # Enterprise connection pooling for PostgreSQL in production

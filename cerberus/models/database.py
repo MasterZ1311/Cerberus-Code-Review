@@ -33,8 +33,8 @@ class CodeReviewRecord(Base):
     overall_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     processing_time_ms: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     results_json: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     findings: Mapped[List["FindingRecord"]] = relationship(
         "FindingRecord", back_populates="review", cascade="all, delete-orphan"
@@ -64,7 +64,7 @@ class FindingRecord(Base):
     cvss_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     exploitability_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     false_positive_probability: Mapped[float] = mapped_column(Float, default=0.02)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     review: Mapped["CodeReviewRecord"] = relationship("CodeReviewRecord", back_populates="findings")
 
@@ -81,7 +81,7 @@ class ReviewFeedbackRecord(Base):
     false_positives: Mapped[int] = mapped_column(Integer, default=0)
     false_negatives: Mapped[int] = mapped_column(Integer, default=0)
     comments: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     review: Mapped["CodeReviewRecord"] = relationship("CodeReviewRecord", back_populates="feedback")
 
@@ -96,8 +96,8 @@ class ApiKeyRecord(Base):
     prefix: Mapped[str] = mapped_column(String(16), nullable=False)
     scopes: Mapped[Optional[str]] = mapped_column(String(255), default="review:read,review:write")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(UTC))
-    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class RuntimeConfigRecord(Base):
@@ -106,5 +106,5 @@ class RuntimeConfigRecord(Base):
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     value: Mapped[str] = mapped_column(Text, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
     )

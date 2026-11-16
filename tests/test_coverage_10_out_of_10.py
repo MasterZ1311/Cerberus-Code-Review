@@ -274,9 +274,7 @@ async def test_analytics_repository_metrics_aggregation():
     assert wildcard_metrics["metrics"]["total_reviews"] >= 2
 
     # Query non-existent repo (zeroes check)
-    empty_metrics = await get_repository_analytics(
-        owner="ghost-owner-000", repo="ghost-repo-000", api_key="dev-key"
-    )
+    empty_metrics = await get_repository_analytics(owner="ghost-owner-000", repo="ghost-repo-000", api_key="dev-key")
     assert empty_metrics["metrics"]["total_reviews"] == 0
     assert empty_metrics["metrics"]["avg_score"] == 0.0
 
@@ -342,9 +340,7 @@ async def test_ollama_provider_configuration_and_generation():
     # Generation success
     mock_client_gen = AsyncMock()
     mock_client_gen.post = AsyncMock(
-        return_value=Response(
-            status_code=200, json={"response": "Ollama generated fix analysis"}, request=MagicMock()
-        )
+        return_value=Response(status_code=200, json={"response": "Ollama generated fix analysis"}, request=MagicMock())
     )
     with patch.object(provider, "get_client", AsyncMock(return_value=mock_client_gen)):
         res = await provider.generate_response("system", "user")

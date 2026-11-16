@@ -52,6 +52,10 @@ def test_ci_tools_lockfile_drift_and_hashes_clean():
 
 def test_lockfile_regeneration_clean_ci_tools():
     """Verify that regenerating requirements-ci-tools-lock.txt produces zero diff against committed file."""
+    import shutil
+
+    if not shutil.which("pip-compile"):
+        pytest.skip("pip-compile is not installed in current test environment")
     req_file = PROJECT_ROOT / "requirements-ci-tools.txt"
     lock_file = PROJECT_ROOT / "requirements-ci-tools-lock.txt"
     valid, errors = verify_regeneration_diff(req_file, lock_file, allow_unsafe=True)
@@ -244,9 +248,7 @@ def test_rendered_kubernetes_manifest_validation(tmp_path: Path):
 
     base_digests = get_dockerfile_base_digests()
     base_sha = (
-        base_digests[0]
-        if base_digests
-        else "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        base_digests[0] if base_digests else "sha256:0000000000000000000000000000000000000000000000000000000000000000"
     )
     app_sha = "sha256:1111222233334444555566667777888899990000aaaabbbbccccddddeeeeffff"
 

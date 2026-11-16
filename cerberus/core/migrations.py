@@ -24,7 +24,7 @@ MIGRATIONS: List[Tuple[str, str, str]] = [
             version VARCHAR(64) PRIMARY KEY,
             description VARCHAR(255) NOT NULL,
             checksum VARCHAR(64) NOT NULL,
-            applied_at TIMESTAMP NOT NULL
+            applied_at TIMESTAMP WITH TIME ZONE NOT NULL
         );
         """,
     ),
@@ -42,7 +42,7 @@ MIGRATIONS: List[Tuple[str, str, str]] = [
         CREATE TABLE IF NOT EXISTS runtime_config (
             key VARCHAR(64) PRIMARY KEY,
             value TEXT NOT NULL,
-            updated_at TIMESTAMP NOT NULL
+            updated_at TIMESTAMP WITH TIME ZONE NOT NULL
         );
         """,
     ),
@@ -116,7 +116,7 @@ async def run_migrations(engine: AsyncEngine) -> int:
                     version VARCHAR(64) PRIMARY KEY,
                     description VARCHAR(255) NOT NULL,
                     checksum VARCHAR(64) NOT NULL,
-                    applied_at TIMESTAMP NOT NULL
+                    applied_at TIMESTAMP WITH TIME ZONE NOT NULL
                 );
             """)
             )

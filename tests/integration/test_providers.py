@@ -30,7 +30,10 @@ async def test_heuristic_provider_zero_config_review():
     findings, score = HeuristicEngine.analyze_security(python_snippet)
     assert len(findings) >= 2
     assert any(getattr(f, "cwe_id", None) == "CWE-95" or "eval" in f.title.lower() for f in findings)
-    assert any(getattr(f, "cwe_id", None) == "CWE-78" or "os.system" in f.title.lower() or "command" in f.title.lower() for f in findings)
+    assert any(
+        getattr(f, "cwe_id", None) == "CWE-78" or "os.system" in f.title.lower() or "command" in f.title.lower()
+        for f in findings
+    )
     assert 0.0 <= score <= 100.0
 
 

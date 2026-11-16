@@ -20,7 +20,7 @@ except ImportError:
     # Graceful dummy classes so pytest doesn't fail on collection if locust isn't installed
     HttpUser = object  # type: ignore
     between = lambda a, b: None  # type: ignore # noqa: E731
-    task = lambda weight=1: (lambda f: f)  # type: ignore # noqa: E731
+    task = lambda weight=1: lambda f: f  # type: ignore # noqa: E731
 
 from cerberus.config import settings
 
@@ -42,9 +42,9 @@ class CerberusUser(HttpUser):
         snippets = [
             'def hello(): return "world"',
             "import os; os.system('ls')",
-            'def add(a, b): return a + b',
+            "def add(a, b): return a + b",
             "SELECT * FROM users WHERE id = 1",
-            'eval(user_input)',
+            "eval(user_input)",
         ]
         code = random.choice(snippets)
         self.client.post(

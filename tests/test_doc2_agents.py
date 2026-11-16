@@ -6,7 +6,6 @@ Tests:
 - Validates that the remaining 59 blocks execute cleanly
 """
 
-
 import pytest
 
 from scripts.verify_python_blocks import ROOT, extract_python_blocks
