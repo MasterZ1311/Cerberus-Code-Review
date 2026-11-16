@@ -235,7 +235,7 @@ Cerberus strictly separates production container configuration from local develo
 - **`docker-compose.yml` (Production Baseline)**:
   - Requires all sensitive secrets explicitly via host environment variables (`${SECRET_KEY:?}`, `${DB_PASSWORD:?}`, `${REDIS_PASSWORD:?}`, etc.).
   - Retains zero embedded fallback credentials or default passwords.
-  - Pins base image digest: `python:3.11-slim@sha256:d8c525f0ad0289a4ffad6d14902b79a52de0db126e855fa316d2eb1fcebc95ba`.
+  - Pins base image digest: `python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535`.
   - Runs container healthchecks against `/api/v1/ready` (strict readiness evaluating active DB connections, migrations, and memory constraints), preventing degraded instances from routing traffic.
 - **`docker-compose.dev.yml` (Development Overrides)**:
   - Supplies pre-configured development secrets, hot-reloading volume mounts, and local debug settings.

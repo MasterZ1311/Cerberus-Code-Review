@@ -4,7 +4,7 @@
 # =========================================================================
 
 # Stage 1: Build & Dependency Wheel Compilation
-FROM python:3.11-slim@sha256:d8c525f0ad0289a4ffad6d14902b79a52de0db126e855fa316d2eb1fcebc95ba AS builder
+FROM python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535 AS builder
 
 WORKDIR /build
 
@@ -26,7 +26,7 @@ RUN pip install --upgrade pip && \
     pip install --no-cache-dir --require-hashes -r requirements-lock.txt
 
 # Stage 2: Minimal Hardened Runtime
-FROM python:3.11-slim@sha256:d8c525f0ad0289a4ffad6d14902b79a52de0db126e855fa316d2eb1fcebc95ba AS runtime
+FROM python:3.11-slim@sha256:07d4824036af339fa1b6ef769cc99d9c10a141769538b52b3b597c84f7a7b535 AS runtime
 
 WORKDIR /app
 
