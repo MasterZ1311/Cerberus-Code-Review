@@ -13,7 +13,7 @@ import uuid
 from collections import OrderedDict
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from fastapi import (
     APIRouter,
@@ -1289,15 +1289,20 @@ async def _persist_batch_reviews_synchronous_core(
             )
         )
 
+    seen_ids: Set[str] = set()
+    deduped_records: List[CodeReviewRecord] = []
+    for rec in records_to_add:
+        if rec.id and rec.id not in seen_ids:
+            seen_ids.add(rec.id)
+            deduped_records.append(rec)
+
     last_error: Optional[Exception] = None
     for attempt in range(max_retries + 1):
         try:
             async with AsyncSessionLocal() as session:
                 async with session.begin():
-                    for rec in records_to_add:
-                        existing = await session.get(CodeReviewRecord, rec.id)
-                        if not existing:
-                            session.add(rec)
+                    for rec in deduped_records:
+                        await session.merge(rec)
                 return
         except Exception as e:
             last_error = e

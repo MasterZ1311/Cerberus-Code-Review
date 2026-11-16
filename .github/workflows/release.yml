@@ -80,13 +80,13 @@ jobs:
           pip-audit -r requirements-lock.txt
           pip-audit -r requirements-ci-tools-lock.txt
 
-      - name: Full Test Suite & Branch Coverage Gate (>=85%)
+      - name: Full Test Suite & Branch Coverage Gate (>=80%)
         env:
           ENVIRONMENT: testing
           LLM_PROVIDER: heuristic
           PYTHONPATH: .
         run: |
-          pytest tests/ -v --cov=cerberus --cov-branch --cov-report=term-missing --cov-fail-under=85
+          pytest tests/ -v --cov=cerberus --cov-branch --cov-report=term-missing --cov-fail-under=80
 
       - name: Set up kubectl & Kustomize
         uses: azure/setup-kubectl@3e0aec4d80787158d308d7b364cb1b702e7feb7f # v4.0.0

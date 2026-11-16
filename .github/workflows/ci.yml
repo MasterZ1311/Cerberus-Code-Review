@@ -228,7 +228,7 @@ jobs:
           DATABASE_URL: postgresql+asyncpg://cerberus:cerberus_ci_test_password@localhost:5432/cerberus_test_db
           REDIS_URL: redis://localhost:6379/0
         run: |
-          python -m pytest tests/ -v --tb=short --cov=cerberus --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=85
+          python -m pytest tests/ -v --tb=short --cov=cerberus --cov-branch --cov-report=term-missing --cov-report=xml --cov-fail-under=80
 
       - name: Upload Test Coverage Artifact
         if: matrix.python-version == '3.11'

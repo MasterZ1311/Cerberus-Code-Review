@@ -45,24 +45,21 @@ class DistributedSingleFlight:
         local_future: Optional[asyncio.Future] = None
 
         # 1. Check local in-process deduplication first
+        is_leader = False
         async with self._local_lock:
             if norm_key in self._local_in_flight:
                 logger.debug("Local SingleFlight coalescing request for key %s", norm_key[:12])
                 local_future = self._local_in_flight[norm_key]
             else:
+                is_leader = True
                 loop = asyncio.get_running_loop()
                 local_future = loop.create_future()
                 self._local_in_flight[norm_key] = local_future
 
         # If we joined an already in-flight local request, await it
-        if local_future.done():
-            return local_future.result()
-
-        # Check if we were NOT the creator of the future
-        async with self._local_lock:
-            is_leader_of_local = self._local_in_flight.get(norm_key) is local_future and not local_future.done()
-
-        if not is_leader_of_local:
+        if not is_leader:
+            if local_future.done():
+                return local_future.result()
             try:
                 return await asyncio.wait_for(local_future, timeout=timeout_seconds)
             except Exception as e:
