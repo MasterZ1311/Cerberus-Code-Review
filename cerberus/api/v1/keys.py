@@ -4,7 +4,7 @@ Enforces Granular Role-Based Access Control (RBAC requiring 'admin' scope).
 """
 
 from datetime import UTC, datetime, timedelta
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
@@ -183,6 +183,31 @@ async def list_api_keys(
     return items
 
 
+async def _get_tenant_scoped_api_key(
+    session: Any,
+    key_id: str,
+    caller_tenant: str,
+    is_platform_admin: bool,
+    action_description: str = "access",
+) -> ApiKeyRecord:
+    """Retrieves an ApiKeyRecord by ID or name, enforcing multi-tenant isolation."""
+    record = await session.get(ApiKeyRecord, key_id)
+    if not record:
+        stmt = select(ApiKeyRecord).where(ApiKeyRecord.name == key_id)
+        res = await session.execute(stmt)
+        record = res.scalars().first()
+
+    if not record or (not is_platform_admin and record.tenant_id != caller_tenant):
+        detail = (
+            f"API Key '{key_id}' was not found for {action_description}."
+            if action_description != "access"
+            else f"API Key '{key_id}' was not found."
+        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=detail)
+
+    return record
+
+
 @router.delete("/{key_id}")
 async def revoke_api_key(
     key_id: str,
@@ -197,19 +222,7 @@ async def revoke_api_key(
     is_platform_admin = getattr(http_req.state, "is_platform_admin", False)
 
     async with AsyncSessionLocal() as session:
-        record = await session.get(ApiKeyRecord, key_id)
-        if not record:
-            stmt = select(ApiKeyRecord).where(ApiKeyRecord.name == key_id)
-            res = await session.execute(stmt)
-            record = res.scalars().first()
-
-        if not record:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"API Key '{key_id}' was not found.")
-
-        # Multi-tenant isolation: non-platform admins cannot revoke keys outside their tenant
-        if not is_platform_admin and record.tenant_id != caller_tenant:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"API Key '{key_id}' was not found.")
-
+        record = await _get_tenant_scoped_api_key(session, key_id, caller_tenant, is_platform_admin)
         record.is_active = False
         await session.commit()
 
@@ -236,22 +249,9 @@ async def rotate_api_key(
     is_platform_admin = getattr(http_req.state, "is_platform_admin", False)
 
     async with AsyncSessionLocal() as session:
-        old_record = await session.get(ApiKeyRecord, key_id)
-        if not old_record:
-            stmt = select(ApiKeyRecord).where(ApiKeyRecord.name == key_id)
-            res = await session.execute(stmt)
-            old_record = res.scalars().first()
-
-        if not old_record:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"API Key '{key_id}' was not found for rotation."
-            )
-
-        # Multi-tenant isolation
-        if not is_platform_admin and old_record.tenant_id != caller_tenant:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"API Key '{key_id}' was not found for rotation."
-            )
+        old_record = await _get_tenant_scoped_api_key(
+            session, key_id, caller_tenant, is_platform_admin, action_description="rotation"
+        )
 
         # Deactivate previous key
         old_record.is_active = False

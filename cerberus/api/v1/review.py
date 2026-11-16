@@ -94,87 +94,97 @@ def _create_background_task(coro) -> asyncio.Task:
     return task
 
 
-def _store_review(review_id: str, response: CodeReviewResponse, owner_id: Optional[str] = None) -> None:
-    """Store review in bounded OrderedDict with LRU eviction and owner tracking."""
-    if review_id in reviews_store:
-        reviews_store.move_to_end(review_id)
+def _store_bounded_item(
+    store: OrderedDict[str, Any],
+    owner_store: Dict[str, str],
+    item_id: str,
+    item: Any,
+    owner_id: Optional[str] = None,
+    redis_prefix: Optional[str] = None,
+) -> None:
+    """Store item in bounded OrderedDict with LRU eviction and owner tracking."""
+    if item_id in store:
+        store.move_to_end(item_id)
     else:
-        while len(reviews_store) >= REVIEWS_STORE_MAX_ITEMS and reviews_store:
-            old_id, _ = reviews_store.popitem(last=False)
-            _review_owners.pop(old_id, None)
-    reviews_store[review_id] = response
+        while len(store) >= REVIEWS_STORE_MAX_ITEMS and store:
+            old_id, _ = store.popitem(last=False)
+            owner_store.pop(old_id, None)
+    store[item_id] = item
     if owner_id:
-        _review_owners[review_id] = owner_id
-        if cache_manager.redis_client:
+        owner_store[item_id] = owner_id
+        if redis_prefix and cache_manager.redis_client:
             try:
-                _create_background_task(
-                    cache_manager.redis_client.set(f"cvai:review_owner:{review_id}", owner_id, ex=86400)
-                )
+                _create_background_task(cache_manager.redis_client.set(f"{redis_prefix}:{item_id}", owner_id, ex=86400))
             except Exception:
                 pass
+
+
+def _store_review(review_id: str, response: CodeReviewResponse, owner_id: Optional[str] = None) -> None:
+    """Store review in bounded OrderedDict with LRU eviction and owner tracking."""
+    _store_bounded_item(reviews_store, _review_owners, review_id, response, owner_id, "cvai:review_owner")
 
 
 def _store_zip_review(review_id: str, response: ZipReviewResponse, owner_id: Optional[str] = None) -> None:
     """Store project zip review in bounded OrderedDict with LRU eviction."""
-    if review_id in zip_reviews_store:
-        zip_reviews_store.move_to_end(review_id)
-    else:
-        while len(zip_reviews_store) >= REVIEWS_STORE_MAX_ITEMS and zip_reviews_store:
-            old_id, _ = zip_reviews_store.popitem(last=False)
-            _zip_review_owners.pop(old_id, None)
-    zip_reviews_store[review_id] = response
-    if owner_id:
-        _zip_review_owners[review_id] = owner_id
-        if cache_manager.redis_client:
-            try:
-                _create_background_task(
-                    cache_manager.redis_client.set(f"cvai:zip_owner:{review_id}", owner_id, ex=86400)
-                )
-            except Exception:
-                pass
+    _store_bounded_item(zip_reviews_store, _zip_review_owners, review_id, response, owner_id, "cvai:zip_owner")
+
+
+async def _resolve_owner_from_sources(
+    item_id: str,
+    memory_owners: Dict[str, str],
+    redis_prefix: str,
+    check_db: bool = False,
+) -> Optional[str]:
+    """Resolves owner tenant_id from memory, Redis, or optional database record."""
+    if item_id in memory_owners:
+        return memory_owners[item_id]
+
+    if cache_manager.redis_client:
+        try:
+            val = await cache_manager.redis_client.get(f"{redis_prefix}:{item_id}")
+            if val:
+                memory_owners[item_id] = val
+                return val
+        except Exception:
+            pass
+
+    if check_db:
+        try:
+            async with AsyncSessionLocal() as session:
+                record = await session.get(CodeReviewRecord, item_id)
+                if record and record.owner_id:
+                    memory_owners[item_id] = record.owner_id
+                    return record.owner_id
+        except Exception:
+            pass
+
+    return None
 
 
 async def _resolve_review_owner(review_id: str) -> Optional[str]:
     """Resolves owner tenant_id from memory, Redis, or database."""
-    if review_id in _review_owners:
-        return _review_owners[review_id]
-
-    if cache_manager.redis_client:
-        try:
-            val = await cache_manager.redis_client.get(f"cvai:review_owner:{review_id}")
-            if val:
-                _review_owners[review_id] = val
-                return val
-        except Exception:
-            pass
-
-    try:
-        async with AsyncSessionLocal() as session:
-            record = await session.get(CodeReviewRecord, review_id)
-            if record and record.owner_id:
-                _review_owners[review_id] = record.owner_id
-                return record.owner_id
-    except Exception:
-        pass
-
-    return None
+    return await _resolve_owner_from_sources(review_id, _review_owners, "cvai:review_owner", check_db=True)
 
 
 async def _resolve_zip_review_owner(zip_review_id: str) -> Optional[str]:
     """Resolves project zip review owner tenant_id from memory, Redis, or database."""
-    if zip_review_id in _zip_review_owners:
-        return _zip_review_owners[zip_review_id]
+    return await _resolve_owner_from_sources(zip_review_id, _zip_review_owners, "cvai:zip_owner", check_db=False)
 
-    if cache_manager.redis_client:
+
+async def _notify_local_websockets(review_id: str, event_data: Dict[str, Any]) -> None:
+    """Dispatches a real-time event to locally connected WebSockets, pruning disconnected sockets."""
+    if review_id not in ws_connections:
+        return
+    active_sockets = list(ws_connections[review_id])
+    payload = json.dumps(event_data)
+    for ws in active_sockets:
         try:
-            val = await cache_manager.redis_client.get(f"cvai:zip_owner:{zip_review_id}")
-            if val:
-                _zip_review_owners[zip_review_id] = val
-                return val
+            await ws.send_text(payload)
         except Exception:
-            pass
-
-    return None
+            if ws in ws_connections.get(review_id, []):
+                ws_connections[review_id].remove(ws)
+    if review_id in ws_connections and not ws_connections[review_id]:
+        del ws_connections[review_id]
 
 
 async def _lookup_review_response(review_id: str) -> Optional[CodeReviewResponse]:
@@ -238,24 +248,14 @@ async def submit_review(
     )
 
     # Notify connected local WebSockets
-    if response.review_id in ws_connections:
-        active_sockets = list(ws_connections[response.review_id])
-        for ws in active_sockets:
-            try:
-                await ws.send_text(
-                    json.dumps(
-                        {
-                            "event": "review_completed",
-                            "review_id": response.review_id,
-                            "overall_score": response.overall_score,
-                        }
-                    )
-                )
-            except Exception:
-                if ws in ws_connections.get(response.review_id, []):
-                    ws_connections[response.review_id].remove(ws)
-        if response.review_id in ws_connections and not ws_connections[response.review_id]:
-            del ws_connections[response.review_id]
+    await _notify_local_websockets(
+        response.review_id,
+        {
+            "event": "review_completed",
+            "review_id": response.review_id,
+            "overall_score": response.overall_score,
+        },
+    )
 
     return response
 
@@ -628,7 +628,8 @@ async def approve_review(
         full.should_block = False
         full.block_reason = f"Manually approved by '{req.reviewer}'. Overrode blocking rule: {full.block_reason}"
     full.status = "approved"
-    tenant_id = getattr(http_req.state, "tenant_id", "default")
+    existing_owner = await _resolve_review_owner(review_id)
+    tenant_id = existing_owner or getattr(http_req.state, "tenant_id", "default")
     _store_review(review_id, full, owner_id=tenant_id)
 
     try:

@@ -90,7 +90,7 @@ class ApiKeyRecord(Base):
     __tablename__ = "api_keys"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=generate_uuid)
-    tenant_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, default="default", index=True)
+    tenant_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)
     key_hash: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     prefix: Mapped[str] = mapped_column(String(16), nullable=False)

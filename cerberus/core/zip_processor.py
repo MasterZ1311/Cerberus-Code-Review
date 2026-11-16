@@ -147,7 +147,7 @@ def is_safe_zip_path(path_str: str, max_depth: int = MAX_NESTING_DEPTH) -> bool:
     clean = path_str.replace("\\", "/")
     if "%2e" in clean.lower() or "%2f" in clean.lower():
         return False
-    if clean.startswith("/") or clean.startswith("\\"):
+    if clean.startswith("/"):
         return False
     if len(clean) >= 2 and clean[1] == ":":
         return False
