@@ -17,9 +17,7 @@ services:
       - DB_NAME=cerberus_db
       - LLM_PROVIDER=heuristic
     volumes:
-      - .:/app:ro
-      - /app/.git
-      - /app/.venv
+      - .:/app
 
   db:
     environment:
