@@ -32,8 +32,8 @@ _ENV_FALLBACK = str(Path(__file__).resolve().parent.parent / ".env")
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=(".env", _ENV_FALLBACK), env_file_encoding="utf-8", extra="ignore")
 
-    # Server Settings
-    HOST: str = "0.0.0.0"
+    # Server Settings (Defaults to secure loopback 127.0.0.1; overridden by HOST env or CLI in containers)
+    HOST: str = "127.0.0.1"
     PORT: int = 8000
     ENVIRONMENT: str = "development"
     LOG_LEVEL: str = "INFO"

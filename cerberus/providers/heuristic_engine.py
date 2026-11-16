@@ -1461,6 +1461,236 @@ class HeuristicEngine:
         return findings
 
     @staticmethod
+    def analyze_kotlin_security(code: str, filename: Optional[str] = None) -> List[Finding]:
+        """Analyze Kotlin code for security vulnerabilities."""
+        findings: List[Finding] = []
+        lines = code.split("\n")
+
+        for idx, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith(("//", "/*", "*")):
+                continue
+
+            # SQL Injection via string interpolation in queries
+            if re.search(r'(rawQuery|execSQL|createQuery|createNativeQuery)\s*\(\s*["\'].*\$.*["\']', line):
+                findings.append(
+                    Finding(
+                        id=f"KOTLIN-SQLI-{idx}",
+                        severity=SeverityEnum.CRITICAL,
+                        category="injection",
+                        title="SQL Injection in Kotlin",
+                        message="String interpolation used in raw SQL database query",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Use parameterized query arguments instead of string interpolation",
+                        suggestion='db.rawQuery("SELECT * FROM users WHERE id = ?", arrayOf(userId))',
+                        cwe_id="CWE-89",
+                        cvss_score=9.8,
+                    )
+                )
+
+            # Weak Random
+            if "java.util.Random()" in line or ("Random(" in line and "SecureRandom" not in line):
+                findings.append(
+                    Finding(
+                        id=f"KOTLIN-RANDOM-{idx}",
+                        severity=SeverityEnum.MEDIUM,
+                        category="cryptography",
+                        title="Insecure Pseudo-Random Number Generator",
+                        message="java.util.Random is not cryptographically secure",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Use java.security.SecureRandom for security-sensitive tokens and keys",
+                        suggestion="val random = java.security.SecureRandom()",
+                        cwe_id="CWE-330",
+                        cvss_score=5.3,
+                    )
+                )
+
+            # Insecure TrustManager (SSL Verification Bypass)
+            if re.search(r"checkServerTrusted\s*\([^)]*\)\s*\{\s*\}", line) or "TrustAllCerts" in line:
+                findings.append(
+                    Finding(
+                        id=f"KOTLIN-SSL-BYPASS-{idx}",
+                        severity=SeverityEnum.CRITICAL,
+                        category="cryptography",
+                        title="SSL/TLS Certificate Verification Bypass",
+                        message="Empty checkServerTrusted implementation disables TLS validation",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Rely on standard system CA trust certificates without custom bypasses",
+                        cwe_id="CWE-295",
+                        cvss_score=9.0,
+                    )
+                )
+
+            # Hardcoded API credentials
+            if re.search(
+                r'(val|var)\s+(apiKey|secretKey|apiToken|password)\s*=\s*["\'][A-Za-z0-9_\-]{16,}["\']',
+                line,
+                re.IGNORECASE,
+            ):
+                findings.append(
+                    Finding(
+                        id=f"KOTLIN-SECRET-{idx}",
+                        severity=SeverityEnum.CRITICAL,
+                        category="secrets",
+                        title="Hardcoded API Secret in Kotlin",
+                        message="Hardcoded sensitive credential identified in source code",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Load secrets from secure runtime keystore or BuildConfig/environment variables",
+                        cwe_id="CWE-798",
+                        cvss_score=8.9,
+                    )
+                )
+
+            # Insecure SharedPreferences World Readable/Writable
+            if re.search(r"MODE_WORLD_READABLE|MODE_WORLD_WRITEABLE", line):
+                findings.append(
+                    Finding(
+                        id=f"KOTLIN-PREFS-{idx}",
+                        severity=SeverityEnum.HIGH,
+                        category="storage",
+                        title="Insecure SharedPreferences Mode",
+                        message="MODE_WORLD_READABLE or MODE_WORLD_WRITEABLE exposes private app data",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Use EncryptedSharedPreferences with MODE_PRIVATE",
+                        suggestion="context.getSharedPreferences(NAME, Context.MODE_PRIVATE)",
+                        cwe_id="CWE-276",
+                        cvss_score=7.5,
+                    )
+                )
+
+        return findings
+
+    @staticmethod
+    def analyze_swift_security(code: str, filename: Optional[str] = None) -> List[Finding]:
+        """Analyze Swift code for security vulnerabilities."""
+        findings: List[Finding] = []
+        lines = code.split("\n")
+
+        for idx, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith(("//", "/*", "*")):
+                continue
+
+            # SQL Injection via string interpolation in SQLite/CoreData/GRDB
+            if re.search(r'(execute|query|rawQuery|prepareStatement)\s*\(\s*(sql:\s*)?["\'].*\\\(.*["\']', line) or re.search(
+                r'["\'].*(SELECT|INSERT|UPDATE|DELETE)\s+.*\\\(.*["\']', line, re.IGNORECASE
+            ):
+                findings.append(
+                    Finding(
+                        id=f"SWIFT-SQLI-{idx}",
+                        severity=SeverityEnum.CRITICAL,
+                        category="injection",
+                        title="SQL Injection in Swift",
+                        message="String interpolation used in raw SQL database statement",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Bind query arguments using statement parameters instead of string interpolation",
+                        suggestion='try db.run("SELECT * FROM users WHERE id = ?", userId)',
+                        cwe_id="CWE-89",
+                        cvss_score=9.8,
+                    )
+                )
+
+            # Insecure Keychain Accessibility
+            if re.search(r"kSecAttrAccessibleAlways\b|kSecAttrAccessibleAlwaysThisDeviceOnly\b", line):
+                findings.append(
+                    Finding(
+                        id=f"SWIFT-KEYCHAIN-{idx}",
+                        severity=SeverityEnum.HIGH,
+                        category="storage",
+                        title="Insecure Keychain Accessibility Level",
+                        message="AccessibleAlways allows keychain access while the device is locked",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Use kSecAttrAccessibleAfterFirstUnlock or kSecAttrAccessibleWhenUnlockedThisDeviceOnly",
+                        suggestion="kSecAttrAccessibleWhenUnlockedThisDeviceOnly",
+                        cwe_id="CWE-311",
+                        cvss_score=7.4,
+                    )
+                )
+
+            # Insecure Hashing MD5/SHA-1
+            if re.search(r"\b(CC_MD5|CC_SHA1|Insecure\.MD5|Insecure\.SHA1)\b", line):
+                findings.append(
+                    Finding(
+                        id=f"SWIFT-CRYPTO-{idx}",
+                        severity=SeverityEnum.HIGH,
+                        category="cryptography",
+                        title="Weak Cryptographic Hash Algorithm",
+                        message="MD5 and SHA-1 are cryptographically broken and prone to collision attacks",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Use CryptoKit with SHA256 or SHA512",
+                        suggestion="SHA256.hash(data: data)",
+                        cwe_id="CWE-328",
+                        cvss_score=7.5,
+                    )
+                )
+
+            # Insecure ATS flag
+            if "NSAllowsArbitraryLoads" in line:
+                findings.append(
+                    Finding(
+                        id=f"SWIFT-ATS-{idx}",
+                        severity=SeverityEnum.HIGH,
+                        category="network",
+                        title="App Transport Security (ATS) Disabled",
+                        message="NSAllowsArbitraryLoads disables TLS enforcement for network requests",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Enforce HTTPS via Apple App Transport Security standards",
+                        cwe_id="CWE-319",
+                        cvss_score=7.5,
+                    )
+                )
+
+            # Insecure Randomness
+            if re.search(r"\barc4random\s*\(", line):
+                findings.append(
+                    Finding(
+                        id=f"SWIFT-RANDOM-{idx}",
+                        severity=SeverityEnum.LOW,
+                        category="cryptography",
+                        title="Obsolete Random Generator",
+                        message="arc4random is superseded and should not be used for cryptographic nonce generation",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Use SecRandomCopyBytes or SystemRandomNumberGenerator",
+                        suggestion="SecRandomCopyBytes(kSecRandomDefault, count, &bytes)",
+                        cwe_id="CWE-330",
+                        cvss_score=3.5,
+                    )
+                )
+
+            # Hardcoded API Secret
+            if re.search(
+                r'(let|var)\s+(apiKey|secretKey|token|password)\s*=\s*["\'][A-Za-z0-9_\-]{16,}["\']',
+                line,
+                re.IGNORECASE,
+            ):
+                findings.append(
+                    Finding(
+                        id=f"SWIFT-SECRET-{idx}",
+                        severity=SeverityEnum.CRITICAL,
+                        category="secrets",
+                        title="Hardcoded API Secret in Swift",
+                        message="Hardcoded sensitive credential identified in source code",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Store API secrets securely in Keychain or fetch via authenticated backend",
+                        cwe_id="CWE-798",
+                        cvss_score=8.9,
+                    )
+                )
+
+        return findings
+
+    @staticmethod
     def analyze_multi_language_security(
         code: str, language: str, filename: Optional[str] = None
     ) -> Tuple[List[Finding], float]:
@@ -1483,6 +1713,10 @@ class HeuristicEngine:
             lang_findings = HeuristicEngine.analyze_go_security(code, filename)
         elif language_lower == "rust":
             lang_findings = HeuristicEngine.analyze_rust_security(code, filename)
+        elif language_lower in ("kotlin", "kt"):
+            lang_findings = HeuristicEngine.analyze_kotlin_security(code, filename)
+        elif language_lower == "swift":
+            lang_findings = HeuristicEngine.analyze_swift_security(code, filename)
         elif language_lower == "python":
             # Use existing Python analyzer
             return HeuristicEngine.analyze_security(code, language, filename)

@@ -3221,6 +3221,8 @@
           <option value="rust">Rust</option>
           <option value="java">Java</option>
           <option value="csharp">C#</option>
+          <option value="kotlin">Kotlin</option>
+          <option value="swift">Swift</option>
           <option value="solidity">Solidity</option>
           <option value="php">PHP</option>
         </select>
@@ -5334,6 +5336,8 @@ Status: AUTHORIZED FOR PRODUCTION MERGE
       { id: 'SEC-JAVA-001', lang: 'java', title: 'Spring SpEL Expression Injection', cwe: 'CWE-917', sev: 'critical', desc: 'Unsanitized evaluation of user input in Spring Expression Language parser.', sample: 'parser.parseExpression(userInput).getValue(ctx);' },
       { id: 'SEC-JAVA-002', lang: 'java', title: 'XML External Entity (XXE) Injection', cwe: 'CWE-611', sev: 'high', desc: 'DocumentBuilderFactory configured without disabling external DTD doctype declarations.', sample: 'factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", false);' },
       { id: 'SEC-CS-001', lang: 'csharp', title: 'ASP.NET Open Redirect', cwe: 'CWE-601', sev: 'medium', desc: 'Unvalidated redirect URL passed to Response.Redirect without LocalUrl verification.', sample: 'return Redirect(returnUrl);' },
+      { id: 'SEC-KT-001', lang: 'kotlin', title: 'Android SQL Injection via String Interpolation', cwe: 'CWE-89', sev: 'critical', desc: 'Raw SQLite query executed using Kotlin string template interpolation without argument binding.', sample: 'db.rawQuery("SELECT * FROM users WHERE id = \'$userId\'")' },
+      { id: 'SEC-SWIFT-001', lang: 'swift', title: 'iOS Insecure Keychain Accessibility', cwe: 'CWE-311', sev: 'high', desc: 'kSecAttrAccessibleAlways allows keychain data to be accessed while the device is locked.', sample: 'let query = [kSecAttrAccessibleAlways: true]' },
       { id: 'SEC-SOL-001', lang: 'solidity', title: 'Reentrancy Vulnerability', cwe: 'SWC-107', sev: 'critical', desc: 'External call performed before internal balance state update (violates Checks-Effects-Interactions).', sample: 'msg.sender.call{value: bal}(""); balances[msg.sender] = 0;' },
       { id: 'SEC-SOL-002', lang: 'solidity', title: 'Unchecked Call Return Value', cwe: 'SWC-104', sev: 'high', desc: 'Low-level address.call or address.delegatecall without asserting boolean return success.', sample: '(bool success, ) = target.call(data); // missing require(success)' },
       { id: 'PERF-001', lang: 'python', title: 'Quadratic O(n²) Nested Loop', cwe: 'CWE-400', sev: 'medium', desc: 'Nested linear search loops over large sequences that degrade algorithmic performance.', sample: 'for x in items:\n    if x in secondary_list: ...' },

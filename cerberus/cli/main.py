@@ -731,7 +731,7 @@ def health():
 
 @app.command()
 def serve(
-    host: str = typer.Option("0.0.0.0", "--host", "-h", help="Bind host"),
+    host: str = typer.Option(settings.HOST, "--host", "-h", help="Bind host"),
     port: int = typer.Option(settings.PORT, "--port", "-p", help="Bind port"),
     reload: bool = typer.Option(False, "--reload", "-r", help="Auto-reload on changes"),
 ):
