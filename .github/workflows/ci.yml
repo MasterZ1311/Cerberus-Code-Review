@@ -271,6 +271,7 @@ jobs:
         env:
           SECRET_KEY: cerberus_dev_secret_key_change_in_production_32chars
           DB_PASSWORD: cerberus_dev_password_do_not_use_in_prod
+          GRAFANA_PASSWORD: admin
         run: |
           docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
           echo "Waiting for services to become healthy..."
