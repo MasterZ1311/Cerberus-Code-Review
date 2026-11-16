@@ -145,4 +145,4 @@ flowchart TD
 - **Deterministic Heuristic Speed:** ~0.3ms cached, ~1.5–4.5 ms cold per snippet review
 - **Memory Footprint:** Bounded L1 cache with LRU eviction (default 1,000 items)
 - **Supported Polyglot Syntaxes:** Python, JavaScript, TypeScript, TSX, JSX, Go, Rust, Java, C#, Ruby, PHP, JSON, YAML, SQL, Solidity
-- **Enterprise Features:** RFC 7519 JWT & OAuth2, Dynamic Plugin Engine with AST rule injections, Multi-Tenant Quotas & Metering, Agent Reflection & Confidence Calibration, Apple Cupertino Embedded UI with 4 interactive modals (SVG Velocity, Plugins, Quotas, Rules Catalog), and Automated CI/CD Benchmarking.
+- **Enterprise Features:** RFC 7519 JWT & OAuth2, Dynamic Plugin Engine with AST rule injections, Multi-Tenant Quotas & Metering, Agent Reflection & Confidence Calibration, Embedded Web Inspection Console with 4 interactive modals (SVG Velocity, Plugins, Quotas, Rules Catalog), and Automated CI/CD Benchmarking.

@@ -15,10 +15,10 @@
 
   <style>
     /* =========================================================================
-       APPLE HUMAN INTERFACE & CUPERTINO DESIGN TOKENS
+       SYSTEM DESIGN TOKENS
        ========================================================================= */
     :root {
-      /* Apple Light Palette (Cupertino Pro) */
+      /* Enterprise Light Theme */
       --bg: #f5f5f7;
       --bg-subtle: #ffffff;
       --surface: rgba(255, 255, 255, 0.85);
@@ -42,40 +42,40 @@
       --btn-secondary-text: #1d1d1f;
       --btn-secondary-hover: #f2f2f7;
 
-      /* Apple System Colors */
-      --apple-blue: #0071e3;
-      --apple-blue-hover: #0077ed;
-      --apple-blue-subtle: rgba(0, 113, 227, 0.1);
-      --apple-green: #34c759;
-      --apple-green-subtle: rgba(52, 199, 89, 0.12);
-      --apple-red: #ff3b30;
-      --apple-red-subtle: rgba(255, 59, 48, 0.12);
-      --apple-orange: #ff9500;
-      --apple-orange-subtle: rgba(255, 149, 0, 0.12);
-      --apple-yellow: #ffcc00;
-      --apple-yellow-subtle: rgba(255, 204, 0, 0.14);
-      --apple-purple: #af52de;
-      --apple-purple-subtle: rgba(175, 82, 222, 0.12);
-      --apple-teal: #5ac8fa;
-      --apple-teal-subtle: rgba(90, 200, 250, 0.12);
+      /* System Palette */
+      --color-blue: #0071e3;
+      --color-blue-hover: #0077ed;
+      --color-blue-subtle: rgba(0, 113, 227, 0.1);
+      --color-green: #34c759;
+      --color-green-subtle: rgba(52, 199, 89, 0.12);
+      --color-red: #ff3b30;
+      --color-red-subtle: rgba(255, 59, 48, 0.12);
+      --color-orange: #ff9500;
+      --color-orange-subtle: rgba(255, 149, 0, 0.12);
+      --color-yellow: #ffcc00;
+      --color-yellow-subtle: rgba(255, 204, 0, 0.14);
+      --color-purple: #af52de;
+      --color-purple-subtle: rgba(175, 82, 222, 0.12);
+      --color-teal: #5ac8fa;
+      --color-teal-subtle: rgba(90, 200, 250, 0.12);
 
-      --accent: var(--apple-blue);
-      --accent-subtle: var(--apple-blue-subtle);
+      --accent: var(--color-blue);
+      --accent-subtle: var(--color-blue-subtle);
 
-      --critical: var(--apple-red);
-      --critical-subtle: var(--apple-red-subtle);
+      --critical: var(--color-red);
+      --critical-subtle: var(--color-red-subtle);
       --critical-border: rgba(255, 59, 48, 0.28);
-      --high: var(--apple-orange);
-      --high-subtle: var(--apple-orange-subtle);
+      --high: var(--color-orange);
+      --high-subtle: var(--color-orange-subtle);
       --high-border: rgba(255, 149, 0, 0.28);
-      --medium: var(--apple-yellow);
-      --medium-subtle: var(--apple-yellow-subtle);
+      --medium: var(--color-yellow);
+      --medium-subtle: var(--color-yellow-subtle);
       --medium-border: rgba(255, 204, 0, 0.32);
-      --low: var(--apple-blue);
-      --low-subtle: var(--apple-blue-subtle);
+      --low: var(--color-blue);
+      --low-subtle: var(--color-blue-subtle);
       --low-border: rgba(0, 113, 227, 0.25);
-      --success: var(--apple-green);
-      --success-subtle: var(--apple-green-subtle);
+      --success: var(--color-green);
+      --success-subtle: var(--color-green-subtle);
       --success-border: rgba(52, 199, 89, 0.28);
 
       --badge-border: rgba(0, 0, 0, 0.08);
@@ -109,7 +109,7 @@
     }
 
     [data-theme="dark"] {
-      /* Apple Dark Palette (Pro Black / Midnight Glass) */
+      /* Enterprise Dark Theme */
       --bg: #000000;
       --bg-subtle: #0d0d0e;
       --surface: rgba(28, 28, 30, 0.82);
@@ -133,40 +133,40 @@
       --btn-secondary-text: #f5f5f7;
       --btn-secondary-hover: #2c2c2e;
 
-      /* Apple Dark System Colors */
-      --apple-blue: #2997ff;
-      --apple-blue-hover: #40a9ff;
-      --apple-blue-subtle: rgba(41, 151, 255, 0.16);
-      --apple-green: #30d158;
-      --apple-green-subtle: rgba(48, 209, 88, 0.16);
-      --apple-red: #ff453a;
-      --apple-red-subtle: rgba(255, 69, 58, 0.16);
-      --apple-orange: #ff9f0a;
-      --apple-orange-subtle: rgba(255, 159, 10, 0.16);
-      --apple-yellow: #ffd60a;
-      --apple-yellow-subtle: rgba(255, 214, 10, 0.16);
-      --apple-purple: #bf5af2;
-      --apple-purple-subtle: rgba(191, 90, 242, 0.16);
-      --apple-teal: #64d2ff;
-      --apple-teal-subtle: rgba(100, 210, 255, 0.16);
+      /* Dark System Palette */
+      --color-blue: #2997ff;
+      --color-blue-hover: #40a9ff;
+      --color-blue-subtle: rgba(41, 151, 255, 0.16);
+      --color-green: #30d158;
+      --color-green-subtle: rgba(48, 209, 88, 0.16);
+      --color-red: #ff453a;
+      --color-red-subtle: rgba(255, 69, 58, 0.16);
+      --color-orange: #ff9f0a;
+      --color-orange-subtle: rgba(255, 159, 10, 0.16);
+      --color-yellow: #ffd60a;
+      --color-yellow-subtle: rgba(255, 214, 10, 0.16);
+      --color-purple: #bf5af2;
+      --color-purple-subtle: rgba(191, 90, 242, 0.16);
+      --color-teal: #64d2ff;
+      --color-teal-subtle: rgba(100, 210, 255, 0.16);
 
-      --accent: var(--apple-blue);
-      --accent-subtle: var(--apple-blue-subtle);
+      --accent: var(--color-blue);
+      --accent-subtle: var(--color-blue-subtle);
 
-      --critical: var(--apple-red);
-      --critical-subtle: var(--apple-red-subtle);
+      --critical: var(--color-red);
+      --critical-subtle: var(--color-red-subtle);
       --critical-border: rgba(255, 69, 58, 0.35);
-      --high: var(--apple-orange);
-      --high-subtle: var(--apple-orange-subtle);
+      --high: var(--color-orange);
+      --high-subtle: var(--color-orange-subtle);
       --high-border: rgba(255, 159, 10, 0.35);
-      --medium: var(--apple-yellow);
-      --medium-subtle: var(--apple-yellow-subtle);
+      --medium: var(--color-yellow);
+      --medium-subtle: var(--color-yellow-subtle);
       --medium-border: rgba(255, 214, 10, 0.35);
-      --low: var(--apple-blue);
-      --low-subtle: var(--apple-blue-subtle);
+      --low: var(--color-blue);
+      --low-subtle: var(--color-blue-subtle);
       --low-border: rgba(41, 151, 255, 0.35);
-      --success: var(--apple-green);
-      --success-subtle: var(--apple-green-subtle);
+      --success: var(--color-green);
+      --success-subtle: var(--color-green-subtle);
       --success-border: rgba(48, 209, 88, 0.35);
 
       --badge-border: rgba(255, 255, 255, 0.12);
@@ -208,7 +208,7 @@
       outline-offset: 2px;
     }
 
-    /* Apple Subtle Fluid Scrollbar */
+    /* Fluid Scrollbar */
     ::-webkit-scrollbar {
       width: 8px;
       height: 8px;
@@ -230,7 +230,7 @@
     }
 
     /* =========================================================================
-       APP HEADER & NAVIGATION (Cupertino Frosted Vibrancy)
+       APP HEADER & NAVIGATION (Frosted Glass Interface)
        ========================================================================= */
     header {
       border-bottom: 1px solid var(--card-border);
@@ -448,9 +448,9 @@
     }
 
     /* =========================================================================
-       GLOBAL MAGIC DROPZONE OVERLAY
+       GLOBAL DROPZONE OVERLAY
        ========================================================================= */
-    .magic-dropzone-overlay {
+    .dropzone-overlay {
       position: fixed;
       inset: 0;
       z-index: 1000;
@@ -467,12 +467,12 @@
       transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .magic-dropzone-overlay.active {
+    .dropzone-overlay.active {
       opacity: 1;
       pointer-events: all;
     }
 
-    .magic-drop-card {
+    .drop-card {
       background: var(--surface);
       border: 2px dashed var(--accent);
       border-radius: 28px;
@@ -488,11 +488,11 @@
       max-width: 580px;
     }
 
-    .magic-dropzone-overlay.active .magic-drop-card {
+    .dropzone-overlay.active .drop-card {
       transform: scale(1);
     }
 
-    .magic-drop-icon {
+    .drop-card-icon {
       font-size: 3.8rem;
       filter: drop-shadow(0 6px 16px rgba(0, 113, 227, 0.4));
       animation: floatDropIcon 2.5s infinite ease-in-out;
@@ -510,21 +510,21 @@
       }
     }
 
-    .magic-drop-title {
+    .drop-card-title {
       font-size: 1.5rem;
       font-weight: 700;
       letter-spacing: -0.025em;
       color: var(--text-main);
     }
 
-    .magic-drop-subtitle {
+    .drop-card-subtitle {
       font-size: 0.92rem;
       color: var(--text-secondary);
       line-height: 1.5;
     }
 
     /* =========================================================================
-       MAIN GRID LAYOUT & CUPERTINO PANELS
+       MAIN GRID LAYOUT & PANELS
        ========================================================================= */
     main {
       flex: 1;
@@ -552,7 +552,7 @@
       }
     }
 
-    /* Cupertino Frosted Panels */
+    /* Frosted Panels */
     .panel {
       background: var(--surface);
       border: 1px solid var(--card-border);
@@ -589,7 +589,7 @@
       gap: 0.5rem;
     }
 
-    /* Apple-Style Segmented Controls */
+    /* Segmented Controls */
     .mode-tabs {
       display: flex;
       background: var(--surface-raised);
@@ -658,7 +658,7 @@
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
     }
 
-    /* Curated Presets Bar (Apple Pills) */
+    /* Preset Controls */
     .presets-bar {
       display: flex;
       align-items: center;
@@ -700,7 +700,7 @@
       font-weight: 600;
     }
 
-    /* Auto-Heal Magical Button */
+    /* AST Auto-Repair Button */
     .btn-auto-heal {
       background: linear-gradient(135deg, #10b981, #059669);
       border: 1px solid rgba(255, 255, 255, 0.2);
@@ -1048,7 +1048,7 @@
       user-select: none;
     }
 
-    /* Apple-Style Primary Action Button */
+    /* Primary Action Button */
     .btn-submit {
       background: var(--primary);
       border: 1px solid var(--primary);
@@ -1201,7 +1201,7 @@
     }
 
     /* =========================================================================
-       APPLE 4-CONCENTRIC ACTIVITY RINGS COMPONENT
+       CONCENTRIC METRIC RINGS COMPONENT
        ========================================================================= */
     .overview-grid {
       display: grid;
@@ -1388,7 +1388,7 @@
       margin-top: 0.25rem;
     }
 
-    /* Apple Concentric Rings Interactive Domain Bar */
+    /* Domain Metrics Bar */
     .rings-domain-bar {
       display: flex;
       flex-wrap: wrap;
@@ -1538,7 +1538,7 @@
       border-color: var(--accent);
     }
 
-    /* Findings Container & Cupertino Finding Cards */
+    /* Findings Container & Finding Cards */
     .findings-container {
       display: flex;
       flex-direction: column;
@@ -1782,7 +1782,7 @@
     }
 
     /* =========================================================================
-       MODALS & DIALOGS (Apple Cupertino Style)
+       MODALS & DIALOGS
        ========================================================================= */
     .modal-overlay {
       position: fixed;
@@ -1968,7 +1968,7 @@
 
     .plugin-badge-active {
       background: var(--success-subtle);
-      color: var(--apple-green);
+      color: var(--color-green);
       border: 1px solid var(--success-border);
       padding: 0.2rem 0.5rem;
       border-radius: 6px;
@@ -1997,7 +1997,7 @@
 
     .quota-meter-fill {
       height: 100%;
-      background: linear-gradient(90deg, var(--apple-blue), var(--apple-teal));
+      background: linear-gradient(90deg, var(--color-blue), var(--color-teal));
       border-radius: 7px;
       transition: width 0.5s ease;
     }
@@ -2039,7 +2039,7 @@
     }
 
     /* =========================================================================
-       TOAST NOTIFICATION STACK (Apple Dynamic Island Style)
+       TOAST NOTIFICATION STACK
        ========================================================================= */
     .toast-container {
       position: fixed;
@@ -2149,7 +2149,7 @@
       }
 
       header,
-      .magic-dropzone-overlay,
+      .dropzone-overlay,
       .modal-overlay,
       #toast-container,
       .input-workspace-container,
@@ -2343,36 +2343,35 @@
 <body>
 
   <!-- =======================================================================
-       GLOBAL MAGIC DROPZONE OVERLAY (Drag-and-Drop Anywhere)
+       GLOBAL DROPZONE OVERLAY (Drag-and-Drop Anywhere)
        ======================================================================= -->
-  <div class="magic-dropzone-overlay" id="magic-dropzone-overlay">
-    <div class="magic-drop-card">
-      <div class="magic-drop-icon">✨</div>
-      <div class="magic-drop-title">Magic Code Dropzone</div>
-      <div class="magic-drop-subtitle">
+  <div class="dropzone-overlay" id="dropzone-overlay">
+    <div class="drop-card">
+      <div class="drop-card-icon">⇪</div>
+      <div class="drop-card-title">Drop Code File or Archive</div>
+      <div class="drop-card-subtitle">
         Drop any source file (<code>.py</code>, <code>.js</code>, <code>.ts</code>, <code>.go</code>,
         <code>.java</code>, <code>.sql</code>) or <code>.zip</code> repository archive to analyze immediately.
       </div>
-      <div class="brand-version-badge" style="margin-top:0.5rem;">Cupertino Human Interface • Instant Zero-Clutter
-        Analysis</div>
+      <div class="brand-version-badge" style="margin-top:0.5rem;">Static Analysis &amp; Multi-Agent Inspection Engine</div>
     </div>
   </div>
 
   <!-- =======================================================================
-       APP HEADER & SYSTEM HEALTH STATUS (Cupertino Frosted Vibrancy)
+       APP HEADER & SYSTEM HEALTH STATUS
        ======================================================================= -->
   <header>
     <div class="brand" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
-      <div class="logo-badge" title="Cerberus AI Code Shield">
+      <div class="logo-badge" title="Cerberus Code Shield">
         <img src="/logo.png" onerror="this.onerror=null; this.src='logo.png';" alt="cerberus logo"
           class="brand-logo-img">
       </div>
       <div>
         <div class="brand-title">
           <span>cerberus&lt;/&gt;</span>
-          <span class="brand-version-badge">v1.0.0 Pro</span>
+          <span class="brand-version-badge">v1.4.0</span>
         </div>
-        <div class="brand-subtitle">Autonomous Multi-Agent Code Intelligence &amp; Review</div>
+        <div class="brand-subtitle">Autonomous Multi-Agent Code Review &amp; Quality Platform</div>
       </div>
     </div>
 
@@ -2383,16 +2382,7 @@
         <span id="backend-status-text">FastAPI Connected</span>
       </div>
 
-      <!-- Sound Toggle Pill -->
-      <button class="btn-header-action sound-toggle-btn" id="btn-sound-toggle" onclick="toggleSoundEngine()"
-        title="Toggle Audio Feedback (Tactile Clicks & Chimes)">
-        <span id="sound-icon">🔊</span>
-        <div class="sound-bars sound-active" id="sound-bars">
-          <div class="sound-bar"></div>
-          <div class="sound-bar"></div>
-          <div class="sound-bar"></div>
-        </div>
-      </button>
+
 
       <!-- Executive Share Sheet Trigger -->
       <button class="btn-header-action" onclick="openShareSheetModal()" title="Export Executive Summary & Badges">
@@ -2402,44 +2392,37 @@
 
       <!-- Analytics & Trends Trigger -->
       <button class="btn-header-action" onclick="openAnalyticsModal()" title="Real-Time Analytics &amp; Latency Waterfall">
-        <span>📊</span>
         <span>Analytics</span>
       </button>
 
       <!-- Plugins Ecosystem Trigger -->
       <button class="btn-header-action" onclick="openPluginsModal()" title="Dynamic Plugins &amp; Custom Rules">
-        <span>🧩</span>
         <span>Plugins</span>
       </button>
 
       <!-- Multi-Tenant Quotas & Billing Trigger -->
       <button class="btn-header-action" onclick="openQuotaModal()" title="Tenant Quotas &amp; Metering">
-        <span>🏢</span>
         <span id="header-quota-tier">Quotas</span>
       </button>
 
       <!-- Heuristic Rules Catalog Trigger -->
       <button class="btn-header-action" onclick="openRulesCatalogModal()" title="Search 125+ Built-in Rules">
-        <span>📚</span>
         <span>Rules</span>
       </button>
 
       <!-- Agent Capabilities Drawer Trigger -->
       <button class="btn-header-action" onclick="openAgentsModal()"
         title="View Active Review Agents &amp; Capabilities">
-        <span>🛡️</span>
-        <span>7 Agents</span>
+        <span>Agents</span>
       </button>
 
       <!-- API Key Manager Button -->
       <button class="btn-header-action" onclick="openApiKeyModal()" title="Manage API Keys &amp; Security">
-        <span>🔑</span>
         <span id="api-key-label">API Key</span>
       </button>
 
       <!-- Keyboard Shortcuts Trigger -->
       <button class="btn-header-action" onclick="openShortcutsModal()" title="Keyboard Shortcuts (?)" aria-label="Keyboard Shortcuts">
-        <span>⌨️</span>
         <span>Shortcuts</span>
       </button>
 
@@ -2461,10 +2444,10 @@
       <div class="mode-tabs" role="tablist">
         <button class="mode-tab active" id="tab-snippet" role="tab" aria-selected="true"
           onclick="switchMode('snippet')">
-          <span>📝 Single Code Snippet</span>
+          <span>Single Code Snippet</span>
         </button>
         <button class="mode-tab" id="tab-zip" role="tab" aria-selected="false" onclick="switchMode('zip')">
-          <span>📦 Multi-File ZIP Archive</span>
+          <span>Multi-File Archive</span>
         </button>
       </div>
 
@@ -2477,15 +2460,15 @@
           <div class="presets-bar">
             <span
               style="font-size:0.7rem; color:var(--text-muted); font-weight:700; text-transform:uppercase;">Scenarios:</span>
-            <button class="btn-preset active" id="preset-vulnerable" onclick="loadPreset('vulnerable')">🔴 SQL &amp;
+            <button class="btn-preset active" id="preset-vulnerable" onclick="loadPreset('vulnerable')">SQL Injection &amp;
               Secrets</button>
-            <button class="btn-preset" id="preset-performance" onclick="loadPreset('performance')">⚡ O(n²) &amp;
+            <button class="btn-preset" id="preset-performance" onclick="loadPreset('performance')">Algorithmic Complexity &amp;
               Loops</button>
-            <button class="btn-preset" id="preset-compliance" onclick="loadPreset('compliance')">🛡️ HIPAA &amp;
-              GDPR</button>
-            <button class="btn-preset" id="preset-architecture" onclick="loadPreset('architecture')">🏗️ Arch &amp;
+            <button class="btn-preset" id="preset-compliance" onclick="loadPreset('compliance')">HIPAA &amp; GDPR
+              Compliance</button>
+            <button class="btn-preset" id="preset-architecture" onclick="loadPreset('architecture')">Architecture &amp;
               SRP</button>
-            <button class="btn-preset" id="preset-clean" onclick="loadPreset('clean')">✨ Clean Code</button>
+            <button class="btn-preset" id="preset-clean" onclick="loadPreset('clean')">Clean Code Baseline</button>
           </div>
         </div>
 
@@ -2497,26 +2480,25 @@
               <div class="vscode-dot green"></div>
             </div>
             <div class="vscode-tab-title">
-              <span>📄</span>
               <span id="editor-tab-filename">snippet.py</span>
             </div>
             <div class="editor-toolbar">
               <!-- Auto-Heal Trigger -->
               <button class="btn-auto-heal" id="btn-editor-autoheal" style="display:none;"
-                onclick="triggerAutoHealCode()" title="Magically apply verified AST repairs into the editor">
-                <span>✨ Auto-Heal</span>
+                onclick="triggerAutoHealCode()" title="Apply verified AST repairs into the editor">
+                <span>Apply AST Repair</span>
               </button>
               <input type="file" id="file-upload-input" style="display:none;"
                 onchange="handleSingleFileUpload(this.files)">
               <button class="btn-editor-action" onclick="document.getElementById('file-upload-input').click()"
                 title="Open local code file">
-                <span>📂 Open</span>
+                <span>Open</span>
               </button>
               <button class="btn-editor-action" onclick="copyEditorCode()" title="Copy editor code">
-                <span>📋 Copy</span>
+                <span>Copy</span>
               </button>
               <button class="btn-editor-action" onclick="clearEditorCode()" title="Clear editor">
-                <span>✕ Clear</span>
+                <span>Clear</span>
               </button>
             </div>
           </div>
@@ -2548,7 +2530,7 @@
 
         <!-- Dropzone -->
         <div id="dropzone" class="dropzone" onclick="document.getElementById('zip-file-input').click()">
-          <div class="drop-icon">📦</div>
+          <div class="drop-icon">⇪</div>
           <div class="drop-title" id="drop-title">Drag &amp; drop .ZIP project archive here</div>
           <div class="drop-subtitle">or click to browse files from your computer</div>
           <input type="file" id="zip-file-input" accept=".zip" style="display:none;"
@@ -2558,7 +2540,7 @@
         <!-- Selected ZIP Info Pill -->
         <div id="selected-zip-pill" class="selected-zip-pill" style="display:none;">
           <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <span style="font-size: 1.6rem;">📁</span>
+            <span style="font-size: 0.85rem; font-family:'Geist Mono', monospace; font-weight:700; color:var(--accent); background:var(--surface-raised); padding:0.2rem 0.5rem; border-radius:6px; border:1px solid var(--card-border);">ZIP</span>
             <div>
               <div id="zip-file-name"
                 style="font-family: 'Geist Mono', monospace; font-size: 0.9rem; font-weight: 700; color: var(--text-main);">
@@ -2625,9 +2607,8 @@
         <div style="display: flex; align-items: center; gap: 0.65rem;">
           <!-- Zen vs Inspector Mode Segmented Switch -->
           <div class="view-mode-tabs" role="tablist">
-            <button class="view-mode-tab active" id="mode-zen" onclick="toggleZenInspectorMode('zen')">🧘 Zen</button>
-            <button class="view-mode-tab" id="mode-inspector" onclick="toggleZenInspectorMode('inspector')">🔬
-              Inspector</button>
+            <button class="view-mode-tab active" id="mode-zen" onclick="toggleZenInspectorMode('zen')">Summary</button>
+            <button class="view-mode-tab" id="mode-inspector" onclick="toggleZenInspectorMode('inspector')">Inspector</button>
           </div>
           <span id="latency-tag"
             style="font-size: 0.78rem; color: var(--text-muted); font-family: 'Geist Mono', monospace;">Ready</span>
@@ -2645,11 +2626,11 @@
           File:</span>
         <select id="project-file-select" class="select-filter" style="flex:1; font-family:'Geist Mono', monospace;"
           onchange="onSelectZipFile(this.value)">
-          <option value="__ALL__">📂 Entire Project Overview</option>
+          <option value="__ALL__">Entire Project Overview</option>
         </select>
       </div>
 
-      <!-- Overview Grid: Apple 4-Concentric Activity Rings & Severity Breakdown Chips -->
+      <!-- Overview Grid: Concentric Metric Rings & Severity Breakdown Chips -->
       <div class="overview-grid">
         <div class="rings-wrapper" id="rings-wrapper"
           title="Concentric Activity Rings: Security, Performance, Quality, Compliance">
@@ -2728,20 +2709,20 @@
       <!-- Results Workspace Tabs -->
       <div class="results-tab-bar" role="tablist">
         <button class="results-tab-btn active" id="res-tab-findings" onclick="switchResultTab('findings')">
-          <span>🔍 Findings</span>
+          <span>Findings</span>
           <span id="findings-count-badge" class="badge-pill" style="padding:0.1rem 0.4rem; font-size:0.65rem;">0</span>
         </button>
         <button class="results-tab-btn" id="res-tab-consensus" onclick="switchResultTab('consensus')">
-          <span>🤝 Consensus &amp; Governance</span>
+          <span>Consensus</span>
         </button>
         <button class="results-tab-btn" id="res-tab-patch" onclick="switchResultTab('patch')">
-          <span>⚡ Unified Patch</span>
+          <span>Unified Patch</span>
         </button>
         <button class="results-tab-btn" id="res-tab-files" style="display:none;" onclick="switchResultTab('files')">
-          <span>📊 Project Files</span>
+          <span>Project Files</span>
         </button>
         <button class="results-tab-btn" id="res-tab-feedback" onclick="switchResultTab('feedback')">
-          <span>⭐ Rate Review</span>
+          <span>Feedback</span>
         </button>
       </div>
 
@@ -2862,7 +2843,7 @@
   <div class="modal-overlay" id="apikey-modal" onclick="closeApiKeyModal(event)">
     <div class="modal-card" onclick="event.stopPropagation()">
       <div class="modal-header">
-        <div class="modal-title">🔑 API Key Authentication</div>
+        <div class="modal-title">API Key Authentication</div>
         <button class="btn-close-modal" onclick="closeApiKeyModal()">✕</button>
       </div>
       <div style="font-size:0.84rem; color:var(--text-secondary); line-height:1.5;">
@@ -2888,7 +2869,7 @@
   </div>
 
   <!-- =======================================================================
-       MODAL 4: APPLE-STYLE EXECUTIVE SHARE SHEET
+       MODAL 4: EXECUTIVE EXPORT SHEET
        ======================================================================= -->
   <div class="modal-overlay" id="share-modal" onclick="closeShareSheetModal(event)">
     <div class="modal-card" onclick="event.stopPropagation()">
@@ -2906,37 +2887,37 @@
       <div style="display:flex; flex-direction:column; gap:0.6rem;">
         <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;"
           onclick="copyMarkdownSummary()">
-          <span>📋 Copy Executive Markdown Brief</span>
+          <span>Copy Markdown Summary</span>
           <span style="font-size:0.75rem; color:var(--text-muted);">For Slack / Docs</span>
         </button>
         <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;"
           onclick="copyGitHubPrComment()">
-          <span>💬 Copy GitHub PR Review Comment</span>
+          <span>Copy GitHub PR Comment</span>
           <span style="font-size:0.75rem; color:var(--text-muted);">Collapsible Markdown</span>
         </button>
         <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;"
           onclick="copyComplianceAttestation()">
-          <span>🛡️ Copy Compliance Attestation</span>
+          <span>Copy Compliance Report</span>
           <span style="font-size:0.75rem; color:var(--text-muted);">SOC 2 / HIPAA / GDPR</span>
         </button>
         <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;"
           onclick="downloadSvgBadge()">
-          <span>🏷️ Download Health Badge (SVG)</span>
+          <span>Export Vector Badge (SVG)</span>
           <span style="font-size:0.75rem; color:var(--text-muted);">Vector Badge</span>
         </button>
         <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;"
           onclick="downloadSarifReport()">
-          <span>📑 Export OASIS SARIF 2.1.0</span>
+          <span>Export SARIF 2.1.0</span>
           <span style="font-size:0.75rem; color:var(--text-muted);">GitHub Code Scanning JSON</span>
         </button>
         <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;"
           onclick="downloadGitLabReport()">
-          <span>🦊 Export GitLab Code Quality</span>
+          <span>Export GitLab Code Quality</span>
           <span style="font-size:0.75rem; color:var(--text-muted);">GitLab CI JSON (gl-code-quality)</span>
         </button>
         <button class="btn-preset" style="justify-content:space-between; padding:0.65rem 1rem;"
           onclick="downloadSonarQubeReport()">
-          <span>🐟 Export SonarQube Generic Issues</span>
+          <span>Export SonarQube JSON</span>
           <span style="font-size:0.75rem; color:var(--text-muted);">SonarQube JSON (sonar.externalIssuesReportPaths)</span>
         </button>
       </div>
@@ -2950,7 +2931,6 @@
     <div class="modal-card" style="max-width:480px;" onclick="event.stopPropagation()">
       <div class="modal-header">
         <div style="display:flex; align-items:center; gap:0.6rem;">
-          <span style="font-size:1.3rem;">⌨️</span>
           <div class="modal-title">Keyboard Shortcuts</div>
         </div>
         <button class="btn-close-modal" onclick="closeShortcutsModal()">✕</button>
@@ -3001,29 +2981,26 @@
   <div class="modal-overlay" id="analytics-modal" onclick="closeAnalyticsModal(event)">
     <div class="modal-card" style="max-width:820px; max-height:86vh; overflow-y:auto;" onclick="event.stopPropagation()">
       <div class="modal-header">
-        <div style="display:flex; align-items:center; gap:0.6rem;">
-          <span style="font-size:1.3rem;">📊</span>
-          <div class="modal-title">Executive Code Intelligence &amp; Latency Waterfall</div>
-        </div>
+        <div class="modal-title">Executive Code Intelligence &amp; Latency Waterfall</div>
         <button class="btn-close-modal" onclick="closeAnalyticsModal()">✕</button>
       </div>
 
       <!-- KPI Overview Grid -->
       <div class="analytics-kpis">
         <div class="analytics-kpi-card">
-          <span class="analytics-kpi-val" style="color:var(--apple-green);">842 ms</span>
+          <span class="analytics-kpi-val" style="color:var(--color-green);">842 ms</span>
           <span class="analytics-kpi-lbl">Mean Review Time</span>
         </div>
         <div class="analytics-kpi-card">
-          <span class="analytics-kpi-val" style="color:var(--apple-blue);">94.8%</span>
+          <span class="analytics-kpi-val" style="color:var(--color-blue);">94.8%</span>
           <span class="analytics-kpi-lbl">Cache Hit Ratio</span>
         </div>
         <div class="analytics-kpi-card">
-          <span class="analytics-kpi-val" style="color:var(--apple-purple);">99.8%</span>
+          <span class="analytics-kpi-val" style="color:var(--color-purple);">99.8%</span>
           <span class="analytics-kpi-lbl">Threat Precision</span>
         </div>
         <div class="analytics-kpi-card">
-          <span class="analytics-kpi-val" style="color:var(--apple-orange);" id="analytics-total-reviews">148</span>
+          <span class="analytics-kpi-val" style="color:var(--color-orange);" id="analytics-total-reviews">148</span>
           <span class="analytics-kpi-lbl">Reviews Evaluated</span>
         </div>
       </div>
@@ -3077,48 +3054,48 @@
       <div class="chart-box">
         <div class="chart-box-title">
           <span>Specialized Agent Execution Waterfall (Parallel)</span>
-          <span style="font-size:0.72rem; color:var(--apple-green); font-weight:700;">Zero-Lock Concurrent Dispatch</span>
+          <span style="font-size:0.72rem; color:var(--color-green); font-weight:700;">Zero-Lock Concurrent Dispatch</span>
         </div>
         <div style="display:flex; flex-direction:column; gap:0.6rem;">
           <div class="waterfall-row">
-            <span class="waterfall-label">🛡️ Security Agent</span>
+            <span class="waterfall-label">Security Agent</span>
             <div class="waterfall-track">
-              <div class="waterfall-fill" style="width:68%; background:var(--apple-red);"></div>
+              <div class="waterfall-fill" style="width:68%; background:var(--color-red);"></div>
             </div>
             <span class="waterfall-val">165 ms</span>
           </div>
           <div class="waterfall-row">
-            <span class="waterfall-label">🏗️ Architecture</span>
+            <span class="waterfall-label">Architecture</span>
             <div class="waterfall-track">
-              <div class="waterfall-fill" style="width:85%; background:var(--apple-purple);"></div>
+              <div class="waterfall-fill" style="width:85%; background:var(--color-purple);"></div>
             </div>
             <span class="waterfall-val">210 ms</span>
           </div>
           <div class="waterfall-row">
-            <span class="waterfall-label">🐛 Bug Hunter</span>
+            <span class="waterfall-label">Bug Hunter</span>
             <div class="waterfall-track">
-              <div class="waterfall-fill" style="width:58%; background:var(--apple-orange);"></div>
+              <div class="waterfall-fill" style="width:58%; background:var(--color-orange);"></div>
             </div>
             <span class="waterfall-val">140 ms</span>
           </div>
           <div class="waterfall-row">
-            <span class="waterfall-label">⚡ Performance</span>
+            <span class="waterfall-label">Performance</span>
             <div class="waterfall-track">
-              <div class="waterfall-fill" style="width:78%; background:var(--apple-yellow);"></div>
+              <div class="waterfall-fill" style="width:78%; background:var(--color-yellow);"></div>
             </div>
             <span class="waterfall-val">195 ms</span>
           </div>
           <div class="waterfall-row">
-            <span class="waterfall-label">📐 Style &amp; Lint</span>
+            <span class="waterfall-label">Style &amp; Lint</span>
             <div class="waterfall-track">
-              <div class="waterfall-fill" style="width:35%; background:var(--apple-blue);"></div>
+              <div class="waterfall-fill" style="width:35%; background:var(--color-blue);"></div>
             </div>
             <span class="waterfall-val">85 ms</span>
           </div>
           <div class="waterfall-row">
-            <span class="waterfall-label">⚖️ Consensus Calibrator</span>
+            <span class="waterfall-label">Consensus Calibrator</span>
             <div class="waterfall-track">
-              <div class="waterfall-fill" style="width:30%; background:var(--apple-green);"></div>
+              <div class="waterfall-fill" style="width:30%; background:var(--color-green);"></div>
             </div>
             <span class="waterfall-val">72 ms</span>
           </div>
@@ -3133,19 +3110,19 @@
           </div>
           <div style="display:flex; flex-direction:column; gap:0.4rem; font-size:0.78rem;">
             <div style="display:flex; justify-content:space-between;">
-              <span style="color:var(--apple-red); font-weight:600;">Critical</span>
+              <span style="color:var(--color-red); font-weight:600;">Critical</span>
               <span style="font-family:'Geist Mono', monospace;">14% (12 findings)</span>
             </div>
             <div style="display:flex; justify-content:space-between;">
-              <span style="color:var(--apple-orange); font-weight:600;">High</span>
+              <span style="color:var(--color-orange); font-weight:600;">High</span>
               <span style="font-family:'Geist Mono', monospace;">28% (24 findings)</span>
             </div>
             <div style="display:flex; justify-content:space-between;">
-              <span style="color:var(--apple-yellow); font-weight:600;">Medium</span>
+              <span style="color:var(--color-yellow); font-weight:600;">Medium</span>
               <span style="font-family:'Geist Mono', monospace;">42% (36 findings)</span>
             </div>
             <div style="display:flex; justify-content:space-between;">
-              <span style="color:var(--apple-blue); font-weight:600;">Low / Info</span>
+              <span style="color:var(--color-blue); font-weight:600;">Low / Info</span>
               <span style="font-family:'Geist Mono', monospace;">16% (14 findings)</span>
             </div>
           </div>
@@ -3185,12 +3162,11 @@
     <div class="modal-card" style="max-width:720px; max-height:86vh; overflow-y:auto;" onclick="event.stopPropagation()">
       <div class="modal-header">
         <div style="display:flex; align-items:center; gap:0.6rem;">
-          <span style="font-size:1.3rem;">🧩</span>
           <div class="modal-title">Cerberus Plugin Ecosystem</div>
         </div>
         <div style="display:flex; gap:0.5rem; align-items:center;">
           <button class="btn-preset" onclick="reloadPluginsFromBackend()" title="Hot-reload all plugin modules">
-            <span>🔄 Reload Plugins</span>
+            <span>Reload Plugins</span>
           </button>
           <button class="btn-close-modal" onclick="closePluginsModal()">✕</button>
         </div>
@@ -3206,7 +3182,7 @@
           <div style="display:flex; justify-content:space-between; align-items:flex-start;">
             <div>
               <div style="font-size:0.95rem; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:0.5rem;">
-                <span>🔑 Secret Scanner Plugin</span>
+                <span>Secret Scanner Plugin</span>
                 <span class="badge" style="font-size:0.68rem;">v1.0.0</span>
               </div>
               <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.2rem;">
@@ -3231,7 +3207,7 @@
           <div style="display:flex; justify-content:space-between; align-items:flex-start;">
             <div>
               <div style="font-size:0.95rem; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:0.5rem;">
-                <span>📐 Team Conventions &amp; Style</span>
+                <span>Team Conventions Plugin</span>
                 <span class="badge" style="font-size:0.68rem;">v1.0.0</span>
               </div>
               <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.2rem;">
@@ -3261,7 +3237,6 @@
     <div class="modal-card" style="max-width:620px; max-height:86vh; overflow-y:auto;" onclick="event.stopPropagation()">
       <div class="modal-header">
         <div style="display:flex; align-items:center; gap:0.6rem;">
-          <span style="font-size:1.3rem;">🏢</span>
           <div class="modal-title">Tenant Quotas &amp; Metering</div>
         </div>
         <button class="btn-close-modal" onclick="closeQuotaModal()">✕</button>
@@ -3274,7 +3249,7 @@
         </div>
         <div style="text-align:right;">
           <span style="font-size:0.74rem; text-transform:uppercase; font-weight:700; color:var(--text-muted); display:block;">Current Plan</span>
-          <span class="badge" style="background:var(--apple-blue-subtle); color:var(--apple-blue); border:1px solid var(--apple-blue); font-weight:800; font-size:0.75rem;" id="quota-plan-badge">PRO TIER</span>
+          <span class="badge" style="background:var(--color-blue-subtle); color:var(--color-blue); border:1px solid var(--color-blue); font-weight:800; font-size:0.75rem;" id="quota-plan-badge">PRO TIER</span>
         </div>
       </div>
 
@@ -3289,7 +3264,7 @@
         </div>
         <div style="display:flex; justify-content:space-between; font-size:0.74rem; color:var(--text-muted);">
           <span>Resets on the 1st of each month</span>
-          <span style="color:var(--apple-green); font-weight:600;">222 Reviews Remaining</span>
+          <span style="color:var(--color-green); font-weight:600;">222 Reviews Remaining</span>
         </div>
       </div>
 
@@ -3300,11 +3275,11 @@
           <span style="font-family:'Geist Mono', monospace; font-size:0.8rem; color:var(--text-muted);">142,500 / 2,500,000 Tokens</span>
         </div>
         <div class="quota-meter-bar">
-          <div class="quota-meter-fill" style="width:5.7%; background:linear-gradient(90deg, var(--apple-purple), var(--apple-blue));"></div>
+          <div class="quota-meter-fill" style="width:5.7%; background:linear-gradient(90deg, var(--color-purple), var(--color-blue));"></div>
         </div>
         <div style="display:flex; justify-content:space-between; font-size:0.74rem; color:var(--text-muted);">
           <span>5 Concurrent Review Threads Max</span>
-          <span style="color:var(--apple-green); font-weight:600;">94.3% Budget Available</span>
+          <span style="color:var(--color-green); font-weight:600;">94.3% Budget Available</span>
         </div>
       </div>
 
@@ -3332,7 +3307,6 @@
     <div class="modal-card" style="max-width:880px; max-height:86vh; overflow-y:auto;" onclick="event.stopPropagation()">
       <div class="modal-header">
         <div style="display:flex; align-items:center; gap:0.6rem;">
-          <span style="font-size:1.3rem;">📚</span>
           <div class="modal-title">Cerberus Security &amp; Compliance Rules Catalog</div>
         </div>
         <button class="btn-close-modal" onclick="closeRulesCatalogModal()">✕</button>
@@ -3410,99 +3384,19 @@
     let cachedAgentsList = null;
 
     // =========================================================================
-    // NATIVE MULTIMODAL WEB AUDIO ENGINE (Apple Tactile Feedback)
+    // AUDIO FEEDBACK ENGINE (Neutralized - Silent No-Op)
     // =========================================================================
     const SoundEngine = {
-      ctx: null,
-      enabled: localStorage.getItem('cerberus_sound') !== 'muted',
-      init() {
-        if (!this.ctx && (window.AudioContext || window.webkitAudioContext)) {
-          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-      },
-      toggle() {
-        this.enabled = !this.enabled;
-        localStorage.setItem('cerberus_sound', this.enabled ? 'on' : 'muted');
-        updateSoundUI();
-        if (this.enabled) this.click();
-        return this.enabled;
-      },
-      click() {
-        if (!this.enabled) return;
-        this.init();
-        if (!this.ctx) return;
-        try {
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(1400, this.ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(320, this.ctx.currentTime + 0.022);
-          gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.022);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start();
-          osc.stop(this.ctx.currentTime + 0.022);
-        } catch (e) { }
-      },
-      sweep() {
-        if (!this.enabled) return;
-        this.init();
-        if (!this.ctx) return;
-        try {
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(360, this.ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(920, this.ctx.currentTime + 0.16);
-          gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.18);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start();
-          osc.stop(this.ctx.currentTime + 0.18);
-        } catch (e) { }
-      },
-      success() {
-        if (!this.enabled) return;
-        this.init();
-        if (!this.ctx) return;
-        try {
-          // Warm Apple C Major Triad (C5, E5, G5, C6)
-          const freqs = [523.25, 659.25, 783.99, 1046.50];
-          freqs.forEach((f, i) => {
-            const osc = this.ctx.createOscillator();
-            const gain = this.ctx.createGain();
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(f, this.ctx.currentTime + i * 0.08);
-            gain.gain.setValueAtTime(0.0001, this.ctx.currentTime + i * 0.08);
-            gain.gain.exponentialRampToValueAtTime(0.07, this.ctx.currentTime + i * 0.08 + 0.03);
-            gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + i * 0.08 + 0.45);
-            osc.connect(gain);
-            gain.connect(this.ctx.destination);
-            osc.start(this.ctx.currentTime + i * 0.08);
-            osc.stop(this.ctx.currentTime + i * 0.08 + 0.45);
-          });
-        } catch (e) { }
-      }
+      enabled: false,
+      init() {},
+      toggle() { return false; },
+      click() {},
+      sweep() {},
+      success() {}
     };
 
-    function updateSoundUI() {
-      const icon = document.getElementById('sound-icon');
-      const bars = document.getElementById('sound-bars');
-      if (SoundEngine.enabled) {
-        if (icon) icon.innerText = '🔊';
-        if (bars) bars.classList.add('sound-active');
-      } else {
-        if (icon) icon.innerText = '🔇';
-        if (bars) bars.classList.remove('sound-active');
-      }
-    }
-
-    function toggleSoundEngine() {
-      const active = SoundEngine.toggle();
-      showToast(active ? 'Sound feedback enabled' : 'Sound feedback muted', 'info', 1600);
-    }
+    function updateSoundUI() {}
+    function toggleSoundEngine() {}
 
     // =========================================================================
     // GENERAL UTILITIES
@@ -3761,25 +3655,25 @@
     }
 
     // =========================================================================
-    // GLOBAL MAGIC DROPZONE LISTENERS (Anywhere on Window)
+    // GLOBAL DROPZONE LISTENERS (Anywhere on Window)
     // =========================================================================
-    const magicOverlay = document.getElementById('magic-dropzone-overlay');
+    const dropzoneOverlay = document.getElementById('dropzone-overlay');
     let dragCounter = 0;
 
     window.addEventListener('dragenter', (e) => {
       e.preventDefault();
       dragCounter++;
-      if (dragCounter === 1 && magicOverlay) {
-        magicOverlay.classList.add('active');
+      if (dragCounter === 1 && dropzoneOverlay) {
+        dropzoneOverlay.classList.add('active');
       }
     });
 
     window.addEventListener('dragleave', (e) => {
       e.preventDefault();
       dragCounter--;
-      if (dragCounter <= 0 && magicOverlay) {
+      if (dragCounter <= 0 && dropzoneOverlay) {
         dragCounter = 0;
-        magicOverlay.classList.remove('active');
+        dropzoneOverlay.classList.remove('active');
       }
     });
 
@@ -3790,7 +3684,7 @@
     window.addEventListener('drop', (e) => {
       e.preventDefault();
       dragCounter = 0;
-      if (magicOverlay) magicOverlay.classList.remove('active');
+      if (dropzoneOverlay) dropzoneOverlay.classList.remove('active');
 
       if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         const file = e.dataTransfer.files[0];
@@ -4139,7 +4033,7 @@
       return `
         <div class="vsc-frame vscode-code-frame">
           <div class="vsc-frame-header">
-            <span>📄 ${escapeHtml(title || 'source.py')}</span>
+            <span>${escapeHtml(title || 'source.py')}</span>
             <span>UTF-8</span>
           </div>
           <div class="vsc-frame-content">${linesHtml}</div>
@@ -4186,7 +4080,7 @@
     }
 
     // =========================================================================
-    // AUTO-HEAL MAGICAL CODE REPAIR ENGINE ("It Just Works")
+    // AUTOMATED AST CODE REPAIR ENGINE
     // =========================================================================
     function parseAndApplyPatch(originalText, diffText) {
       if (!diffText || !diffText.includes('@@')) {
@@ -4248,7 +4142,7 @@
         editor.value = healed;
         updateEditorMetrics();
 
-        // Trigger Apple green ripple glow animation
+        // Trigger green glow animation
         const wrapper = document.getElementById('main-editor-wrapper');
         wrapper.classList.remove('auto-heal-active');
         void wrapper.offsetWidth; // trigger reflow
@@ -4259,7 +4153,7 @@
         if (tabTitle) tabTitle.innerText = 'healed_' + tabTitle.innerText.replace(/^healed_/, '');
 
         SoundEngine.success();
-        showToast('✨ Code Auto-Healed! Remediations applied & AST verified.', 'success', 3500);
+        showToast('Remediations applied and verified against AST rules.', 'success', 3500);
 
         // Hide autoheal button now that it's healed
         const btn = document.getElementById('btn-editor-autoheal');
@@ -4270,7 +4164,7 @@
     }
 
     // =========================================================================
-    // APPLE 4-CONCENTRIC ACTIVITY RINGS ANIMATION & SCORING
+    // CONCENTRIC METRIC RINGS ANIMATION & SCORING
     // =========================================================================
     function computeDomainScores(data) {
       let sec = 100, perf = 100, qual = 100, comp = 100;
@@ -4408,7 +4302,7 @@
           <div style="background:var(--surface); border:1px solid var(--card-border); border-radius:16px; padding:1.5rem; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; box-shadow:var(--shadow-sm);">
             <div>
               <div style="display:flex; align-items:center; gap:0.6rem;">
-                <span style="font-size:1.4rem;">${isBlocked ? '🛑' : '✅'}</span>
+                <span class="badge-pill ${isBlocked ? 'critical' : 'success'}" style="font-size:0.75rem; padding:0.2rem 0.5rem;">${isBlocked ? 'BLOCKED' : 'READY'}</span>
                 <span style="font-size:1.1rem; font-weight:800; color:var(--text-main);">${isBlocked ? 'Merge Blocked by Governance' : 'Merge Ready &amp; Verified'}</span>
               </div>
               <div style="font-size:0.84rem; color:var(--text-muted); margin-top:0.35rem;">
@@ -4483,7 +4377,7 @@
 
       const allOpt = document.createElement('option');
       allOpt.value = '__ALL__';
-      allOpt.textContent = `📂 Entire Project Overview (${data.reviewed_files_count} files)`;
+      allOpt.textContent = `Entire Project Overview (${data.reviewed_files_count} files)`;
       select.appendChild(allOpt);
 
       (data.file_reviews || []).forEach((fr, idx) => {
@@ -5022,17 +4916,17 @@
       const score = data.overall_score || data.overall_project_score || 100;
       const domainScores = computeDomainScores(data);
 
-      const summary = `### 🛡️ Cerberus Code Intelligence Report
+      const summary = `### Cerberus Inspection Summary
 **Overall Score:** ${Math.round(score)}/100 (Grade A • Enterprise Ready)
-**Status:** ${data.should_block ? '🛑 BLOCKED' : '✅ MERGE_READY'}
+**Status:** ${data.should_block ? 'BLOCKED' : 'MERGE_READY'}
 
-#### 📊 Concentric Activity Rings Breakdown:
-- 🔴 **Security:** ${domainScores.security}% (CWE & Threat Defense)
-- 🔵 **Performance:** ${domainScores.performance}% (O(n²) & Complexity)
-- 🟢 **Quality:** ${domainScores.quality}% (PEP 257 & Clean Code)
-- 🟣 **Compliance:** ${domainScores.compliance}% (HIPAA, GDPR, SOC 2 Gated)
+#### Inspection Metrics:
+- **Security:** ${domainScores.security}% (CWE & Threat Defense)
+- **Performance:** ${domainScores.performance}% (Complexity & Resource Allocation)
+- **Quality:** ${domainScores.quality}% (Clean Code Standards)
+- **Compliance:** ${domainScores.compliance}% (Regulatory Gating)
 
-*Synthesized autonomously by Cerberus Multi-Agent Engine v1.0.0.*`;
+*Synthesized autonomously by Cerberus Multi-Agent Engine v1.4.0.*`;
 
       navigator.clipboard.writeText(summary).then(() => {
         closeShareSheetModal();
@@ -5049,20 +4943,20 @@
       let findingsList = findings.map(f => `- **[${f.severity || 'INFO'}]** ${f.title}: ${f.message}`).join('\n');
       if (!findingsList) findingsList = '_Zero issues found. Verified clean._';
 
-      const comment = `## 🛡️ Cerberus Automated Code Review
+      const comment = `## Cerberus Inspection Report
 | Health Metric | Score | Status |
 | :--- | :---: | :--- |
 | **Composite Score** | **${Math.round(score)}/100** | ${data.should_block ? '❌ Blocked' : '✅ Approved'} |
 | **Processing Time** | ${data.processing_time_ms || 12}ms | ⚡ Real-time |
 
 <details>
-<summary><b>🔍 View Audit Findings (${findings.length})</b></summary>
+<summary><b>Audit Findings (${findings.length})</b></summary>
 
 ${findingsList}
 
 </details>
 
-${data.unified_patch ? `<details><summary><b>⚡ View AST Remediation Patch</b></summary>\n\n\`\`\`diff\n${data.unified_patch}\n\`\`\`\n</details>` : ''}
+${data.unified_patch ? `<details><summary><b>AST Remediation Patch</b></summary>\n\n\`\`\`diff\n${data.unified_patch}\n\`\`\`\n</details>` : ''}
 `;
 
       navigator.clipboard.writeText(comment).then(() => {
@@ -5507,12 +5401,12 @@ Status: AUTHORIZED FOR PRODUCTION MERGE
       container.innerHTML = filtered.map(r => `
         <div class="rule-item-card">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-size:0.72rem; font-family:'Geist Mono', monospace; font-weight:700; color:var(--apple-blue);">${escapeHtml(r.id)}</span>
+            <span style="font-size:0.72rem; font-family:'Geist Mono', monospace; font-weight:700; color:var(--color-blue);">${escapeHtml(r.id)}</span>
             <span class="badge ${r.sev === 'critical' ? 'critical' : r.sev === 'high' ? 'high' : r.sev === 'medium' ? 'medium' : 'low'}" style="font-size:0.65rem; text-transform:uppercase;">${escapeHtml(r.sev)}</span>
           </div>
           <div style="font-size:0.82rem; font-weight:700; color:var(--text-main); margin-top:0.2rem;">${escapeHtml(r.title)}</div>
           <div style="font-size:0.75rem; color:var(--text-muted); display:flex; gap:0.4rem; align-items:center;">
-            <span>🏷️ ${escapeHtml(r.cwe)}</span>
+            <span>${escapeHtml(r.cwe)}</span>
             <span>•</span>
             <span style="text-transform:capitalize;">${escapeHtml(r.lang)}</span>
           </div>

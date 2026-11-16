@@ -1,16 +1,16 @@
 """
 generate_brag_gif.py
-Produces a world-class, ultra-smooth 25 FPS animated product demonstration GIF for Cerberus.
-Directly drives the live Cupertino web application (cerberus/web/index.html) via Playwright,
+Produces a high-fidelity 25 FPS animated product demonstration GIF for Cerberus.
+Directly drives the live web console (cerberus/web/index.html) via Playwright,
 orchestrating authentic user interactions with high-fidelity, fluid cursor animations:
 
-1. Cupertino Dark Mode interface with live health beacon and agent registry.
-2. 1-Click scenario preset loading (SQL & Secrets) into VS Code Dark+ editor.
+1. Dark mode console with live health beacon and agent registry.
+2. 1-Click scenario preset loading (SQL & Secrets) into editor.
 3. Multi-Agent collaborative execution stepper with concurrent diagnostic agents.
-4. Animated 4-Concentric Activity Rings (🔴 Security, 🔵 Performance, 🟢 Quality, 🟣 Compliance) and Score Gauge.
-5. The Magic Climax: "✨ Auto-Heal Code" AST repair with emerald ripple wave and live code transformation.
-6. VS Code Dark+ Unified Patch Diff inspection.
-7. Cupertino Executive Share Sheet modal.
+4. Animated Concentric Metric Rings (Security, Performance, Quality, Compliance) and Score Gauge.
+5. Automated AST code repair with inline diff transformation.
+6. Unified Patch Diff inspection.
+7. Executive Share Sheet modal.
 8. Seamless, continuous infinite loop closure (modal close & smooth cursor return to origin).
 
 Specs:
@@ -40,7 +40,7 @@ if not Path(CHROME_PATH).exists():
 
 # Realistic multi-agent review response
 REVIEW_DATA = {
-    "review_id": "rev_cupertino_01",
+    "review_id": "rev_ast_01",
     "status": "completed",
     "overall_score": 93.8,
     "processing_time_ms": 14,
@@ -244,7 +244,7 @@ def record_peak_walkthrough():
         page.goto(HTML_FILE.as_uri())
         page.wait_for_timeout(300)
 
-        # Ensure Cupertino Dark Theme is strictly applied
+        # Ensure Dark Theme is strictly applied
         page.evaluate("""
             document.documentElement.setAttribute('data-theme', 'dark');
             localStorage.setItem('cerberus_theme', 'dark');
@@ -349,7 +349,7 @@ def record_peak_walkthrough():
         # Brief hold on full scorecard results
         capture_frame(8)
 
-        print("Phase 6: The Magic Climax — '✨ Auto-Heal Code' AST Repair...")
+        print("Phase 6: AST Auto-Repair Injection...")
         autoheal_coords = page.evaluate("getElementCenter('#btn-editor-autoheal')") or {"x": 450, "y": 168}
         glide_cursor(review_btn_coords["x"], review_btn_coords["y"], autoheal_coords["x"], autoheal_coords["y"], steps=14)
 
@@ -366,7 +366,7 @@ def record_peak_walkthrough():
         page.evaluate("switchResultTab('patch')")
         capture_frame(14)
 
-        print("Phase 8: Cupertino Executive Share Sheet...")
+        print("Phase 8: Executive Share Sheet...")
         share_btn_coords = page.evaluate("getElementCenter('button[onclick=\"openShareSheetModal()\"]')") or {"x": 1000, "y": 28}
         glide_cursor(patch_tab_coords["x"], patch_tab_coords["y"], share_btn_coords["x"], share_btn_coords["y"], steps=12)
         page.evaluate("triggerCursorClick()")
