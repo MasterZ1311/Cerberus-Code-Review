@@ -207,11 +207,6 @@ jobs:
           pip install --no-deps -e .
           pip check
 
-      - name: Install Playwright Browsers
-        if: matrix.python-version == '3.11'
-        run: |
-          playwright install --with-deps chromium
-
       - name: Syntax & Import Sanity Check
         run: |
           python -m compileall cerberus tests

@@ -10,6 +10,8 @@ Validates:
 from pathlib import Path
 
 import pytest
+
+pytest.importorskip("playwright", reason="Playwright is required for browser E2E tests")
 from playwright.sync_api import sync_playwright
 
 WEB_INDEX_PATH = (Path(__file__).parent.parent / "cerberus" / "web" / "index.html").resolve()
