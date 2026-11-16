@@ -398,16 +398,39 @@ async def test_webhook_signature_and_replay_prevention():
 async def test_runtime_config_validation_and_persistence():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        # Create an admin key
-        raw_admin_key, admin_hash, _ = generate_api_key("admin_user")
+        # 1. Verify tenant-scoped admin (without platform:admin) is rejected with 403 Forbidden
+        raw_tenant_admin, tenant_admin_hash, _ = generate_api_key("tenant_admin")
+        async with AsyncSessionLocal() as session:
+            session.add(
+                ApiKeyRecord(
+                    key_hash=tenant_admin_hash,
+                    name="Tenant Admin Key",
+                    prefix="crb_live_",
+                    tenant_id="ops_tenant",
+                    scopes="admin,review:read,review:write",
+                    is_active=True,
+                )
+            )
+            await session.commit()
+
+        tenant_admin_headers = {"Authorization": f"Bearer {raw_tenant_admin}"}
+        forbidden_resp = await client.patch(
+            "/api/v1/config",
+            json={"severity_threshold": "high"},
+            headers=tenant_admin_headers,
+        )
+        assert forbidden_resp.status_code == 403
+
+        # 2. Create a platform:admin key
+        raw_admin_key, admin_hash, _ = generate_api_key("platform_admin_user")
         async with AsyncSessionLocal() as session:
             session.add(
                 ApiKeyRecord(
                     key_hash=admin_hash,
-                    name="Admin Key",
+                    name="Platform Admin Key",
                     prefix="crb_live_",
-                    tenant_id="ops_tenant",
-                    scopes="admin,review:read,review:write",
+                    tenant_id="platform",
+                    scopes="platform:admin,admin,review:read,review:write",
                     is_active=True,
                 )
             )

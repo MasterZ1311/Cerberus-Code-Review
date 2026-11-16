@@ -146,6 +146,17 @@ async def test_migrations_engine():
         count = await run_migrations(engine)
         assert isinstance(count, int)
 
+    # Test fresh migrations execution on an unmigrated database
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlalchemy.pool import NullPool
+
+    fresh_engine = create_async_engine("sqlite+aiosqlite:///:memory:", poolclass=NullPool)
+    try:
+        fresh_count = await run_migrations(fresh_engine)
+        assert fresh_count > 0
+    finally:
+        await fresh_engine.dispose()
+
 
 @pytest.mark.asyncio
 async def test_database_retry_and_warm_pool():

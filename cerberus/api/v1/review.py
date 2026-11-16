@@ -13,7 +13,7 @@ import uuid
 from collections import OrderedDict
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import (
     APIRouter,
@@ -49,7 +49,7 @@ from cerberus.core.sarif import (
     zip_review_response_to_gitlab_code_quality,
     zip_review_response_to_sonarqube,
 )
-from cerberus.core.security import verify_github_signature
+from cerberus.core.security import timing_safe_compare, verify_github_signature
 from cerberus.core.syntax_verifier import detect_language_from_path
 from cerberus.models.database import CodeReviewRecord, FindingRecord, ReviewFeedbackRecord
 from cerberus.models.schemas import (
@@ -120,8 +120,12 @@ def _store_bounded_item(
 
 
 def _store_review(review_id: str, response: CodeReviewResponse, owner_id: Optional[str] = None) -> None:
-    """Store review in bounded OrderedDict with LRU eviction and owner tracking."""
-    _store_bounded_item(reviews_store, _review_owners, review_id, response, owner_id, "cvai:review_owner")
+    """Store review in bounded OrderedDict with LRU eviction, owner tracking, and privacy enforcement."""
+    resp_to_store = response
+    retain = getattr(settings, "RETAIN_SOURCE_CODE", False)
+    if not retain:
+        resp_to_store = redact_source_code_recursively(response)
+    _store_bounded_item(reviews_store, _review_owners, review_id, resp_to_store, owner_id, "cvai:review_owner")
 
 
 def _store_zip_review(review_id: str, response: ZipReviewResponse, owner_id: Optional[str] = None) -> None:
@@ -175,8 +179,11 @@ async def _notify_local_websockets(review_id: str, event_data: Dict[str, Any]) -
     """Dispatches a real-time event to locally connected WebSockets, pruning disconnected sockets."""
     if review_id not in ws_connections:
         return
+    cleaned_event = event_data
+    if not getattr(settings, "RETAIN_SOURCE_CODE", False):
+        cleaned_event = redact_source_code_recursively(event_data)
     active_sockets = list(ws_connections[review_id])
-    payload = json.dumps(event_data)
+    payload = json.dumps(cleaned_event)
     for ws in active_sockets:
         try:
             await ws.send_text(payload)
@@ -229,10 +236,26 @@ async def submit_review(
 
     tenant_id = getattr(http_req.state, "tenant_id", "default")
     response = await orchestrator.execute_review(request)
+
+    retain = getattr(settings, "RETAIN_SOURCE_CODE", False)
+    if not retain:
+        response = redact_source_code_recursively(response)
+
+    # Persist critical record synchronously before exposing to memory/events (fails closed if persistence fails)
+    try:
+        await _persist_review_synchronous_core(request, response, owner_id=tenant_id)
+    except Exception:
+        # Guarantee fail-closed semantics: ensure no trace remains in memory, ownership, or cache
+        reviews_store.pop(response.review_id, None)
+        _review_owners.pop(response.review_id, None)
+        _create_background_task(cache_manager.delete_review(response.review_id))
+        raise
+
+    # Store in bounded in-memory cache ONLY after successful durable core persistence
     _store_review(response.review_id, response, owner_id=tenant_id)
 
-    # Persist in background DB with owner attribution
-    _create_background_task(_persist_review_record(request, response, owner_id=tenant_id))
+    # Persist detailed findings in background asynchronously
+    _create_background_task(_persist_detailed_findings(response, owner_id=tenant_id))
 
     # Publish to Redis pub/sub across workers for SSE & WebSocket synchronization
     _create_background_task(
@@ -695,7 +718,12 @@ async def stream_review_sse(
         if key_record:
             tenant_id = key_record.tenant_id
             scopes = set(key_record.scopes.split(",")) if key_record.scopes else set()
-            is_platform_admin = ("platform:admin" in scopes) or (raw_key == settings.DEFAULT_DEV_API_KEY)
+            is_dev_mode = settings.ENVIRONMENT.lower() not in ("production", "prod")
+            is_platform_admin = ("platform:admin" in scopes) or bool(
+                is_dev_mode
+                and settings.DEFAULT_DEV_API_KEY
+                and timing_safe_compare(raw_key, settings.DEFAULT_DEV_API_KEY)
+            )
         else:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -762,10 +790,33 @@ async def batch_review(
 
     results: List[CodeReviewResponse] = await asyncio.gather(*[_throttled_review(req) for req in request.files])
 
-    for res in results:
-        _store_review(res.review_id, res, owner_id=tenant_id)
+    retain = getattr(settings, "RETAIN_SOURCE_CODE", False)
+    sanitized_results: List[CodeReviewResponse] = [
+        redact_source_code_recursively(res) if not retain else res for res in results
+    ]
 
-    return BatchReviewResponse(batch_id=f"batch_{uuid.uuid4().hex[:12]}", total_files=len(results), reviews=results)
+    # Persist batch review core records synchronously in an atomic batch session before exposing to memory/cache
+    pairs = list(zip(request.files, sanitized_results, strict=False))
+    try:
+        await _persist_batch_reviews_synchronous_core(pairs, owner_id=tenant_id)
+    except Exception:
+        # Guarantee no partial in-memory, ownership, or cache state remains on persistence failure
+        for res in sanitized_results:
+            reviews_store.pop(res.review_id, None)
+            _review_owners.pop(res.review_id, None)
+            _create_background_task(cache_manager.delete_review(res.review_id))
+        raise
+
+    # Store in memory and launch background child findings persistence ONLY after core persistence succeeds
+    for res in sanitized_results:
+        _store_review(res.review_id, res, owner_id=tenant_id)
+        _create_background_task(_persist_detailed_findings(res, owner_id=tenant_id))
+
+    return BatchReviewResponse(
+        batch_id=f"batch_{uuid.uuid4().hex[:12]}",
+        total_files=len(sanitized_results),
+        reviews=sanitized_results,
+    )
 
 
 @router.post("/zip", response_model=ZipReviewResponse, status_code=status.HTTP_200_OK)
@@ -1015,7 +1066,12 @@ async def websocket_review_stream(
         if key_record:
             tenant_id = key_record.tenant_id
             scopes = set(key_record.scopes.split(",")) if key_record.scopes else set()
-            is_platform_admin = ("platform:admin" in scopes) or (raw_key == settings.DEFAULT_DEV_API_KEY)
+            is_dev_mode = settings.ENVIRONMENT.lower() not in ("production", "prod")
+            is_platform_admin = ("platform:admin" in scopes) or bool(
+                is_dev_mode
+                and settings.DEFAULT_DEV_API_KEY
+                and timing_safe_compare(raw_key, settings.DEFAULT_DEV_API_KEY)
+            )
         else:
             await websocket.close(
                 code=status.WS_1008_POLICY_VIOLATION,
@@ -1110,42 +1166,143 @@ async def websocket_review_stream(
                 del ws_connections[review_id]
 
 
-async def _persist_review_record(
-    request: CodeReviewRequest, response: CodeReviewResponse, owner_id: Optional[str] = None
+async def _persist_review_synchronous_core(
+    request: CodeReviewRequest,
+    response: CodeReviewResponse,
+    owner_id: Optional[str] = None,
+    max_retries: int = 2,
+    retry_delay: float = 0.05,
 ) -> None:
-    """Asynchronously persist review and findings to database with tenant ownership attribution."""
-    try:
-        retain = getattr(settings, "RETAIN_SOURCE_CODE", False)
-        results_dump = response.model_dump()
-        if not retain:
-            results_dump = redact_source_code_recursively(results_dump)
+    """
+    Synchronously persist the minimum retrieval-critical CodeReviewRecord to the database
+    with retries before returning to the caller.
+    Guarantees that any immediate memory eviction or cross-worker database lookup succeeds.
+    Fails closed if the database write cannot be completed after retries.
+    """
+    retain = getattr(settings, "RETAIN_SOURCE_CODE", False)
+    results_dump = response.model_dump() if hasattr(response, "model_dump") else dict(response)
+    if not retain:
+        results_dump = redact_source_code_recursively(results_dump)
 
-        async with AsyncSessionLocal() as session:
-            review_rec = CodeReviewRecord(
-                id=response.review_id,
+    snippet_to_store = "[REDACTED]" if not retain else (request.code[:2000] if request.code else "")
+
+    last_error: Optional[Exception] = None
+    for attempt in range(max_retries + 1):
+        try:
+            async with AsyncSessionLocal() as session:
+                existing = await session.get(CodeReviewRecord, response.review_id)
+                if not existing:
+                    review_rec = CodeReviewRecord(
+                        id=response.review_id,
+                        owner_id=owner_id,
+                        code_snippet=snippet_to_store,
+                        language=request.language or "python",
+                        status=response.status,
+                        overall_score=response.overall_score,
+                        processing_time_ms=response.processing_time_ms,
+                        results_json=results_dump,
+                    )
+                    session.add(review_rec)
+                    await session.commit()
+                return
+        except Exception as e:
+            last_error = e
+            logger.warning(
+                f"Sync review persist attempt {attempt + 1}/{max_retries + 1} failed for {response.review_id}: {e}"
+            )
+            if attempt < max_retries:
+                await asyncio.sleep(retry_delay * (2**attempt))
+
+    logger.error(
+        f"Failed to synchronously persist critical review record {response.review_id} after {max_retries + 1} attempts: {last_error}"
+    )
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail={
+            "error": "persistence_failure",
+            "message": "Failed to persist review record to durable storage.",
+        },
+    )
+
+
+async def _persist_batch_reviews_synchronous_core(
+    pairs: List[Tuple[CodeReviewRequest, CodeReviewResponse]],
+    owner_id: Optional[str] = None,
+    max_retries: int = 2,
+    retry_delay: float = 0.05,
+) -> None:
+    """Synchronously persist a batch of core review records in a single transactional session with retry."""
+    retain = getattr(settings, "RETAIN_SOURCE_CODE", False)
+    records_to_add: List[CodeReviewRecord] = []
+    for req, resp in pairs:
+        snippet_to_store = (
+            "[REDACTED_SOURCE_CODE]"
+            if not retain
+            else (req.code if len(req.code) <= 10000 else req.code[:10000] + "\n...[truncated]")
+        )
+        results_dump = redact_source_code_recursively(resp.model_dump()) if not retain else resp.model_dump()
+        records_to_add.append(
+            CodeReviewRecord(
+                id=resp.review_id,
                 owner_id=owner_id,
-                code_snippet="[REDACTED]" if not retain else request.code[:2000],
-                language=request.language or "python",
-                status=response.status,
-                overall_score=response.overall_score,
-                processing_time_ms=response.processing_time_ms,
+                code_snippet=snippet_to_store,
+                language=req.language or "python",
+                status=resp.status,
+                overall_score=resp.overall_score,
+                processing_time_ms=resp.processing_time_ms,
                 results_json=results_dump,
             )
-            session.add(review_rec)
+        )
 
+    last_error: Optional[Exception] = None
+    for attempt in range(max_retries + 1):
+        try:
+            async with AsyncSessionLocal() as session:
+                async with session.begin():
+                    for rec in records_to_add:
+                        existing = await session.get(CodeReviewRecord, rec.id)
+                        if not existing:
+                            session.add(rec)
+                return
+        except Exception as e:
+            last_error = e
+            logger.warning(
+                f"Sync batch review persist attempt {attempt + 1}/{max_retries + 1} failed for {len(records_to_add)} records: {e}"
+            )
+            if attempt < max_retries:
+                await asyncio.sleep(retry_delay * (2**attempt))
+
+    logger.error(f"Failed to synchronously persist batch review records after {max_retries + 1} attempts: {last_error}")
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail={
+            "error": "persistence_failure",
+            "message": "Failed to persist batch review records to durable storage.",
+        },
+    )
+
+
+async def _persist_detailed_findings(
+    response: CodeReviewResponse,
+    owner_id: Optional[str] = None,
+) -> None:
+    """Asynchronously persist individual child finding records to database."""
+    try:
+        retain = getattr(settings, "RETAIN_SOURCE_CODE", False)
+        async with AsyncSessionLocal() as session:
             for f in response.critical_issues + response.warnings + response.suggestions:
                 finding_rec = FindingRecord(
                     review_id=response.review_id,
                     owner_id=owner_id,
                     agent_name=f.category,
-                    severity=f.severity.value,
+                    severity=f.severity.value if hasattr(f.severity, "value") else str(f.severity),
                     category=f.category,
                     title=f.title,
                     message=f.message,
                     line_number=f.line,
                     code_snippet=f.code_snippet if retain else None,
                     remediation=f.recommendation,
-                    suggestion=f.suggestion,
+                    suggestion=f.suggestion if retain else None,
                     cwe_id=f.cwe_id,
                     cvss_score=f.cvss_score,
                 )
@@ -1153,4 +1310,12 @@ async def _persist_review_record(
 
             await session.commit()
     except Exception as e:
-        logger.warning(f"Database background write error: {e}")
+        logger.warning(f"Database background write error for findings: {e}")
+
+
+async def _persist_review_record(
+    request: CodeReviewRequest, response: CodeReviewResponse, owner_id: Optional[str] = None
+) -> None:
+    """Persist review core synchronously and findings asynchronously."""
+    await _persist_review_synchronous_core(request, response, owner_id=owner_id)
+    await _persist_detailed_findings(response, owner_id=owner_id)

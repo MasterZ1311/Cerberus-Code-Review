@@ -99,15 +99,36 @@ class Span:
         self.error_message: Optional[str] = None
 
     def set_attribute(self, key: str, value: Any) -> "Span":
-        self.attributes[key] = value
+        val_to_set = value
+        try:
+            from cerberus.config import settings
+            from cerberus.core.privacy import SENSITIVE_CODE_KEYS, redact_source_code_recursively
+
+            if not getattr(settings, "RETAIN_SOURCE_CODE", False):
+                if key.lower() in SENSITIVE_CODE_KEYS:
+                    val_to_set = "[REDACTED]"
+                elif isinstance(value, (dict, list, tuple)):
+                    val_to_set = redact_source_code_recursively(value)
+        except Exception:
+            pass
+        self.attributes[key] = val_to_set
         return self
 
     def add_event(self, name: str, attributes: Optional[Dict[str, Any]] = None) -> "Span":
+        attrs = attributes or {}
+        try:
+            from cerberus.config import settings
+            from cerberus.core.privacy import redact_source_code_recursively
+
+            if not getattr(settings, "RETAIN_SOURCE_CODE", False) and attrs:
+                attrs = redact_source_code_recursively(attrs)
+        except Exception:
+            pass
         self.events.append(
             {
                 "name": name,
                 "timestamp": time.time(),
-                "attributes": attributes or {},
+                "attributes": attrs,
             }
         )
         return self

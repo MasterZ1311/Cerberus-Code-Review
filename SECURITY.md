@@ -19,18 +19,36 @@ We actively maintain and provide security patches for the following versions:
 
 Cerberus implements a strict **defense-in-depth multi-tenant security architecture**:
 
-1. **Explicit Tenant Attribution**:
-   - Every API key is explicitly bound to a `tenant_id` at creation time.
-   - Key generation, listing, rotation, and revocation are tenant-scoped by default. A tenant administrator can only manage keys belonging to their own tenant.
-   - A dedicated `platform:admin` scope exists for cross-tenant operations and system operators.
-   - Key rotation preserves tenant identity, ensuring rotated credentials cannot accidentally escalate or switch tenants.
+1. **Scope Delegation Hierarchy & Privilege Escalation Elimination**:
+   - **Tenant Administrator (`admin`)**:
+     - Manages API keys exclusively within their assigned `tenant_id`.
+     - Can only grant allowed tenant scopes: `review:read`, `review:write`, `export:read`, and `admin`.
+     - Can **never** grant `platform:admin`, `platform:read`, or any scope the caller does not already hold.
+     - Plain `admin` is strictly tenant-scoped and **never** satisfies `platform:admin` access checks.
+   - **Platform Administrator (`platform:admin`)**:
+     - Must be explicitly provisioned out-of-band (via CLI bootstrap, direct database migration, or secure operator provisioning).
+     - Holds cross-tenant privileges, can view/rotate keys across any tenant, and alone possesses authorization to mutate global runtime configuration (`PUT`/`PATCH /api/v1/config`).
+   - **Scope Hierarchy Enforcement**:
+     - API key creation (`POST /api/v1/keys`), listing (`GET /api/v1/keys`), revocation (`DELETE /api/v1/keys/{key_id}`), and rotation (`POST /api/v1/keys/{key_id}/rotate`) enforce caller tenant boundaries and scope sub-setting.
+     - Key rotation preserves tenant identity and cannot escalate or mutate scopes beyond what the rotated key already possesses.
 
 2. **Tenant-Scoped Review Operations**:
    - Every review record created via REST, multipart ZIP, base64 ZIP, or webhook is stored with an explicit `owner_id` (the submitting `tenant_id`).
    - Every review endpoint (`GET /{review_id}`, `GET /{review_id}/results`, `GET /{review_id}/sarif`, `GET /{review_id}/gitlab`, `GET /{review_id}/sonarqube`, `POST /{review_id}/approve`, `POST /{review_id}/feedback`, `GET /zip/{zip_id}/report`, SSE streams, and WebSockets) strictly verifies tenant ownership.
    - If a caller attempts to access a review owned by a different tenant, Cerberus returns **HTTP 404 Not Found** (preventing enumeration attacks).
 
-3. **Legacy Backfill and Fail-Closed Policy**:
+3. **Synchronous Persistence & Fail-Closed Durability**:
+   - A successful review submission must persist the minimum retrieval-critical record synchronously to the database before returning to the caller:
+     - Review ID (`id`)
+     - Owner / Tenant ID (`owner_id`)
+     - Status (`status`)
+     - Timestamps (`created_at`, `completed_at`)
+     - Safely sanitized / redacted results metadata (`results_json`)
+   - If database persistence encounters operational or connectivity errors, Cerberus retries with exponential backoff.
+   - If persistence fails after all retries, Cerberus **fails closed** and returns **HTTP 500 Internal Server Error** with code `persistence_failure`. Cerberus **never** returns a successful review ID to the client if the record cannot be durably committed.
+   - Detailed individual finding records persist asynchronously in the background; fallback retrieval remains functional immediately.
+
+4. **Legacy Backfill and Fail-Closed Policy**:
    - Database migrations automatically backfill unowned pre-existing records to an explicit `'legacy_unassigned'` tenant identity.
    - In production mode (`ENVIRONMENT=production`), unowned API keys or missing tenant identities immediately fail closed with **HTTP 401 Unauthorized**.
 
@@ -88,22 +106,37 @@ Cerberus provides strict data minimization and regulatory compliance (GDPR, HIPA
 
 1. **Recursive Source Code Redaction (`RETAIN_SOURCE_CODE=false`)**:
    - When source code retention is disabled, Cerberus guarantees that raw code snippets, unified diffs, patches, and code contexts are absent from:
-     - Relational database columns (`code_snippet` in `code_reviews` and `review_findings`).
-     - JSON results stored in database records (`results_json`).
-     - L1 in-memory cache and L2 Redis cache payloads.
-     - OpenTelemetry trace spans and telemetry attributes.
-     - Application logs and error messages.
+     - **L1 in-memory LRU Cache** (`cerberus/core/cache.py` redacts before memory insertion).
+     - **L2 Redis Cache** (redacted before serialization and cache storage).
+     - **Relational database records**: `code_snippet` in `code_reviews` replaced with `[REDACTED_SOURCE_CODE]`, `code_snippet` in `review_findings` replaced with `[REDACTED_SOURCE_CODE]`, and `results_json` cleansed recursively.
+     - **Serialized HTTP responses**: `submit_review`, `batch_review`, and `upload_zip_review` return sanitized JSON payloads.
+     - **OpenTelemetry spans, events, and attributes**: `Span.set_attribute` and `Span.add_event` scrub sensitive code keys (`code`, `snippet`, `patch`, `diff`, `file_content`) to `[REDACTED]`.
+     - **Application logs and telemetry events**: No raw code lines appear in structured application logs.
+     - **WebSocket & SSE streams**: Live event payloads dispatched across Redis pub/sub and WebSocket queues are sanitized recursively before broadcast.
    - Redaction is performed recursively across all arbitrary nested dictionaries and lists via `redact_source_code_recursively()`.
 
-2. **Automated Data Retention Purge**:
+2. **Automated Data Retention Purge & Worker Coordination**:
    - Records older than `DATA_RETENTION_DAYS` (default 30 days) are purged via cascading deletes across feedback, findings, and reviews.
-   - The retention purge is coordinated across workers via a distributed Redis lock (`cvai:retention:lock`, 300s TTL) with an in-memory fallback lock.
+   - To avoid redundant retention workers and database contention, `ENABLE_RETENTION_WORKER=false` by default on API replicas; retention purge is scheduled via an isolated Kubernetes CronJob (`k8s/retention-cronjob.yaml`).
+   - If multiple instances execute, the retention purge is coordinated across workers via a distributed Redis lock (`cvai:retention:lock`, 300s TTL) with an in-memory fallback lock.
    - Prometheus metrics record retention operations: `cerberus_retention_runs_total{status="success|failure"}`, `cerberus_retention_purged_records_total{record_type="review|finding|feedback"}`, and `cerberus_retention_last_run_timestamp_seconds`.
-   - The purge can be executed as a background scheduler or via an external Kubernetes CronJob (`cerberus retention purge`).
 
 3. **Encryption at Rest & Responsibility Boundary**:
    - Cerberus enforces encryption in transit via TLS 1.3 across all HTTP, SSE, WebSocket, and Redis connections.
    - Encryption at rest is the operational responsibility of the underlying storage infrastructure (PostgreSQL AWS RDS / Azure Database storage encryption with KMS/Vault, Redis encrypted EBS/persistent disks, Kubernetes encrypted Secrets).
+
+4. **Security Scan Gating & Reviewed Exception Governance**:
+   - Every build and commit must pass automated security gates with **blocking exit codes**:
+     - **Trivy (Filesystem & Container Image)**: Enforces `exit-code: 1` on High or Critical vulnerabilities.
+     - **Semgrep SAST**: Enforces 10 OWASP Top 10 rules covering SQLi, secrets, deserialization, command injection, and TLS verification.
+     - **Bandit SAST**: Scans Python AST for insecure idioms.
+     - **pip-audit**: Audits dependencies against the National Vulnerability Database (NVD) using locked hash requirements.
+     - **TruffleHog**: Scans git commit history for verified credentials and tokens.
+     - **CycloneDX SBOM**: Generates Software Bill of Materials in JSON and XML.
+   - **Strict Exception Policy (`.trivyignore`)**:
+     - Any vulnerability exception must follow the mandatory documented format:
+       `# <CVE_OR_VULN_ID> [exp:YYYY-MM-DD] [owner:security-lead@domain.com] [justification:Detailed technical justification >= 15 chars]`
+     - Validated in CI by `scripts/verify_security_exceptions.py`. Silent or unreviewed bypasses cause CI build failure. Expired exceptions fail builds immediately.
 
 ---
 

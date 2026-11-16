@@ -67,6 +67,7 @@ class SensitiveDataMaskingFilter(logging.Filter):
     """
 
     PATTERNS = [
+        (re.compile(r"://([^:@\s]+):([^@\s]+)@"), r"://\1:***REDACTED***@"),
         (re.compile(r"cvai_[a-zA-Z0-9_\-]{8,}"), "cvai_***REDACTED***"),
         (re.compile(r"sk-[a-zA-Z0-9_\-]{16,}"), "sk-***REDACTED***"),
         (re.compile(r"(Bearer\s+)[a-zA-Z0-9_\-\.]{8,}", re.IGNORECASE), r"\1***REDACTED***"),

@@ -8,8 +8,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, Optional
 
-from sqlalchemy import delete, text
+from sqlalchemy import delete, event, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from cerberus.config import settings
 from cerberus.core.migrations import run_migrations
@@ -39,6 +40,8 @@ engine_kwargs: Dict[str, Any] = {
 
 if "sqlite" in db_url:
     connect_args["check_same_thread"] = False
+    connect_args["timeout"] = 30.0
+    engine_kwargs["poolclass"] = NullPool
 else:
     # Enterprise connection pooling for PostgreSQL in production
     engine_kwargs.update(
@@ -51,6 +54,19 @@ else:
     )
 
 engine = create_async_engine(db_url, connect_args=connect_args, **engine_kwargs)
+
+if "sqlite" in db_url:
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
+        try:
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA busy_timeout=30000")
+            cursor.close()
+        except Exception:
+            pass
+
 
 AsyncSessionLocal = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False, autoflush=False)
 

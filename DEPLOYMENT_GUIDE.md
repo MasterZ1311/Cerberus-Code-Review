@@ -763,10 +763,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - codevault.enterprise.ibm.com
-      secretName: codevault-tls-cert
+        - cerberus.example.com
+      secretName: cerberus-tls-cert
   rules:
-    - host: codevault.enterprise.ibm.com
+    - host: cerberus.example.com
       http:
         paths:
           - path: /
@@ -870,25 +870,39 @@ data:
   PROMETHEUS_ENABLED: "true"
   LOG_LEVEL: "INFO"
   LOG_FORMAT: "json"
-  CORS_ORIGINS: "https://codevault.enterprise.ibm.com,https://orchestrate.ibm.com"
+  CORS_ORIGINS: "https://cerberus.example.com"
 ```
 
-### 4.7 k8s/secret.yaml
+### 4.7 Production Kubernetes Secrets Management (`scripts/bootstrap_k8s_secrets.py`)
+
+Cerberus enforces that plaintext secrets are **never** committed to version control. Production secrets must be provisioned either through External Secrets Operator (ESO) via HashiCorp Vault or dynamically bootstrapped using the cryptographically verified script `scripts/bootstrap_k8s_secrets.py`:
+
+```bash
+# Generate production cerberus-secrets manifest with cryptographically strong keys
+python scripts/bootstrap_k8s_secrets.py --output k8s/secrets.yaml
+
+# Verify k8s/secrets.yaml is ignored by git and contains required keys
+git status --ignored
+kubectl apply -f k8s/secrets.yaml
+```
+
+The bootstrap generator produces an Opaque Secret matching the deployment contract:
 
 ```yaml
 # File: k8s/secret.yaml
+# Generated via scripts/bootstrap_k8s_secrets.py (Excluded from git via .gitignore)
 apiVersion: v1
 kind: Secret
 metadata:
-  name: codevault-secrets
-  namespace: codevault
+  name: cerberus-secrets
+  namespace: cerberus
 type: Opaque
 stringData:
-  DATABASE_URL: "postgresql+asyncpg://codevault_app:Sup3rPr0dS3cr3tP@ssw0rd!@pg-cluster-rw.postgres.svc.cluster.local:5432/codevault_prod"
-  REDIS_URL: "redis://:Sup3rR3d1sPr0dP@ssw0rd!@redis-cluster.redis.svc.cluster.local:6379/0"
-  SECRET_KEY: "prod_cerberus_secure_master_key_98374198273491823749182734"
-  WATSONX_API_KEY: "prod-ibm-watsonx-cloud-iam-apikey-99283471928374"
-  WATSONX_PROJECT_ID: "4b92c431-893d-4c31-8b29-e380f2d43102"
+  DATABASE_URL: "${DATABASE_URL}"
+  REDIS_URL: "${REDIS_URL}"
+  SECRET_KEY: "${SECRET_KEY}"
+  GITHUB_WEBHOOK_SECRET: "${GITHUB_WEBHOOK_SECRET}"
+  DEV_API_KEY: "${DEV_API_KEY}"
 ```
 
 ### 4.8 k8s/networkpolicy.yaml
@@ -1057,14 +1071,14 @@ ingress:
     nginx.ingress.kubernetes.io/proxy-body-size: "25m"
     nginx.ingress.kubernetes.io/limit-rps: "50"
   hosts:
-    - host: codevault.enterprise.ibm.com
+    - host: cerberus.example.com
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: codevault-tls-cert
       hosts:
-        - codevault.enterprise.ibm.com
+        - cerberus.example.com
 
 resources:
   limits:
@@ -1099,14 +1113,14 @@ config:
   llmProvider: "watsonx"
   watsonxUrl: "https://us-south.ml.cloud.ibm.com"
   enabledAgents: "security,performance,quality,architecture,compliance,ml_code,cost_optimizer,accessibility"
-  corsOrigins: "https://codevault.enterprise.ibm.com,https://orchestrate.ibm.com"
+  corsOrigins: "https://cerberus.example.com"
 
 secrets:
-  databaseUrl: "postgresql+asyncpg://codevault_app:Sup3rPr0dS3cr3tP@ssw0rd!@pg-cluster-rw.postgres.svc.cluster.local:5432/codevault_prod"
-  redisUrl: "redis://:Sup3rR3d1sPr0dP@ssw0rd!@redis-cluster.redis.svc.cluster.local:6379/0"
-  secretKey: "prod_cerberus_secure_master_key_98374198273491823749182734"
-  watsonxApiKey: "prod-ibm-watsonx-cloud-iam-apikey-99283471928374"
-  watsonxProjectId: "4b92c431-893d-4c31-8b29-e380f2d43102"
+  databaseUrl: "${DATABASE_URL}"
+  redisUrl: "${REDIS_URL}"
+  secretKey: "${SECRET_KEY}"
+  watsonxApiKey: "${WATSONX_API_KEY}"
+  watsonxProjectId: "${WATSONX_PROJECT_ID}"
 ```
 
 ### 5.3 templates/_helpers.tpl
@@ -1406,7 +1420,7 @@ info:
     name: IBM watsonx Skill Engineering
     email: watsonx-skills@ibm.com
 servers:
-  - url: https://codevault.enterprise.ibm.com/api/v1
+  - url: https://cerberus.example.com/api/v1
     description: Production CodeVault Enterprise Gateway
 paths:
   /review:
@@ -1965,7 +1979,7 @@ jobs:
 
       - name: Run Staging Smoke Tests
         run: |
-          export STAGING_HOST="https://staging.codevault.enterprise.ibm.com"
+          export STAGING_HOST="https://staging.cerberus.example.com"
           curl --fail --retry 5 --retry-delay 5 "$STAGING_HOST/api/v1/health"
 
   # ============================================================================
@@ -1998,7 +2012,7 @@ jobs:
 
       - name: Verify Production Health & Metrics
         run: |
-          curl --fail --retry 5 --retry-delay 10 https://codevault.enterprise.ibm.com/api/v1/health
+          curl --fail --retry 5 --retry-delay 10 https://cerberus.example.com/api/v1/health
 ```
 
 ---
@@ -2028,7 +2042,7 @@ AWS Route53 directs user traffic using a Failover Routing Policy with continuous
     {
       "Action": "UPSERT",
       "ResourceRecordSet": {
-        "Name": "codevault.enterprise.ibm.com.",
+        "Name": "cerberus.example.com.",
         "Type": "A",
         "SetIdentifier": "Primary-USEast",
         "Failover": "PRIMARY",
@@ -2043,7 +2057,7 @@ AWS Route53 directs user traffic using a Failover Routing Policy with continuous
     {
       "Action": "UPSERT",
       "ResourceRecordSet": {
-        "Name": "codevault.enterprise.ibm.com.",
+        "Name": "cerberus.example.com.",
         "Type": "A",
         "SetIdentifier": "Secondary-USWest",
         "Failover": "SECONDARY",
@@ -2201,7 +2215,7 @@ aws route53 change-resource-record-sets \
 
 # Step 5: Validate Health and End-to-End Review Execution
 echo "==> Step 5: Executing end-to-end health probe against us-west-2..."
-curl --fail --retry 10 --retry-delay 3 https://codevault.enterprise.ibm.com/api/v1/health
+curl --fail --retry 10 --retry-delay 3 https://cerberus.example.com/api/v1/health
 
 echo "==> Failover completed successfully in < 15 minutes."
 ```

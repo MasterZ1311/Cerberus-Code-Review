@@ -58,7 +58,7 @@ spec:
             sizeLimit: 512Mi
       containers:
         - name: cerberus-api
-          image: cerberus-ai:0.1.0
+          image: cerberus-ai
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

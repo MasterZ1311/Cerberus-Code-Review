@@ -73,3 +73,7 @@ internal_docs/
 *.doc
 *.ppt
 
+# Kubernetes secrets (never commit actual production secrets)
+k8s/secrets.yaml
+
+

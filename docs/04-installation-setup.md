@@ -296,8 +296,8 @@ IBM watsonx is the enterprise model backbone featuring IBM Granite models:
 export LLM_PROVIDER=watsonx
 
 # Configure IBM Cloud credentials
-export WATSONX_API_KEY="your-ibm-cloud-api-key"
-export WATSONX_PROJECT_ID="your-watsonx-project-id"
+export WATSONX_API_KEY="${WATSONX_API_KEY}"
+export WATSONX_PROJECT_ID="${WATSONX_PROJECT_ID}"
 export WATSONX_URL="https://us-south.ml.cloud.ibm.com"
 export WATSONX_MODEL_ID="ibm/granite-3-8b-instruct"
 ```

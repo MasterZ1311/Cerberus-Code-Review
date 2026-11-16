@@ -23,7 +23,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 COPY requirements-lock.txt requirements.txt ./
 RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements-lock.txt
+    pip install --no-cache-dir --require-hashes -r requirements-lock.txt
 
 # Stage 2: Minimal Hardened Runtime
 FROM python:3.11-slim@sha256:d8c525f0ad0289a4ffad6d14902b79a52de0db126e855fa316d2eb1fcebc95ba AS runtime

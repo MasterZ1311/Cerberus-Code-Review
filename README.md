@@ -295,7 +295,7 @@ curl http://localhost:8000/metrics
 
 ## 🧪 Testing, Quality & Verification
 
-Cerberus has **536 automated tests across 32 test suites with 85.36% enforced branch coverage** running in CI across Python 3.11, 3.12, and 3.13:
+Cerberus has **594 automated tests across 42 test suites with 85.38% enforced branch coverage** running in CI across Python 3.11, 3.12, and 3.13:
 
 ```bash
 # Run full automated test suite with enforced branch coverage
@@ -303,16 +303,21 @@ python -m pytest --cov=cerberus --cov-branch --cov-report=term-missing
 ```
 
 ```
-TOTAL                                             5317    592   1786    302    85%
-Required test coverage of 85.0% reached. Total coverage: 85.36%
-======================= 536 passed in 71.81s ========================
+TOTAL                                             5867    665   1974    343    85%
+Required test coverage of 85.0% reached. Total coverage: 85.38%
+======================= 594 passed in 113.36s =======================
 ```
 
+- **👑 Privilege Escalation & Scope Hierarchy (`tests/test_privilege_escalation.py`):** Proves tenant admins cannot mint `platform:admin`, cannot grant arbitrary scopes, cannot access or rotate keys belonging to other tenants, and that global runtime configuration (`/api/v1/config`) is restricted strictly to platform administrators.
+- **🔒 Complete Zero-Retention Privacy (`tests/test_privacy_complete.py`):** Directly inspects L1 in-memory cache, L2 Redis mocks, database records (`CodeReviewRecord.code_snippet`, `results_json`), child `FindingRecord`s, serialized API responses, and OpenTelemetry spans & events to verify complete absence of original source code when `RETAIN_SOURCE_CODE=false`.
+- **🐘 Database Fallback Consistency & Fail-Closed Durability (`tests/test_database_fallback_consistency.py`):** Proves that review submissions synchronously commit critical core records to durable storage before issuing IDs, verifies cross-worker retrieval and tenant isolation upon total memory eviction, asserts fail-closed HTTP 500 rejection without orphan IDs on database outages, and exercises transactional atomic batch persistence.
+- **📦 Supply Chain & Kubernetes Verification (`tests/test_supply_chain_and_k8s.py`):** Validates zero drift between `requirements.txt` and `requirements-lock.txt`, verifies `.trivyignore` exception format and expiration dates, asserts cryptographic secret generation (`scripts/bootstrap_k8s_secrets.py`), and ensures immutable image digest pinning in `k8s/kustomization.yaml`.
+- **♿ WCAG 2.1 AA Accessibility Testing (`tests/test_browser_accessibility.py`):** Playwright headless browser suite asserting full keyboard navigation, ARIA landmarks, screen reader labels, high-contrast visual tokens, and `prefers-reduced-motion` compliance.
 - **🛡️ Master Hostile Verification Suite (`tests/test_perfect_10_master_coverage.py`):** 22 comprehensive end-to-end test cases exercising CLI subcommands, API v1 routes, SingleFlight cache stampede coalescing, zlib payload compression, DB retry resilience, and polyglot syntax verification.
 - **🌲 Tree-sitter AST Multi-Language Parity:** C-binding native AST verification for TypeScript, TSX, JavaScript, Go, Rust, and Python with line-and-column error precision.
 - **🐙 Zero-Click GitHub PR Reviews:** Native `pull_request.opened` webhook ingestion with HMAC SHA-256 verification and line-anchored comments.
 - **🔒 Timing-Safe Security:** `hmac.compare_digest` constant-time API key verification and granular scope RBAC (`require_scopes`).
-- **🐘 Production Connection Pooling:** PostgreSQL connection pool (`pool_size=20`, `max_overflow=10`, `pool_recycle=3600`, `pool_pre_ping=True`).
+- **🐘 Production Connection Pooling:** PostgreSQL connection pool (`pool_size=20`, `max_overflow=10`, `pool_recycle=3600`, `pool_pre_ping=True`) with asynchronous SQLite fallback using `NullPool` and WAL mode for zero lock contention.
 - **Bytecode Verification:** `python -m compileall cerberus tests` (100% pass across all modules).
 - **Security Headers:** Strict CSP, HSTS, X-Content-Type-Options, X-Frame-Options.
 - **Sensitive Data Masking:** Automatic redaction of API keys and bearer tokens in application logs.
@@ -376,9 +381,9 @@ Required test coverage of 85.0% reached. Total coverage: 85.36%
 
 Cerberus provides verified infrastructure-as-code and security manifests for production:
 
-- 🐳 **Multi-Stage Container Image (`Dockerfile`):** Unprivileged runtime user (`cerberus`, UID `10001`), immutable non-editable wheels, pinned base image (`python:3.11.9-slim-bookworm`), and native curl-based healthchecks.
+- 🐳 **Multi-Stage Container Image (`Dockerfile`):** Unprivileged runtime user (`cerberus`, UID `1000`), immutable non-editable wheels, pinned base image (`python:3.11-slim@sha256:d8c525f0ad0289a4ffad6d14902b79a52de0db126e855fa316d2eb1fcebc95ba`), and native curl-based healthchecks.
 - 🌐 **Isolated Compose Network (`docker-compose.yml`):** Internal container-only network `cerberus_net`, PostgreSQL (`5432`) and Redis (`6379`) ports completely unexposed to host/public networks, strict healthcheck dependency gating.
-- ☸️ **Production Kubernetes Topology (`k8s/`):** Committed [`deployment.yaml`](k8s/deployment.yaml) and [`service.yaml`](k8s/service.yaml) featuring `readOnlyRootFilesystem`, `drop: ["ALL"]` capabilities, resource requests/limits, and truthful `/api/v1/health/ready` probe integration.
+- ☸️ **Production Kubernetes Topology (`k8s/`):** Committed [`deployment.yaml`](k8s/deployment.yaml) and [`service.yaml`](k8s/service.yaml) featuring `readOnlyRootFilesystem`, `drop: ["ALL"]` capabilities, resource requests/limits, and truthful `/api/v1/ready` probe integration.
 - 🛡️ **Static Analysis Security Testing (`semgrep.yaml`):** Enforced SAST rules catching SQL injection patterns (CWE-89) and hard-coded production secrets (CWE-798).
 
 ---
@@ -387,7 +392,7 @@ Cerberus provides verified infrastructure-as-code and security manifests for pro
 
 - 🏆 **[Master Engineering Audit](reports/MASTER_ENGINEERING_AUDIT.md)** — Comprehensive scorecard, architecture evaluation, and audit across 10 pillars
 - 🛡️ **[Security Audit & Threat Model](reports/SECURITY_AUDIT.md)** — OWASP ASVS v4.0.3 analysis, STRIDE threat model, negative testing, and Red-Team results
-- 🧪 **[Test Results & Quality Assurance Report](reports/TEST_RESULTS.md)** — 495 automated tests execution summary, zero-flakiness analysis, and module breakdown
+- 🧪 **[Test Results & Quality Assurance Report](reports/TEST_RESULTS.md)** — 604 automated tests execution summary, zero-flakiness analysis, and module breakdown
 - 🧠 **[AI/LLM Systems & Evaluation Report](reports/AI_EVALUATION.md)** — Foundation model routing, invariant safety guards, and consensus arbitration
 - ⚡ **[Performance Benchmarks Report](reports/PERFORMANCE_BENCHMARKS.md)** — Profiling, sub-millisecond cache latency, and SingleFlight thundering-herd defense
 - 🚀 **[Production Readiness & SRE Review](reports/PRODUCTION_READINESS.md)** — Launch checklist, deployment topologies, SLOs, and zero-downtime procedures

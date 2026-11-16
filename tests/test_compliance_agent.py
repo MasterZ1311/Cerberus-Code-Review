@@ -210,3 +210,40 @@ cvv = "Column(String(4))"
     assert response.status == "completed"
     assert response.overall_score is not None
     assert len(response.critical_issues) > 0
+
+
+@pytest.mark.asyncio
+async def test_ccpa_dsar_identity_verification():
+    from cerberus.agents.compliance.ccpa_evaluator import CCPARegulatoryEvaluator
+    code = """
+def process_ccpa_request(user_id):
+    # Missing verify_identity check
+    return db.fetch_all_records(user_id)
+"""
+    findings = CCPARegulatoryEvaluator.evaluate(code)
+    assert any("Missing Identity Verification" in f.title for f in findings)
+
+
+@pytest.mark.asyncio
+async def test_gdpr_raw_ip_and_consent_and_erasure():
+    from cerberus.agents.compliance.gdpr_evaluator import GDPRRegulatoryEvaluator
+    code = """
+import logging
+logger = logging.getLogger(__name__)
+
+def log_user_visit(request):
+    logger.info("Connection from: %s", request.client_ip)
+
+def track_user(user):
+    # Tracking without consent
+    return user.id
+
+def delete_user(user):
+    # Incomplete erasure: soft delete only
+    is_deleted = True
+    return is_deleted
+"""
+    findings = GDPRRegulatoryEvaluator.evaluate(code)
+    assert any("Raw IP Address" in f.title for f in findings)
+    assert any("Lacks Consent Verification" in f.title for f in findings)
+    assert any("Incomplete Erasure" in f.title for f in findings)

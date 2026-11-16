@@ -93,9 +93,13 @@ async def get_configuration(api_key: str = Depends(verify_api_key)) -> Dict[str,
 @router.put("", status_code=status.HTTP_200_OK)
 @router.patch("", status_code=status.HTTP_200_OK)
 async def update_configuration(
-    update: ConfigUpdateModel, api_key: str = Depends(require_scopes("admin"))
+    update: ConfigUpdateModel, api_key: str = Depends(require_scopes("platform:admin"))
 ) -> Dict[str, str]:
-    """Update runtime configuration settings with strict validation and database persistence."""
+    """
+    Update runtime configuration settings with strict validation and database persistence.
+    Requires platform administrator authorization ('platform:admin' scope).
+    Tenant-level administrators cannot modify system-wide configuration.
+    """
     if update.severity_threshold is not None:
         sev = update.severity_threshold.strip().lower()
         if sev not in VALID_SEVERITIES:

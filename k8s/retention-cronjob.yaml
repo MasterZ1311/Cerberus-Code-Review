@@ -37,7 +37,7 @@ spec:
                 sizeLimit: 128Mi
           containers:
             - name: retention-purge
-              image: cerberus-ai:0.1.0
+              image: cerberus-ai
               imagePullPolicy: IfNotPresent
               command:
                 - python

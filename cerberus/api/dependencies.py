@@ -146,7 +146,10 @@ async def verify_api_key(request: Request, authorization: Optional[str] = Header
         tenant_id = "dev_tenant"
         scopes_set = {"review:read", "review:write", "admin", "platform:admin"}
 
-    is_platform_admin = ("platform:admin" in scopes_set) or (token == settings.DEFAULT_DEV_API_KEY)
+    is_dev_mode = settings.ENVIRONMENT.lower() not in ("production", "prod")
+    is_platform_admin = ("platform:admin" in scopes_set) or (
+        is_dev_mode and settings.DEFAULT_DEV_API_KEY and timing_safe_compare(token, settings.DEFAULT_DEV_API_KEY)
+    )
 
     request.state.api_key_record = key_record
     request.state.api_key_scopes = scopes_set
@@ -169,23 +172,42 @@ def require_scopes(*required_scopes: str) -> Callable:
     """
     Dependency factory enforcing granular Role-Based Access Control (RBAC).
     Verifies that the authenticated API key possesses all required scopes.
+    Plain 'admin' is tenant-scoped and NEVER satisfies 'platform:admin'.
+    'platform:admin' satisfies both platform-wide and tenant-scoped requirements.
     """
 
     async def _scope_checker(request: Request, token: str = Depends(verify_api_key)) -> str:
         granted_scopes: set[str] = getattr(request.state, "api_key_scopes", set())
-        if "admin" in granted_scopes:
-            return token
+        is_platform_admin: bool = getattr(request.state, "is_platform_admin", False) or (
+            "platform:admin" in granted_scopes
+        )
+
         for rs in required_scopes:
-            if rs.lower() not in granted_scopes:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail={
-                        "error": "insufficient_scope",
-                        "message": f"Permission denied: Missing required scope '{rs}'",
-                        "required_scopes": list(required_scopes),
-                        "granted_scopes": list(granted_scopes),
-                    },
-                )
+            rs_lower = rs.lower().strip()
+            if rs_lower == "platform:admin":
+                if not is_platform_admin:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail={
+                            "error": "insufficient_scope",
+                            "message": f"Permission denied: Missing required scope '{rs}'",
+                            "required_scopes": list(required_scopes),
+                            "granted_scopes": sorted(list(granted_scopes)),
+                        },
+                    )
+            else:
+                # For tenant scopes ('admin', 'review:read', 'review:write')
+                # platform:admin can access anything; 'admin' satisfies any tenant-level scope
+                if not (is_platform_admin or ("admin" in granted_scopes) or (rs_lower in granted_scopes)):
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail={
+                            "error": "insufficient_scope",
+                            "message": f"Permission denied: Missing required scope '{rs}'",
+                            "required_scopes": list(required_scopes),
+                            "granted_scopes": sorted(list(granted_scopes)),
+                        },
+                    )
         return token
 
     return _scope_checker

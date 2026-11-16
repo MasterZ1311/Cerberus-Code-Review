@@ -4,6 +4,8 @@ rules:
       - pattern-either:
           - pattern: $DB.execute("..." + $VAR + "...")
           - pattern: $DB.execute(f"...{$VAR}...")
+          - pattern: session.execute("..." + $VAR + "...")
+          - pattern: session.execute(f"...{$VAR}...")
     message: "Direct SQL string concatenation detected. Use parameterized queries to prevent CWE-89 SQL Injection."
     languages: [python]
     severity: ERROR
@@ -22,3 +24,114 @@ rules:
     severity: ERROR
     metadata:
       cwe: "CWE-798"
+      owasp: "A07:2021-Identification and Authentication Failures"
+
+  - id: cerberus-insecure-deserialization-pickle
+    patterns:
+      - pattern-either:
+          - pattern: pickle.loads(...)
+          - pattern: _pickle.loads(...)
+          - pattern: cPickle.loads(...)
+    message: "Insecure deserialization using pickle detected. Untrusted data could execute arbitrary code."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-502"
+      owasp: "A08:2021-Software and Data Integrity Failures"
+
+  - id: cerberus-insecure-deserialization-yaml
+    patterns:
+      - pattern-either:
+          - pattern: yaml.unsafe_load(...)
+          - pattern: yaml.load($X, Loader=yaml.Loader)
+          - pattern: yaml.load($X, Loader=yaml.CLoader)
+    message: "Unsafe YAML deserialization detected. Use yaml.safe_load() or SafeLoader."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-502"
+      owasp: "A08:2021-Software and Data Integrity Failures"
+
+  - id: cerberus-command-injection-shell-true
+    patterns:
+      - pattern-either:
+          - pattern: subprocess.Popen(..., shell=True, ...)
+          - pattern: subprocess.run(..., shell=True, ...)
+          - pattern: subprocess.call(..., shell=True, ...)
+          - pattern: os.system(...)
+    message: "Executing system commands with shell=True or os.system invites command injection. Pass argument lists with shell=False."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-78"
+      owasp: "A03:2021-Injection"
+
+  - id: cerberus-unsafe-eval-exec
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: exec(...)
+    paths:
+      exclude:
+        - tests/
+    message: "Dynamic code evaluation via eval() or exec() is dangerous and leads to remote code execution."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-95"
+      owasp: "A03:2021-Injection"
+
+  - id: cerberus-insecure-hash-md5-sha1
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.md5(...)
+          - pattern: hashlib.sha1(...)
+    message: "Weak hash function detected (MD5/SHA1). Use SHA-256, SHA-512, or argon2/bcrypt for security-sensitive contexts."
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-327"
+      owasp: "A02:2021-Cryptographic Failures"
+
+  - id: cerberus-insecure-tempfile-mktemp
+    pattern: tempfile.mktemp(...)
+    message: "tempfile.mktemp is deprecated and insecure because of race condition vulnerabilities. Use tempfile.NamedTemporaryFile instead."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-377"
+      owasp: "A01:2021-Broken Access Control"
+
+  - id: cerberus-insecure-ssl-disabled
+    patterns:
+      - pattern-either:
+          - pattern: requests.get(..., verify=False, ...)
+          - pattern: requests.post(..., verify=False, ...)
+          - pattern: httpx.get(..., verify=False, ...)
+          - pattern: httpx.post(..., verify=False, ...)
+          - pattern: httpx.AsyncClient(..., verify=False, ...)
+    paths:
+      exclude:
+        - tests/
+    message: "Disabling TLS certificate verification (verify=False) exposes traffic to man-in-the-middle attacks."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-295"
+      owasp: "A02:2021-Cryptographic Failures"
+
+  - id: cerberus-cors-wildcard-with-credentials
+    patterns:
+      - pattern: |
+          CORSMiddleware(
+            ...,
+            allow_origins=["*"],
+            allow_credentials=True,
+            ...
+          )
+    message: "Wildcard CORS origin with allow_credentials=True permits arbitrary websites to make authenticated requests."
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-346"
+      owasp: "A05:2021-Security Misconfiguration"

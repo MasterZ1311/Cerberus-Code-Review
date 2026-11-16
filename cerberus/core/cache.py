@@ -212,14 +212,18 @@ class CacheManager:
         return None
 
     def _set_memory(self, key: str, value: Dict[str, Any], ttl: int) -> None:
-        """Internal L1 in-memory setter with LRU eviction."""
+        """Internal L1 in-memory setter with LRU eviction and recursive privacy redaction."""
+        val_to_store = value
+        if not getattr(settings, "RETAIN_SOURCE_CODE", False):
+            val_to_store = redact_source_code_recursively(value)
+
         if key in self._memory_cache:
             self._memory_cache.move_to_end(key)
         else:
             while len(self._memory_cache) >= self.max_items and self._memory_cache:
                 self._memory_cache.popitem(last=False)
 
-        self._memory_cache[key] = {"data": value, "expires_at": time.time() + ttl}
+        self._memory_cache[key] = {"data": val_to_store, "expires_at": time.time() + ttl}
 
     async def set(self, key: str, value: Dict[str, Any], ttl_seconds: Optional[int] = None) -> None:
         if not self.enabled:
@@ -227,13 +231,17 @@ class CacheManager:
 
         ttl = ttl_seconds or self.ttl
 
+        sanitized_value = value
+        if not getattr(settings, "RETAIN_SOURCE_CODE", False):
+            sanitized_value = redact_source_code_recursively(value)
+
         # 1. Set in Memory (L1)
-        self._set_memory(key, value, ttl)
+        self._set_memory(key, sanitized_value, ttl)
 
         # 2. Set in Redis (L2) with automatic compression
         if self.redis_client:
             try:
-                payload_str = self._encode_payload(value)
+                payload_str = self._encode_payload(sanitized_value)
                 await self.redis_client.set(key, payload_str, ex=ttl)
             except Exception as e:
                 logger.warning(f"Redis SET failed: {e}")
@@ -259,6 +267,13 @@ class CacheManager:
 
     # Async alias for standard cache delete API
     delete = invalidate_async
+
+    async def delete_review(self, review_id: str) -> None:
+        """Evicts all cached keys associated with a review from L1 and L2 caches."""
+        self.invalidate(f"cvai:review:{review_id}")
+        self.invalidate(f"cvai:review_owner:{review_id}")
+        await self.invalidate_async(f"cvai:review:{review_id}")
+        await self.invalidate_async(f"cvai:review_owner:{review_id}")
 
     def prune_expired(self) -> int:
         """Remove all expired entries from in-memory cache. Returns count of purged items."""
@@ -344,7 +359,11 @@ class CacheManager:
         Publishes a review lifecycle event across application workers via Redis pub/sub.
         Also persists latest event in Redis and in-memory subscriber queues for late joiners.
         """
-        payload_str = json.dumps(event_data)
+        cleaned_event = event_data
+        if not getattr(settings, "RETAIN_SOURCE_CODE", False):
+            cleaned_event = redact_source_code_recursively(event_data)
+
+        payload_str = json.dumps(cleaned_event)
         if self.redis_client:
             try:
                 channel = f"cvai:review_events:{review_id}"
@@ -358,7 +377,7 @@ class CacheManager:
             queues = list(self._local_subscribers.get(review_id, set()))
         for q in queues:
             try:
-                q.put_nowait(event_data)
+                q.put_nowait(cleaned_event)
             except Exception:
                 pass
 

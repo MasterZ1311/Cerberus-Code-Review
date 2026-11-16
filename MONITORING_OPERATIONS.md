@@ -881,8 +881,8 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
 # File: config/alertmanager.yml
 global:
   resolve_timeout: 5m
-  smtp_smarthost: 'smtp.enterprise.ibm.com:587'
-  smtp_from: 'alertmanager@codevault.enterprise.ibm.com'
+  smtp_smarthost: 'smtp.example.com:587'
+  smtp_from: 'alertmanager@cerberus.example.com'
   smtp_require_tls: true
 
 route:
@@ -973,7 +973,7 @@ spec:
             category: api
           annotations:
             summary: "API 5xx error rate exceeds 5% in cluster {{ $labels.cluster }}"
-            runbook_url: "https://codevault.enterprise.ibm.com/docs/runbooks#81"
+            runbook_url: "https://cerberus.example.com/docs/runbooks#81"
 
         # 2. API Latency Warning
         - alert: APILatencyBreach
@@ -994,7 +994,7 @@ spec:
             category: api
           annotations:
             summary: "API P99 latency is {{ $value }}s, exceeding 30s critical threshold."
-            runbook_url: "https://codevault.enterprise.ibm.com/docs/runbooks#81"
+            runbook_url: "https://cerberus.example.com/docs/runbooks#81"
 
         # 4. Review Throughput Drop
         - alert: ReviewThroughputDrop
@@ -1015,7 +1015,7 @@ spec:
             category: multi-agent
           annotations:
             summary: "Over 10% of code reviews are failing completely in LangGraph engine."
-            runbook_url: "https://codevault.enterprise.ibm.com/docs/runbooks#86"
+            runbook_url: "https://cerberus.example.com/docs/runbooks#86"
 
         # 6. Agent Crash Detected
         - alert: AgentCrashDetected
@@ -1036,7 +1036,7 @@ spec:
             category: multi-agent
           annotations:
             summary: "Over 50% of executions for agent {{ $labels.agent }} are crashing."
-            runbook_url: "https://codevault.enterprise.ibm.com/docs/runbooks#86"
+            runbook_url: "https://cerberus.example.com/docs/runbooks#86"
 
         # 8. Security Agent Down
         - alert: SecurityAgentDown
@@ -1047,7 +1047,7 @@ spec:
             category: security
           annotations:
             summary: "Core Security Review Agent is failing; security checks bypassed or failing."
-            runbook_url: "https://codevault.enterprise.ibm.com/docs/runbooks#86"
+            runbook_url: "https://cerberus.example.com/docs/runbooks#86"
 
         # 9. Agent Execution Timeout
         - alert: AgentExecutionTimeout
@@ -1068,7 +1068,7 @@ spec:
             category: multi-agent
           annotations:
             summary: "Multi-agent graph deadlock: 20+ reviews in progress but zero reviews completing."
-            runbook_url: "https://codevault.enterprise.ibm.com/docs/runbooks#86"
+            runbook_url: "https://cerberus.example.com/docs/runbooks#86"
 
     - name: codevault.infrastructure.rules
       rules:
@@ -1081,7 +1081,7 @@ spec:
             category: database
           annotations:
             summary: "PostgreSQL master database instance is unreachable."
-            runbook_url: "https://codevault.enterprise.ibm.com/docs/runbooks#83"
+            runbook_url: "https://cerberus.example.com/docs/runbooks#83"
 
         # 12. PostgreSQL Connection Pool Exhaustion
         - alert: DatabasePoolExhaustion
@@ -1092,7 +1092,7 @@ spec:
             category: database
           annotations:
             summary: "Database connection pool is > 90% saturated."
-            runbook_url: "https://codevault.enterprise.ibm.com/docs/runbooks#83"
+            runbook_url: "https://cerberus.example.com/docs/runbooks#83"
 
         # 13. PostgreSQL High Query Latency
         - alert: DatabaseHighLatency
@@ -1123,7 +1123,7 @@ spec:
             category: cache
           annotations:
             summary: "Redis cache master instance is unreachable."
-            runbook_url: "https://codevault.enterprise.ibm.com/docs/runbooks#85"
+            runbook_url: "https://cerberus.example.com/docs/runbooks#85"
 
         # 16. Redis Memory High
         - alert: RedisMemoryHigh
@@ -1144,7 +1144,7 @@ spec:
             category: cache
           annotations:
             summary: "Redis is evicting keys at an abnormal rate (>100 keys/sec)."
-            runbook_url: "https://codevault.enterprise.ibm.com/docs/runbooks#85"
+            runbook_url: "https://cerberus.example.com/docs/runbooks#85"
 
         # 18. Cache Hit Rate Low
         - alert: CacheHitRateLow
@@ -1185,7 +1185,7 @@ spec:
             category: compute
           annotations:
             summary: "Pod {{ $labels.pod }} was OOMKilled by the Linux kernel."
-            runbook_url: "https://codevault.enterprise.ibm.com/docs/runbooks#82"
+            runbook_url: "https://cerberus.example.com/docs/runbooks#82"
 
         # 22. Pod CrashLooping
         - alert: PodCrashLooping
@@ -1216,7 +1216,7 @@ spec:
             category: compute
           annotations:
             summary: "API Pods Working Set memory exceeds 85% of limit."
-            runbook_url: "https://codevault.enterprise.ibm.com/docs/runbooks#82"
+            runbook_url: "https://cerberus.example.com/docs/runbooks#82"
 
     - name: codevault.llm.cost.rules
       rules:
@@ -1229,7 +1229,7 @@ spec:
             category: llm
           annotations:
             summary: "Upstream watsonx Orchestrate endpoint returning HTTP 429 rate limit errors."
-            runbook_url: "https://codevault.enterprise.ibm.com/docs/runbooks#84"
+            runbook_url: "https://cerberus.example.com/docs/runbooks#84"
 
         # 26. LLM Provider Down
         - alert: LLMProviderDown
@@ -1240,7 +1240,7 @@ spec:
             category: llm
           annotations:
             summary: "Over 50% of LLM calls failing against upstream provider {{ $labels.provider }}."
-            runbook_url: "https://codevault.enterprise.ibm.com/docs/runbooks#84"
+            runbook_url: "https://cerberus.example.com/docs/runbooks#84"
 
         # 27. LLM Latency Spike
         - alert: LLMLatencySpike
@@ -1261,7 +1261,7 @@ spec:
             category: cost
           annotations:
             summary: "Daily foundation model expenditure has exceeded $500 hard budget cap."
-            runbook_url: "https://codevault.enterprise.ibm.com/docs/runbooks#87"
+            runbook_url: "https://cerberus.example.com/docs/runbooks#87"
 
         # 29. Cost Anomaly Spike
         - alert: CostAnomalySpike
@@ -1282,7 +1282,7 @@ spec:
             category: websocket
           annotations:
             summary: "Over 1,000 idle WebSocket connections detected without review activity."
-            runbook_url: "https://codevault.enterprise.ibm.com/docs/runbooks#88"
+            runbook_url: "https://cerberus.example.com/docs/runbooks#88"
 
         # 31. TLS Certificate Expiring Soon
         - alert: TLSCertificateExpiringSoon

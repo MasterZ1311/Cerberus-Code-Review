@@ -1,0 +1,120 @@
+name: Release & Container Publish
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Explicit confirmation to publish image to container registry'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+jobs:
+  release-publish:
+    name: Build, Sign & Release Cerberus Container Image
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish == true)
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@0b93645e9fea7318edeed2796c01d3ab981bc87a # v5.3.0
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Release Tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-ci-tools.txt
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine Release Image Metadata
+        id: meta
+        run: |
+          IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/cerberus-ai"
+          VERSION="${{ github.ref_name }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="manual-$(git rev-parse --short HEAD)"
+          fi
+          echo "image_name=${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag_version=${IMAGE_NAME}:${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag_latest=${IMAGE_NAME}:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Build and Push Cerberus Application Image
+        id: build_push
+        uses: docker/build-push-action@4f58ea79222b3b150c895db3437bb9ee1834d5b4 # v6.9.0
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.tag_version }}
+            ${{ steps.meta.outputs.tag_latest }}
+
+      - name: Install Cosign for Keyless OIDC Signing
+        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
+
+      - name: Sign Cerberus Image via GitHub OIDC Keyless Cosign
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          cosign sign --yes "${{ steps.meta.outputs.image_name }}@${{ steps.build_push.outputs.digest }}"
+
+      - name: Verify Cosign Signature
+        run: |
+          cosign verify \
+            "${{ steps.meta.outputs.image_name }}@${{ steps.build_push.outputs.digest }}" \
+            --certificate-identity-regexp="https://github.com/${{ github.repository_owner }}/.*" \
+            --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
+
+      - name: Attest Build Provenance
+        uses: actions/attest-build-provenance@c074443f1a5fb4a4829735d6778f65e648f58356 # v2.1.0
+        with:
+          subject-name: ${{ steps.meta.outputs.image_name }}
+          subject-digest: ${{ steps.build_push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Update Production Overlay Image Digest
+        run: |
+          python scripts/update_k8s_image_digest.py \
+            --kustomization k8s/overlays/production/kustomization.yaml \
+            --image cerberus-ai \
+            --digest "${{ steps.build_push.outputs.digest }}"
+
+      - name: Validate Kubernetes Image Pinning
+        run: |
+          python scripts/validate_k8s_image_pinning.py --file k8s/overlays/production/kustomization.yaml
+
+      - name: Render Production Kubernetes Manifests
+        uses: azure/setup-kubectl@3e0c5de189cb6a6bc373ec7303570743e339e070 # v4.0.0
+
+      - name: Build & Package Release Manifest Artifact
+        run: |
+          mkdir -p release-dist
+          kubectl kustomize k8s/overlays/production/ > release-dist/cerberus-production-manifests.yaml
+
+      - name: Upload Release Kubernetes Artifact
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: cerberus-production-k8s-manifests
+          path: release-dist/cerberus-production-manifests.yaml
+          retention-days: 90

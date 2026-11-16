@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     # Source Code Retention & Privacy Controls
     RETAIN_SOURCE_CODE: bool = False
     DATA_RETENTION_DAYS: int = 30
-    ENABLE_RETENTION_WORKER: bool = True
+    ENABLE_RETENTION_WORKER: bool = False
     MAX_ZIP_UPLOAD_BYTES: int = 25 * 1024 * 1024  # 25 MB
     MAX_REQUEST_BODY_BYTES: int = 30 * 1024 * 1024  # 30 MB
 

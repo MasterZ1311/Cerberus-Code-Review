@@ -27,8 +27,8 @@ jobs:
       - name: Install Linting, Typing & Analysis Tools
         run: |
           python -m pip install --upgrade pip
-          pip install ruff bandit mypy semgrep
-          pip install -r requirements-lock.txt
+          pip install -r requirements-ci-tools.txt
+          pip install --require-hashes -r requirements-lock.txt
 
       - name: Ruff Linter Check
         run: |
@@ -68,7 +68,19 @@ jobs:
       - name: Install Security Tools
         run: |
           python -m pip install --upgrade pip
-          pip install pip-audit cyclonedx-bom
+          pip install -r requirements-ci-tools.txt
+
+      - name: Verify Lockfile Drift
+        run: |
+          python scripts/check_lockfile_drift.py
+
+      - name: Verify Security Exceptions Policy
+        run: |
+          python scripts/verify_security_exceptions.py --file .trivyignore
+
+      - name: Verify Documentation Secret Hygiene
+        run: |
+          python scripts/check_doc_secrets.py
 
       - name: Dependency Vulnerability Audit (pip-audit)
         run: |
@@ -80,8 +92,9 @@ jobs:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
-          exit-code: '0'
+          exit-code: '1'
           severity: 'CRITICAL,HIGH'
+          trivyignores: '.trivyignore'
 
       - name: Secret Scanning (TruffleHog)
         uses: trufflesecurity/trufflehog@a2ca10c3b2f6efad0544f5fb2b339f4ff8d927d6 # v3.88.2
@@ -120,9 +133,27 @@ jobs:
         run: |
           kubectl apply --dry-run=client -k k8s/
 
+      - name: Install kubeconform
+        run: |
+          curl -sL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Validate Manifests with kubeconform
+        run: |
+          kubectl kustomize k8s/ | kubeconform -strict -summary -kubernetes-version 1.30.0 -
+
+      - name: Validate Secret Bootstrapper
+        run: |
+          python scripts/bootstrap_k8s_secrets.py --output /tmp/cerberus-secrets.yaml
+          test -s /tmp/cerberus-secrets.yaml
+
+      - name: Validate Kubernetes Image Pinning & Base Image Rejection
+        run: |
+          python scripts/validate_k8s_image_pinning.py
+
   test:
     name: Test Suite (Python ${{ matrix.python-version }})
-    needs: [lint-and-static-analysis, security-and-supply-chain]
+    needs: [lint-and-static-analysis, security-and-supply-chain, kubernetes-validation]
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -163,12 +194,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
 
-      - name: Install dependencies from lockfile
+      - name: Install dependencies from lockfile with strict hash verification
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-lock.txt
-          pip install pytest pytest-asyncio pytest-cov httpx playwright
-          pip install -e .
+          pip install --require-hashes -r requirements-lock.txt
+          pip install --no-deps -e .
 
       - name: Install Playwright Browsers
         if: matrix.python-version == '3.11'
@@ -199,7 +229,7 @@ jobs:
 
   docker-verification:
     name: Docker Build, Trivy & Compose Smoke Test
-    needs: [test]
+    needs: [test, kubernetes-validation, security-and-supply-chain]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -220,8 +250,9 @@ jobs:
         with:
           image-ref: 'cerberus-ai:ci-test'
           format: 'table'
-          exit-code: '0'
+          exit-code: '1'
           severity: 'CRITICAL,HIGH'
+          trivyignores: '.trivyignore'
 
       - name: Real Docker Compose Startup Smoke Test
         env:
@@ -230,7 +261,7 @@ jobs:
         run: |
           docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
           echo "Waiting for services to become healthy..."
-          timeout 90 bash -c 'until curl -sf http://localhost:8000/api/v1/ready; do sleep 2; done'
+          timeout 90 bash -c 'until curl -sf http://localhost:8000/api/v1/ready; do sleep 2; done' || (docker compose -f docker-compose.yml -f docker-compose.dev.yml logs --tail=200 && exit 1)
           echo "Service is ready! Verifying authentication..."
           HTTP_ANON=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/review -X POST -H "Content-Type: application/json" -d '{"code":"x=1"}')
           [ "$HTTP_ANON" -eq 401 ]
@@ -244,10 +275,10 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install requirements for smoke test
+      - name: Install requirements for smoke test with hash verification
         run: |
-          pip install -r requirements-lock.txt
-          pip install httpx
+          pip install --require-hashes -r requirements-lock.txt
+          pip install --no-deps -e .
 
       - name: Execute Deployment Smoke Test Script
         run: |

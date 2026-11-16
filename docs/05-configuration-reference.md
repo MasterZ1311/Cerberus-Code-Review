@@ -45,7 +45,7 @@ server:
   workers: 4
 
 database:
-  url: "postgresql://user:pass@localhost:5432/codevault"
+  url: "${DATABASE_URL}"
 
 cache:
   url: "redis://localhost:6379/0"
@@ -94,7 +94,7 @@ CODEVAULT_WORKERS=4
 ```yaml
 database:
   # Connection string
-  url: "postgresql://codevault:password@localhost:5432/codevault"
+  url: "${DATABASE_URL}"
   
   # Or for SQLite (development only)
   # url: "sqlite:///./codevault.db"
@@ -116,7 +116,7 @@ database:
 
 **Environment Variables:**
 ```bash
-DATABASE_URL=postgresql://user:pass@host:5432/db
+DATABASE_URL="${DATABASE_URL}"
 DATABASE_POOL_SIZE=10
 DATABASE_MAX_OVERFLOW=20
 ```

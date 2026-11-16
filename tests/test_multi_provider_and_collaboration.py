@@ -113,6 +113,37 @@ async def test_deepseek_provider_generate():
         assert result == '{"score": 82.0, "findings": []}'
 
 
+@pytest.mark.asyncio
+async def test_openrouter_provider_generate():
+    from cerberus.providers.openrouter_provider import OpenRouterProvider
+
+    provider = OpenRouterProvider(api_key="sk-or-test-key", model="auto")
+    assert await provider.is_available() is True
+    assert provider.effective_model == "anthropic/claude-3.5-sonnet"
+    assert provider.effective_base_url == "https://openrouter.ai/api/v1"
+
+    fake_response = {"choices": [{"message": {"content": '{"score": 92.0, "findings": []}'}}]}
+
+    mock_client = AsyncMock()
+    mock_post_resp = MagicMock()
+    mock_post_resp.status_code = 200
+    mock_post_resp.json.return_value = fake_response
+    mock_client.post.return_value = mock_post_resp
+
+    with patch.object(provider, "get_client", return_value=mock_client):
+        result = await provider.generate_response("System prompt", "Review code")
+        assert result == '{"score": 92.0, "findings": []}'
+
+    # Error branch
+    mock_err_resp = MagicMock()
+    mock_err_resp.status_code = 500
+    mock_err_resp.text = "Internal Server Error"
+    mock_client.post.return_value = mock_err_resp
+    with patch.object(provider, "get_client", return_value=mock_client):
+        result = await provider.generate_response("System prompt", "Review code")
+        assert result is None
+
+
 # =====================================================================
 # 2. AUTO-DETECTION & PER-AGENT ROUTING TESTS
 # =====================================================================

@@ -1361,7 +1361,7 @@ app = Flask(__name__)
 @app.route('/webhooks/codevault', methods=['POST'])
 def handle_webhook():
     signature = request.headers.get('X-CodeVault-Signature')
-    secret = 'whsec_your_secret_key'
+    secret = '${WEBHOOK_SECRET}'
     
     if not verify_webhook(request.data, signature, secret):
         return 'Invalid signature', 401
@@ -1389,7 +1389,7 @@ function verifyWebhook(payload, signature, secret) {
 // Express.js usage
 app.post('/webhooks/codevault', express.raw({type: 'application/json'}), (req, res) => {
   const signature = req.headers['x-codevault-signature'];
-  const secret = 'whsec_your_secret_key';
+  const secret = '${WEBHOOK_SECRET}';
   
   if (!verifyWebhook(req.body, signature, secret)) {
     return res.status(401).send('Invalid signature');
@@ -1421,7 +1421,7 @@ app.post('/webhooks/codevault', express.raw({type: 'application/json'}), (req, r
 from codevault import CodeVault
 
 # Initialize client
-client = CodeVault(api_key="cvai_your_api_key")
+client = CodeVault(api_key="${CERBERUS_API_KEY}")
 
 # Submit review
 review = client.review(
@@ -1460,7 +1460,7 @@ async def review_code():
 import { CodeVault } from '@codevault/sdk';
 
 // Initialize client
-const client = new CodeVault({ apiKey: 'cvai_your_api_key' });
+const client = new CodeVault({ apiKey: '${CERBERUS_API_KEY}' });
 
 // Submit review
 const review = await client.review({
@@ -1548,7 +1548,7 @@ jobs:
 #!/bin/bash
 # .git/hooks/pre-commit
 
-CODEVAULT_API_KEY="cvai_your_api_key"
+CODEVAULT_API_KEY="${CERBERUS_API_KEY}"
 API_URL="http://localhost:8000/api/v1/review"
 
 # Get staged files

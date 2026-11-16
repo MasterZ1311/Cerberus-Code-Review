@@ -16,6 +16,11 @@ resources:
   - ingress.yaml
   - retention-cronjob.yaml
 
+images:
+  - name: cerberus-ai
+    newName: ghcr.io/cerberus-ai/cerberus-ai
+    newTag: "0.1.0"
+
 commonLabels:
   app.kubernetes.io/part-of: cerberus-system
   app.kubernetes.io/managed-by: kustomize

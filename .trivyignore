@@ -1,0 +1,9 @@
+# Cerberus Security Scanner Exception Policy
+# Format:
+# # <VULNERABILITY_ID> [exp:YYYY-MM-DD] [owner:owner@cerberus.internal] [justification:Detailed technical justification (min 15 chars)]
+# <VULNERABILITY_ID>
+#
+# All entries are strictly validated by scripts/verify_security_exceptions.py in CI.
+# Any exception without an unexpired date, valid owner, or sufficient justification will immediately fail CI.
+#
+# No active exceptions currently granted.

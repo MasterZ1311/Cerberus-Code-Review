@@ -23,19 +23,38 @@ from cerberus.core.security import rate_limiter
 from cerberus.core.security_headers import SecurityHeadersMiddleware, SensitiveDataMaskingFilter
 from cerberus.core.telemetry import get_prometheus_metrics
 
+logger = logging.getLogger("cerberus.api")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    await init_db()
-    await cache_manager.connect()
-    await rate_limiter.connect()
+    logger.info(f"Starting Cerberus Multi-Agent API v{__version__} (env={settings.ENVIRONMENT})")
+    try:
+        await init_db()
+        logger.info("Durable database backend initialized successfully.")
+    except Exception as e:
+        logger.error(f"Critical startup failure during database initialization: {type(e).__name__}: {e}")
+        raise
+
+    try:
+        await cache_manager.connect()
+        logger.info(f"Cache manager initialized (enabled={cache_manager.enabled}).")
+    except Exception as e:
+        logger.warning(f"Cache connection warning during startup: {type(e).__name__}: {e}")
+
+    try:
+        await rate_limiter.connect()
+        logger.info("Rate limiter initialized successfully.")
+    except Exception as e:
+        logger.warning(f"Rate limiter connection warning during startup: {type(e).__name__}: {e}")
 
     retention_task = None
     if getattr(settings, "ENABLE_RETENTION_WORKER", True) and settings.ENVIRONMENT.lower() not in ("test", "testing"):
         from cerberus.core.retention import retention_lifecycle_worker
 
         retention_task = asyncio.create_task(retention_lifecycle_worker(interval_seconds=86400))
+        logger.info("Automated retention lifecycle worker started.")
 
     yield
 

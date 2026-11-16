@@ -132,17 +132,17 @@ The following 105 verification items must all receive verified `PASS` status bef
 | 23 | HashiCorp Vault secrets sync active | `kubectl get externalsecrets -n codevault` | All external secrets in `SecretSynced` status | Sec | [PASS] |
 | 24 | API keys stored using SHA-256 cryptographic hashes | `python -m pytest tests/test_suite_a_security.py -k "test_verify_api_key_hash_cryptographic_equality"` | `1 passed` | Sec | [PASS] |
 | 25 | Unregistered or fake `cvai_` tokens rejected | `python -m pytest tests/test_suite_a_security.py -k "test_fabricated_cvai_token_rejected"` | `1 passed` | Sec | [PASS] |
-| 26 | Expired API keys return HTTP 401 Unauthorized | `curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer cvai_expired_key" https://api.codevault.enterprise.ibm.com/api/v1/health` | `401` | Sec | [PASS] |
+| 26 | Expired API keys return HTTP 401 Unauthorized | `curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer cvai_expired_key" https://api.cerberus.example.com/api/v1/health` | `401` | Sec | [PASS] |
 | 27 | Inactive (revoked) API keys rejected | `python -m pytest tests/test_suite_a_security.py -k "test_inactive_api_key_rejected"` | `1 passed` | Sec | [PASS] |
 | 28 | CORS wildcard disallowed with credentials | `python -m pytest tests/test_suite_a_security.py -k "test_cors_wildcard_with_credentials_rejected"` | `1 passed` | Sec | [PASS] |
-| 29 | CORS whitelist restricted to trusted domains | `curl -s -I -H "Origin: https://malicious-site.com" https://api.codevault.enterprise.ibm.com/api/v1/health \| grep -i "access-control-allow-origin"` | No matching allow-origin header returned | Sec | [PASS] |
+| 29 | CORS whitelist restricted to trusted domains | `curl -s -I -H "Origin: https://malicious-site.com" https://api.cerberus.example.com/api/v1/health \| grep -i "access-control-allow-origin"` | No matching allow-origin header returned | Sec | [PASS] |
 | 30 | Container runtime runs as non-root UID 10001 | `kubectl get pods -l app=codevault-api -o jsonpath='{.items[0].spec.securityContext.runAsUser}'` | `10001` | Sec | [PASS] |
 | 31 | Container root filesystem mounted read-only | `kubectl get pods -l app=codevault-api -o jsonpath='{.items[0].spec.containers[0].securityContext.readOnlyRootFilesystem}'` | `true` | Sec | [PASS] |
 | 32 | Linux capabilities dropped (`ALL`) on containers | `kubectl get pods -l app=codevault-api -o jsonpath='{.items[0].spec.containers[0].securityContext.capabilities.drop}'` | `["ALL"]` | Sec | [PASS] |
 | 33 | Privilege escalation disallowed in container spec | `kubectl get pods -l app=codevault-api -o jsonpath='{.items[0].spec.containers[0].securityContext.allowPrivilegeEscalation}'` | `false` | Sec | [PASS] |
 | 34 | Kubernetes NetworkPolicies isolate DB and Redis | `kubectl get networkpolicy -n codevault` | Policies restrict ingress to pod labels | Sec | [PASS] |
-| 35 | TLS 1.3 enforced on ingress endpoints | `nmap --script ssl-enum-ciphers -p 443 api.codevault.enterprise.ibm.com \| grep "TLSv1.3"` | `TLSv1.3: Supported` | Sec | [PASS] |
-| 36 | HSTS header enforced with max-age >= 31536000 | `curl -s -I https://api.codevault.enterprise.ibm.com/api/v1/health \| grep -i "strict-transport-security"` | `max-age=31536000; includeSubDomains` | Sec | [PASS] |
+| 35 | TLS 1.3 enforced on ingress endpoints | `nmap --script ssl-enum-ciphers -p 443 api.cerberus.example.com \| grep "TLSv1.3"` | `TLSv1.3: Supported` | Sec | [PASS] |
+| 36 | HSTS header enforced with max-age >= 31536000 | `curl -s -I https://api.cerberus.example.com/api/v1/health \| grep -i "strict-transport-security"` | `max-age=31536000; includeSubDomains` | Sec | [PASS] |
 | 37 | Automated Bandit SAST scan clean of Highs | `bandit -r cerberus/ -c bandit.yaml -lll -ii` | Zero issues identified | Sec | [PASS] |
 | 38 | Automated Semgrep OWASP scan clean of Errors | `semgrep scan --config semgrep.yaml --error cerberus/` | Zero blocking findings | Sec | [PASS] |
 | 39 | Automated TruffleHog secret scan clean | `trufflehog git file://. --only-verified --fail` | `0 verified secrets found` | Sec | [PASS] |
@@ -151,7 +151,7 @@ The following 105 verification items must all receive verified `PASS` status bef
 | 42 | In-transit SSL encryption enforced for Postgres | `psql "sslmode=verify-full" -c "SHOW ssl;"` | `on` | DBA | [PASS] |
 | 43 | In-transit TLS encryption enforced for Redis | `redis-cli -u rediss://redis.codevault.internal:6379 ping` | `PONG` | SRE | [PASS] |
 | 44 | Structured log masking redacts authorization tokens | `grep "Bearer [REDACTED]" /var/log/pods/*codevault*/*.log` | Sensitive tokens sanitized | Sec | [PASS] |
-| 45 | Public vulnerability disclosure policy published | `curl -s -I https://codevault.enterprise.ibm.com/.well-known/security.txt` | `HTTP/2 200` | Sec | [PASS] |
+| 45 | Public vulnerability disclosure policy published | `curl -s -I https://cerberus.example.com/.well-known/security.txt` | `HTTP/2 200` | Sec | [PASS] |
 
 ### 2.3 Pillar 3: Data Integrity, Migrations & Storage Systems (Items 46–65)
 
@@ -190,7 +190,7 @@ The following 105 verification items must all receive verified `PASS` status bef
 | 71 | PodDisruptionBudget configured (`minAvailable: 3`) | `kubectl get pdb codevault-api-pdb -n codevault` | `minAvailable: 3` | SRE | [PASS] |
 | 72 | Pod anti-affinity prevents colocation on same node | `kubectl get deployment codevault-api -o jsonpath='{.spec.template.spec.affinity.podAntiAffinity}'` | Preferred or required anti-affinity set | SRE | [PASS] |
 | 73 | Ingress controller deployed with redundant pods | `kubectl get pods -n ingress-nginx` | At least 3 active ingress pods | Net | [PASS] |
-| 74 | DNS TTL reduced to 60 seconds prior to cutover | `dig +nocmd +noall +answer codevault.enterprise.ibm.com` | `TTL = 60` | Net | [PASS] |
+| 74 | DNS TTL reduced to 60 seconds prior to cutover | `dig +nocmd +noall +answer cerberus.example.com` | `TTL = 60` | Net | [PASS] |
 | 75 | Route53 latency-based routing active | `aws route53 list-resource-record-sets --hosted-zone-id Z12345` | Latency routing verified | Net | [PASS] |
 | 76 | Cloudflare / AWS WAF rate limiting rules enabled | `aws wafv2 get-web-acl --name codevault-prod-waf` | WAF rules active and in BLOCK mode | Sec | [PASS] |
 | 77 | Let's Encrypt / DigiCert SSL certificate valid > 30d | `kubectl get certificate codevault-tls -n codevault` | `Ready: True`, Renewal in > 30 days | Sec | [PASS] |
@@ -244,7 +244,7 @@ The following 105 verification items must all receive verified `PASS` status bef
 
 ### 3.1 Phase 1: Pre-Cutover Freeze & Snapshots (T-24h to T-12h)
 - **T-24h 00m**: **Code Freeze Enacted**. Release Engineer merges release candidate branch `release/v1.0.0` into `main`. Locks `main` branch against further commits.
-- **T-24h 15m**: **DNS TTL Lowered**. Network Lead lowers DNS TTL on `codevault.enterprise.ibm.com` and `api.codevault.enterprise.ibm.com` to **60 seconds**.
+- **T-24h 15m**: **DNS TTL Lowered**. Network Lead lowers DNS TTL on `cerberus.example.com` and `api.cerberus.example.com` to **60 seconds**.
 - **T-24h 30m**: **Full Database Snapshot**. Database Architect initiates manual AWS RDS snapshot:
   ```bash
   # File: scripts/pre_cutover_snapshot.sh
@@ -301,7 +301,7 @@ The following 105 verification items must all receive verified `PASS` status bef
 - **T+00h 20m**: **Execute Automated Production Smoke Tests**:
   ```bash
   # File: scripts/run_production_smoke_tests.sh
-  pytest tests/test_suite_e_api.py -v --base-url="https://api.codevault.enterprise.ibm.com"
+  pytest tests/test_suite_e_api.py -v --base-url="https://api.cerberus.example.com"
   ```
 - **T+00h 35m**: **Multi-Language Webhook Verification**. Submit test pull requests across Python, JavaScript, Java, Go, and Rust repositories; confirm review comments post successfully.
 - **T+00h 50m**: **Inspect Token Burn Metrics**. Verify that watsonx token counters are incrementing and cost tracking matches expected ratios.
@@ -529,7 +529,7 @@ redis-cli --scan --pattern "codevault:review:in_progress:*" | xargs -r redis-cli
 
 # Step 5: Verify Health Endpoint
 echo "[5/5] Testing health probe on restored pods..."
-HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.codevault.enterprise.ibm.com/api/v1/health)
+HEALTH_STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.cerberus.example.com/api/v1/health)
 if [ "${HEALTH_STATUS}" -eq "200" ]; then
   echo "=========================================================="
   echo " [SUCCESS] ROLLBACK SUCCESSFUL - SERVICE HEALTH RESTORED  "
@@ -650,8 +650,8 @@ Prior to production launch, engineering teams must execute "Game Day" exercises 
   kubectl scale deployment codevault-redis -n codevault --replicas=0
 
   echo "Submitting review request..."
-  curl -s -X POST https://api.codevault.enterprise.ibm.com/api/v1/reviews \
-    -H "Authorization: Bearer cvai_live_8f9e2d4c6b1a03759284719284719284" \
+  curl -s -X POST https://api.cerberus.example.com/api/v1/reviews \
+    -H "Authorization: Bearer ${CERBERUS_API_KEY}" \
     -H "Content-Type: application/json" \
     -d '{"code": "def hello(): return 1"}'
   ```
@@ -672,7 +672,7 @@ Prior to production launch, engineering teams must execute "Game Day" exercises 
   # Open 500 connections holding idle transactions
   connections = []
   for i in range(450):
-      conn = psycopg2.connect("postgresql://codevault:dev_password@localhost:5432/codevault_db")
+      conn = psycopg2.connect("postgresql://codevault:${DB_PASSWORD}@localhost:5432/codevault_db")
       cur = conn.cursor()
       cur.execute("BEGIN; SELECT pg_sleep(60);")
       connections.append(conn)

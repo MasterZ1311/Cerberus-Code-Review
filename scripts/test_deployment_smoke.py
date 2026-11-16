@@ -34,8 +34,9 @@ def test_dockerfile_security():
     # Verify healthcheck instruction
     assert "HEALTHCHECK" in content, "Dockerfile must include container HEALTHCHECK"
 
-    # Verify non-editable install
+    # Verify non-editable install and hash enforcement
     assert "pip install -e" not in content, "Production image must not use editable install"
+    assert "--require-hashes" in content, "Dockerfile must enforce --require-hashes during dependency installation"
     print("  -> Dockerfile passed all security and reproducibility checks.")
 
 
@@ -183,6 +184,58 @@ def test_live_asgi_authentication_and_tenancy():
     print("  -> Live ASGI authentication and tenant boundaries verified successfully.")
 
 
+def test_kubernetes_configuration():
+    print("[6/7] Validating Kubernetes manifests, immutable image digest & secret bootstrap...")
+    from scripts.validate_k8s_image_pinning import validate_image_pinning
+
+    kustomize_path = PROJECT_ROOT / "k8s" / "kustomization.yaml"
+    assert kustomize_path.exists(), "k8s/kustomization.yaml must exist"
+
+    # Base manifest must pass image pinning validation and avoid base-image collision
+    valid, errors = validate_image_pinning(kustomize_path)
+    assert valid, f"Kubernetes image pinning validation failed: {errors}"
+
+    # Test secret bootstrapper execution
+    from scripts.bootstrap_k8s_secrets import generate_secrets_manifest
+
+    manifest = generate_secrets_manifest()
+    assert "kind: Secret" in manifest
+    assert "name: cerberus-secrets" in manifest
+    assert "SECRET_KEY:" in manifest
+    assert "DATABASE_URL:" in manifest
+    print("  -> Kubernetes manifests and secret bootstrapper verified successfully.")
+
+
+def test_database_persistence_fail_closed():
+    print("[7/7] Validating synchronous database persistence fail-closed behavior...")
+    import asyncio
+    from unittest.mock import patch
+    from httpx import ASGITransport, AsyncClient
+    from cerberus.api.app import app
+    from cerberus.core.database import init_db
+
+    async def _test_fail_closed():
+        await init_db()
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            dev_key = "cvai_dev_key_123"
+            with patch("cerberus.api.v1.review.AsyncSessionLocal", side_effect=RuntimeError("Simulated DB fatal down")):
+                resp = await client.post(
+                    "/api/v1/review",
+                    headers={"Authorization": f"Bearer {dev_key}"},
+                    json={"code": "def db_fail(): pass", "filename": "db_fail.py", "language": "python"},
+                )
+                assert resp.status_code == 500, f"Expected 500 on DB persistence failure, got {resp.status_code}"
+                detail = resp.json().get("detail", {})
+                assert (
+                    detail.get("error") == "persistence_failure"
+                    or "Failed to persist" in str(detail)
+                )
+
+    asyncio.run(_test_fail_closed())
+    print("  -> Database persistence fail-closed behavior verified successfully.")
+
+
 def main():
     print("=== Running Cerberus Deployment Smoke Test Suite ===")
     try:
@@ -191,7 +244,9 @@ def main():
         test_production_settings_validation()
         test_live_asgi_readiness_probe()
         test_live_asgi_authentication_and_tenancy()
-        print("\n=== [PASS] All 5 Deployment Smoke Tests Succeeded ===")
+        test_kubernetes_configuration()
+        test_database_persistence_fail_closed()
+        print("\n=== [PASS] All 7 Deployment Smoke Tests Succeeded ===")
         return 0
     except Exception as e:
         print(f"\n[FAIL] Smoke test failed: {e}", file=sys.stderr)

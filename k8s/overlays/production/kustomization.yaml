@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../
+
+# Production release overlay
+# Upon an explicitly authorized release/publish workflow, the captured application digest
+# is dynamically pinned here:
+#   python scripts/update_k8s_image_digest.py --kustomization k8s/overlays/production/kustomization.yaml --digest <sha256>
+images:
+  - name: cerberus-ai
+    newName: ghcr.io/cerberus-ai/cerberus-ai
+    newTag: "0.1.0"

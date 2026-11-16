@@ -4,7 +4,7 @@ Enforces Granular Role-Based Access Control (RBAC requiring 'admin' scope).
 """
 
 from datetime import UTC, datetime, timedelta
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Set
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
@@ -16,6 +16,10 @@ from cerberus.core.security import generate_api_key
 from cerberus.models.database import ApiKeyRecord
 
 router = APIRouter(prefix="/api/v1/keys", tags=["API Keys"])
+
+ALLOWED_TENANT_SCOPES: Set[str] = {"review:read", "review:write", "admin"}
+ALLOWED_PLATFORM_SCOPES: Set[str] = {"platform:admin"}
+ALL_VALID_SCOPES: Set[str] = ALLOWED_TENANT_SCOPES | ALLOWED_PLATFORM_SCOPES
 
 
 class CreateApiKeyRequest(BaseModel):
@@ -85,19 +89,47 @@ async def create_api_key(
     """
     caller_tenant = getattr(http_req.state, "tenant_id", "default")
     is_platform_admin = getattr(http_req.state, "is_platform_admin", False)
+    caller_scopes: Set[str] = set(getattr(http_req.state, "api_key_scopes", set()))
 
-    if request.tenant_id and request.tenant_id.strip() != caller_tenant and not is_platform_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Permission denied: Only platform administrators can provision API keys for other tenants.",
+    # Validate and normalize requested scopes
+    requested_scopes = [s.strip().lower() for s in (request.scopes or ["review:read", "review:write"]) if s.strip()]
+    for s in requested_scopes:
+        if s not in ALL_VALID_SCOPES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid scope '{s}'. Allowed scopes are: {sorted(list(ALL_VALID_SCOPES))}",
+            )
+
+    if not is_platform_admin:
+        # Tenant admin boundary enforcement:
+        if request.tenant_id and request.tenant_id.strip() != caller_tenant:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied: Only platform administrators can provision API keys for other tenants.",
+            )
+        # Cannot mint platform:admin
+        if "platform:admin" in requested_scopes:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied: Tenant administrators cannot mint 'platform:admin' scoped keys.",
+            )
+        # Cannot delegate scopes caller does not already hold
+        for s in requested_scopes:
+            if s not in caller_scopes and "admin" not in caller_scopes:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Permission denied: Cannot grant scope '{s}' which the caller does not hold.",
+                )
+        assigned_tenant = caller_tenant
+    else:
+        assigned_tenant = (
+            request.tenant_id.strip() if (request.tenant_id and request.tenant_id.strip()) else caller_tenant
         )
-
-    assigned_tenant = request.tenant_id.strip() if (request.tenant_id and request.tenant_id.strip()) else caller_tenant
 
     raw_key, key_hash, prefix = generate_api_key(name=request.name)
     now = datetime.now(UTC)
     expires_at = now + timedelta(days=request.expires_in_days) if request.expires_in_days else None
-    scopes_str = ",".join(s.strip().lower() for s in (request.scopes or ["review:read", "review:write"]))
+    scopes_str = ",".join(requested_scopes)
 
     async with AsyncSessionLocal() as session:
         record = ApiKeyRecord(
@@ -142,6 +174,12 @@ async def list_api_keys(
     """
     caller_tenant = getattr(http_req.state, "tenant_id", "default")
     is_platform_admin = getattr(http_req.state, "is_platform_admin", False)
+
+    if not is_platform_admin and tenant_id and tenant_id.strip() != caller_tenant:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied: Only platform administrators can filter API keys by other tenants.",
+        )
 
     async with AsyncSessionLocal() as session:
         if is_platform_admin:
@@ -223,6 +261,12 @@ async def revoke_api_key(
 
     async with AsyncSessionLocal() as session:
         record = await _get_tenant_scoped_api_key(session, key_id, caller_tenant, is_platform_admin)
+        rec_scopes = {s.strip().lower() for s in (record.scopes or "").split(",") if s.strip()}
+        if not is_platform_admin and "platform:admin" in rec_scopes:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permission denied: Tenant administrators cannot revoke platform administrator keys.",
+            )
         record.is_active = False
         await session.commit()
 
@@ -247,11 +291,26 @@ async def rotate_api_key(
     """
     caller_tenant = getattr(http_req.state, "tenant_id", "default")
     is_platform_admin = getattr(http_req.state, "is_platform_admin", False)
+    caller_scopes: Set[str] = set(getattr(http_req.state, "api_key_scopes", set()))
 
     async with AsyncSessionLocal() as session:
         old_record = await _get_tenant_scoped_api_key(
             session, key_id, caller_tenant, is_platform_admin, action_description="rotation"
         )
+
+        old_scopes = {s.strip().lower() for s in (old_record.scopes or "").split(",") if s.strip()}
+        if not is_platform_admin:
+            if "platform:admin" in old_scopes:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Permission denied: Tenant administrators cannot rotate platform administrator keys.",
+                )
+            for s in old_scopes:
+                if s not in caller_scopes and "admin" not in caller_scopes:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"Permission denied: Cannot rotate key possessing unheld scope '{s}'.",
+                    )
 
         # Deactivate previous key
         old_record.is_active = False

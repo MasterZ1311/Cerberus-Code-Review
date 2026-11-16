@@ -202,7 +202,7 @@ def test_settings() -> Settings:
         MAX_CONCURRENT_BATCH_REVIEWS=5,
         LLM_PROVIDER="watsonx",
         WATSONX_URL="http://mock-watsonx.local:8080",
-        WATSONX_API_KEY="test-watsonx-api-key-value",
+        WATSONX_API_KEY="${WATSONX_API_KEY}",
         WATSONX_PROJECT_ID="test-watsonx-project-id-guid",
         ENABLED_AGENTS="security,performance,quality,architecture,compliance",
     )
@@ -475,7 +475,7 @@ def fetch_user_record(user_id: str):
     agents = Use(lambda: ["security", "performance", "quality", "architecture", "compliance"])
     config = Use(lambda: ReviewConfigFactory.build())
     webhook_url = "https://ci.enterprise.internal/webhook/codevault"
-    webhook_secret = "whsec_super_secret_signing_key_48_chars"
+    webhook_secret = "${WEBHOOK_SECRET}"
     async_mode = False
 
 
@@ -792,7 +792,7 @@ async def test_cors_wildcard_with_credentials_rejected():
 @pytest.mark.asyncio
 async def test_cors_authorized_origin_allowed(async_client: httpx.AsyncClient):
     headers = {
-        "Origin": "https://dashboard.codevault.enterprise.ibm.com",
+        "Origin": "https://dashboard.cerberus.example.com",
         "Access-Control-Request-Method": "POST",
     }
     response = await async_client.options("/api/v1/reviews", headers=headers)
@@ -1579,6 +1579,31 @@ Cerberus includes dedicated integration test suites proving production readiness
    - Distributed rate limiter exhaustion returning HTTP 429 with `Retry-After`.
    - GitHub webhook replay prevention using delivery ID deduplication.
 
+7. **Privilege Escalation & Scope Hierarchy (`tests/test_privilege_escalation.py`)**:
+   - Scope delegation hierarchy: tenant admin cannot mint `platform:admin`.
+   - Plain `admin` scope never satisfies `platform:admin`.
+   - Scope sub-setting: callers cannot grant scopes they do not hold.
+   - Cross-tenant key isolation: tenant admin cannot list, revoke, or rotate another tenant's keys.
+   - Global runtime config access (`/api/v1/config`) restricted strictly to `platform:admin`.
+
+8. **Complete Privacy Guarantees (`tests/test_privacy_complete.py`)**:
+   - Total source code redaction when `RETAIN_SOURCE_CODE=false`.
+   - Verifies absence of original code from L1 memory cache, L2 Redis mock, relational DB columns (`code_snippet`, `results_json`), child findings, serialized API responses, and OpenTelemetry spans & events.
+
+9. **Synchronous Persistence & Fallback Consistency (`tests/test_database_fallback_consistency.py`)**:
+   - Proves immediate database persistence before returning 200 to client.
+   - Immediate memory eviction fallback test.
+   - Cross-worker retrieval and tenant isolation.
+   - Fail-closed 500 error on fatal database failure.
+   - Transient database error retry recovery.
+   - Atomic batch review persistence in a single database transaction.
+
+10. **Supply Chain & Kubernetes Hardening (`tests/test_supply_chain_and_k8s.py`)**:
+    - Lockfile drift detection between `requirements.txt` and `requirements-lock.txt`.
+    - Security exception policy validation for `.trivyignore`.
+    - Dynamic secret bootstrapping (`scripts/bootstrap_k8s_secrets.py`).
+    - Immutable image digest verification in `k8s/kustomization.yaml`.
+
 ---
 
 ## 6. Locust Distributed Performance & Load Testing
@@ -1625,7 +1650,7 @@ CODE_SNIPPETS = [
 """,
     # Unencrypted secret
     """import os
-DATABASE_PASSWORD = 'super_secret_production_password_12345'
+DATABASE_PASSWORD = '${DATABASE_PASSWORD}'
 def connect():
     pass
 """,
@@ -1640,7 +1665,7 @@ class CodeReviewUser(HttpUser):
 
     def on_start(self):
         """Configure authentication headers and tenant metadata upon user instantiation."""
-        self.api_key = "cvai_live_8f9e2d4c6b1a03759284719284719284"
+        self.api_key = "${CERBERUS_API_KEY}"
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
