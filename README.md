@@ -354,6 +354,76 @@ python -m pytest --cov=cerberus --cov-branch --cov-report=term-missing --cov-fai
 
 ---
 
+## 🧩 Extensible Plugin Architecture & Custom Rules
+
+Cerberus v1.4.0 features a pluggable, isolated plugin system allowing engineering teams to enforce proprietary guidelines, internal compliance rules, and custom linters without modifying core agent code:
+
+- **🛡️ Isolated Fault-Tolerant Execution:** Each plugin executes within a protected try/catch sandbox. If a third-party plugin raises an unhandled exception, Cerberus logs the error, isolates the failure, and completes the review with full agent consensus.
+- **⚡ Pre- & Post-Review Hooks:** Intercept code requests before execution (`on_review_start`) to inject custom metadata, and inspect finalized verdicts (`on_review_complete`) to add company-specific compliance findings.
+- **📦 Shipped Built-In Plugins:**
+  - `SecretScannerPlugin`: Proactively flags high-entropy API tokens, RSA private keys, AWS credentials, and GitHub PATs.
+  - `TeamStylePlugin`: Enforces team coding conventions, mandatory docstrings, type annotations, and snake_case / camelCase standards.
+
+```python
+from cerberus.core.plugins import BasePlugin
+from cerberus.models.schemas import CodeReviewRequest, CodeReviewResponse, Finding, SeverityEnum
+
+class CustomLicensePlugin(BasePlugin):
+    name = "custom_license_scanner"
+    version = "1.0.0"
+    description = "Enforces enterprise header license notices."
+
+    async def on_review_complete(self, response: CodeReviewResponse, context: dict) -> None:
+        if "Copyright (c) Acme Corp" not in context.get("raw_code", ""):
+            response.findings.append(Finding(
+                id="ACME-LIC-001",
+                agent="CustomLicensePlugin",
+                severity=SeverityEnum.MEDIUM,
+                message="Missing standard Acme Corp copyright header in source file.",
+                line=1
+            ))
+```
+
+---
+
+## 🏢 Multi-Tenant Tiered Quotas & Burst Protection
+
+For enterprise SaaS and shared internal platforms, Cerberus provides isolated multi-tenant resource governance with automatic monthly consumption tracking:
+
+| Tier | Monthly Review Limit | Burst Allowance | Intended Use Case |
+| :--- | :--- | :--- | :--- |
+| **Free** | 50 reviews / month | 5 concurrent | Individual developers and open-source hobby projects |
+| **Developer** | 500 reviews / month | 20 concurrent | Professional developers & independent contractors |
+| **Team** | 2,500 reviews / month | 50 concurrent | Growth engineering teams and active CI/CD pipelines |
+| **Enterprise** | **Unlimited** (`-1`) | 100 concurrent | Large-scale multi-repo organizations with dedicated SLAs |
+
+- **🔄 Automatic Monthly Rollover:** Usage counters automatically reset on the 1st of each calendar month.
+- **⚡ Atomic Thread-Safe Metering:** In-memory high-throughput quota evaluation with fail-closed HTTP 429 response when exhaustion limits are breached.
+- **🛠️ Administrative Tier Upgrades:** Dynamically adjust tenant tiers via CLI (`python -m cerberus.cli quotas`) or REST API (`POST /api/v1/tenants/{tenant_id}/tier`).
+
+---
+
+## 🔐 Enterprise JWT Authentication & Scope Hierarchy
+
+Cerberus implements cryptographically signed JSON Web Tokens (HS256) alongside timing-safe API keys for secure multi-tenant microservice integration:
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│                      Scope Hierarchy Matrix                   │
+├───────────────────────────────────────────────────────────────┤
+│  👑 platform:admin  ──► Full access to /api/v1/config & all   │
+│  🏢 tenant:admin    ──► Manage tenant keys, quotas & tiers    │
+│  ✍️  reviews:write   ──► Submit code, batch & ZIP reviews      │
+│  👁️  reviews:read    ──► Retrieve review results, SARIF & SSE  │
+│  🔑 keys:manage     ──► Rotate & revoke tenant API keys       │
+└───────────────────────────────────────────────────────────────┘
+```
+
+- **⏱️ Ephemeral Stream Tokens:** Live WebSocket and Server-Sent Events (SSE) connections require short-lived, single-use stream tokens (`POST /api/v1/review/{id}/stream-token`) preventing long-lived credential leakage in browser URLs.
+- **🔒 Timing-Safe Invariant:** `hmac.compare_digest` constant-time verification completely neutralizes timing-attack vectors on API key inspection.
+
+---
+
 ## 🏗️ System Architecture
 
 ```
@@ -364,13 +434,13 @@ python -m pytest --cov=cerberus --cov-branch --cov-report=term-missing --cov-fai
                                        │ HTTP / WebSocket (Port 8000)
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
 │                    Enterprise Gateway (cerberus/api/)                       │
-│   Security Headers  •  Timing-Safe API Key RBAC  •  Sliding Rate Limiter    │
-│   Two-Tier LRU & Redis Cache  •  PostgreSQL Connection Pool (/metrics)      │
+│   Security Headers  •  JWT / API Key RBAC  •  Sliding Token Rate Limiter    │
+│   Multi-Tenant Quota Meter  •  Two-Tier LRU & Redis Cache  •  OTel Tracing  │
 └──────────────────────────────────────┬──────────────────────────────────────┘
                                        │
 ┌──────────────────────────────────────▼──────────────────────────────────────┐
 │             Review Orchestrator (cerberus/agents/orchestrator.py)           │
-│   Concurrent Agent Dispatch  •  Dynamic Weighting  •  Zip Slip Protection   │
+│   Concurrent Agent Dispatch  •  Plugin Lifecycle Hooks  •  Zip Slip Defense  │
 └──────────┬───────────┬───────────┬───────────┬───────────┬───────────┬──────┘
            │           │           │           │           │           │
            ▼           ▼           ▼           ▼           ▼           ▼
@@ -400,6 +470,7 @@ python -m pytest --cov=cerberus --cov-branch --cov-report=term-missing --cov-fai
                          │  • OpenAI (GPT-4o)            │
                          │  • Anthropic (Claude 3.5)     │
                          │  • Google Gemini (2.0 Flash)  │
+                         │  • DeepSeek (V3 / R1)         │
                          │  • Ollama (Private Local)     │
                          └───────────────────────────────┘
 ```
@@ -423,7 +494,7 @@ Cerberus provides verified infrastructure-as-code and security manifests for pro
 
 - 🏆 **[Master Engineering Audit](reports/MASTER_ENGINEERING_AUDIT.md)** — Comprehensive scorecard, architecture evaluation, and audit across 10 pillars
 - 🛡️ **[Security Audit & Threat Model](reports/SECURITY_AUDIT.md)** — OWASP ASVS v4.0.3 analysis, STRIDE threat model, negative testing, and Red-Team results
-- 🧪 **[Test Results & Quality Assurance Report](reports/TEST_RESULTS.md)** — 612 automated tests execution summary, zero-flakiness analysis, and module breakdown
+- 🧪 **[Test Results & Quality Assurance Report](reports/TEST_RESULTS.md)** — 685 automated tests execution summary, zero-flakiness analysis, and module breakdown
 - 🧠 **[AI/LLM Systems & Evaluation Report](reports/AI_EVALUATION.md)** — Foundation model routing, invariant safety guards, and consensus arbitration
 - ⚡ **[Performance Benchmarks Report](reports/PERFORMANCE_BENCHMARKS.md)** — Profiling, sub-millisecond cache latency, and SingleFlight thundering-herd defense
 - 🚀 **[Production Readiness & SRE Review](reports/PRODUCTION_READINESS.md)** — Launch checklist, deployment topologies, SLOs, and zero-downtime procedures
@@ -434,11 +505,16 @@ Cerberus provides verified infrastructure-as-code and security manifests for pro
 ## 📚 Documentation Index
 
 - 🏗️ **[System Architecture](docs/01-architecture-overview.md)** — Detailed multi-agent orchestration and design patterns
-- 🔌 **[API Specifications](API_SPECIFICATIONS.md)** — Complete OpenAPI 3.1 endpoints and payload schemas
+- 🔌 **[API Reference](docs/02-api-reference.md)** — Complete OpenAPI 3.1 endpoints and payload schemas
 - 🤖 **[Agent Specifications](docs/03-agent-specifications.md)** — Comprehensive rules for all 7 specialized agents
 - 📖 **[Installation & Docker Setup](docs/04-installation-setup.md)** — Step-by-step production deployment guide
 - ⚙️ **[Configuration Reference](docs/05-configuration-reference.md)** — Environment variables and runtime tuning
-- 📊 **[Monitoring & Telemetry](docs/06-monitoring-operations.md)** — Prometheus metrics, Grafana dashboards, and alerts
+- 📊 **[Monitoring & Operations](docs/06-monitoring-operations.md)** — Prometheus metrics, Grafana dashboards, and alerts
+- 🛡️ **[Security & Compliance](docs/07-security-compliance.md)** — Zero-retention privacy, ASVS v4.0.3, and regulatory mappings
+- 💻 **[Developer Guide](docs/08-developer-guide.md)** — Contribution workflows, local environment, and testing instructions
+- 🗄️ **[Database Migrations](docs/09-database-migration.md)** — Schema versioning, Alembic, and connection pooling
+- ⏱️ **[SLO Definitions](docs/09-slo-definitions.md)** — Service level objectives, error budgets, and latency thresholds
+- 🔄 **[Disaster Recovery](docs/10-disaster-recovery.md)** — Fail-closed consistency, backup restoration, and failover runbooks
 
 ---
 
