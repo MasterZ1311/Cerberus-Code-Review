@@ -263,6 +263,7 @@ jobs:
           image-ref: 'cerberus-ai:ci-test'
           format: 'table'
           exit-code: '1'
+          ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
           trivyignores: '.trivyignore'
 

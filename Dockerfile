@@ -12,7 +12,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
     && rm -rf /var/lib/apt/lists/*
@@ -22,7 +22,7 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY requirements-lock.txt requirements.txt ./
-RUN pip install --upgrade pip && \
+RUN pip install --upgrade pip setuptools wheel && \
     pip install --no-cache-dir --require-hashes -r requirements-lock.txt
 
 # Stage 2: Minimal Hardened Runtime
@@ -36,7 +36,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     ENVIRONMENT=production
 
 # Install curl for container healthcheck probe and security updates
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
@@ -50,9 +50,10 @@ COPY --from=builder /opt/venv /opt/venv
 # Copy application source tree
 COPY --chown=cerberus:cerberus . /app
 
-# Install application package in non-editable standard distribution mode
+# Install application package in non-editable standard distribution mode and harden runtime
 RUN pip install --no-cache-dir --no-deps . && \
-    chown -R cerberus:cerberus /app
+    pip uninstall -y pip setuptools wheel && \
+    chown -R cerberus:cerberus /app /opt/venv
 
 USER cerberus
 
