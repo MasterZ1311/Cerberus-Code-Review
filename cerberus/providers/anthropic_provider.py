@@ -61,7 +61,7 @@ class AnthropicProvider(BaseLLMProvider):
                 if content and len(content) > 0:
                     return content[0].get("text")
             elif res is not None:
-                logger.warning(f"Anthropic API request returned HTTP {res.status_code}: {res.text}")
+                logger.warning("Anthropic API request returned HTTP %s: %s", res.status_code, res.text)
         except Exception as e:
-            logger.warning(f"Anthropic completion failed: {e}")
+            logger.warning("Anthropic completion failed: %s", e)
         return None

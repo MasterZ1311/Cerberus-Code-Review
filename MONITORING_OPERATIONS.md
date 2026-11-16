@@ -1,6 +1,6 @@
 # Monitoring, Observability & Operations Manual
 
-**Platform:** CodeVault AI / Cerberus Enterprise Multi-Agent Code Review System  
+**Platform:** Cerberus Enterprise Multi-Agent Code Review System
 **System Architecture:** IBM watsonx Orchestrate + LangGraph + FastAPI + Prometheus + OpenTelemetry + Grafana  
 **SLO Commitments:** 99.9% Platform Availability, P95 Review Duration < 15.0s, Error Rate < 0.1%  
 **Document Version:** 1.0.0  
@@ -17,7 +17,7 @@
 3. [Production Grafana Dashboard JSON Specification (24 Panels)](#3-production-grafana-dashboard-json-specification-24-panels)
 4. [AlertManager Configuration & 32 Production Alerting Rules](#4-alertmanager-configuration--32-production-alerting-rules)
    - 4.1 [AlertManager Global Configuration (alertmanager.yml)](#41-alertmanager-global-configuration-alertmanageryml)
-   - 4.2 [Production Alerting Rules Catalog (k8s/alerts/codevault-alerts.yaml)](#42-production-alerting-rules-catalog-k8salertscodevault-alertsyaml)
+   - 4.2 [Production Alerting Rules Catalog (k8s/alerts/cerberus-alerts.yaml)](#42-production-alerting-rules-catalog-k8salertscerberus-alertsyaml)
 5. [Structured JSON Logging Architecture (Loki & ELK)](#5-structured-json-logging-architecture-loki--elk)
    - 5.1 [Structured Log Schema & Correlation Context](#51-structured-log-schema--correlation-context)
    - 5.2 [Python Structured Logging Service (cerberus/core/logging_config.py)](#52-python-structured-logging-service-cerberuscorelogging_configpy)
@@ -49,7 +49,7 @@
 
 ## 1. Observability Architecture & Design Principles
 
-CodeVault AI implements an enterprise-grade observability fabric built upon the OpenTelemetry standard, unified metrics in Prometheus, high-cardinality distributed tracing in Jaeger/Tempo, structured log ingestion in Grafana Loki/ELK, and proactive anomaly alerting via AlertManager.
+Cerberus implements an enterprise-grade observability fabric built upon the OpenTelemetry standard, unified metrics in Prometheus, high-cardinality distributed tracing in Jaeger/Tempo, structured log ingestion in Grafana Loki/ELK, and proactive anomaly alerting via AlertManager.
 
 ```text
 # File: docs/diagrams/observability_architecture.txt
@@ -108,14 +108,14 @@ rule_files:
   - "/etc/prometheus/rules/*.yaml"
 
 scrape_configs:
-  - job_name: 'codevault-api'
+  - job_name: 'cerberus-api'
     metrics_path: '/metrics'
     scheme: 'http'
     kubernetes_sd_configs:
       - role: pod
         namespaces:
           names:
-            - codevault
+            - cerberus
     relabel_configs:
       - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
         action: keep
@@ -162,7 +162,7 @@ from prometheus_client import (
 )
 
 class MetricsCollector:
-    """Enterprise Prometheus metrics instrumentation catalog for CodeVault AI."""
+    """Enterprise Prometheus metrics instrumentation catalog for Cerberus."""
 
     def __init__(self, registry: CollectorRegistry = REGISTRY):
         self.registry = registry
@@ -171,14 +171,14 @@ class MetricsCollector:
         # 1. API Gateway & HTTP Traffic Metrics
         # ----------------------------------------------------------------------
         self.api_requests_total = Counter(
-            name="codevault_api_requests_total",
+            name="cerberus_api_requests_total",
             documentation="Total count of inbound HTTP requests handled by the API gateway.",
             labelnames=["endpoint", "method", "status"],
             registry=self.registry
         )
 
         self.api_request_duration_seconds = Histogram(
-            name="codevault_api_request_duration_seconds",
+            name="cerberus_api_request_duration_seconds",
             documentation="Inbound HTTP request latency distribution in seconds.",
             labelnames=["endpoint", "method"],
             buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0],
@@ -186,7 +186,7 @@ class MetricsCollector:
         )
 
         self.api_errors_total = Counter(
-            name="codevault_api_errors_total",
+            name="cerberus_api_errors_total",
             documentation="Total count of API errors returned by endpoint and error class.",
             labelnames=["endpoint", "error_type"],
             registry=self.registry
@@ -196,34 +196,34 @@ class MetricsCollector:
         # 2. Review Orchestration Metrics
         # ----------------------------------------------------------------------
         self.reviews_total = Counter(
-            name="codevault_reviews_total",
+            name="cerberus_reviews_total",
             documentation="Total number of code reviews initiated by language and execution status.",
             labelnames=["language", "status"],
             registry=self.registry
         )
 
         self.review_duration_seconds = Histogram(
-            name="codevault_review_duration_seconds",
+            name="cerberus_review_duration_seconds",
             documentation="End-to-end review completion duration from submission to final synthesis.",
             buckets=[1.0, 2.5, 5.0, 10.0, 15.0, 20.0, 30.0, 45.0, 60.0, 120.0],
             registry=self.registry
         )
 
         self.reviews_in_progress = Gauge(
-            name="codevault_reviews_in_progress",
+            name="cerberus_reviews_in_progress",
             documentation="Number of code reviews currently executing in the LangGraph engine.",
             registry=self.registry
         )
 
         self.review_score = Histogram(
-            name="codevault_review_score",
+            name="cerberus_review_score",
             documentation="Distribution of synthesized code review scores (0.0 to 100.0).",
             buckets=[10.0, 25.0, 50.0, 65.0, 75.0, 85.0, 90.0, 95.0, 100.0],
             registry=self.registry
         )
 
         self.blocking_reviews_total = Counter(
-            name="codevault_blocking_reviews_total",
+            name="cerberus_blocking_reviews_total",
             documentation="Counter for pull request merge decisions (approved vs blocked).",
             labelnames=["decision"],
             registry=self.registry
@@ -233,14 +233,14 @@ class MetricsCollector:
         # 3. Specialized Multi-Agent Metrics
         # ----------------------------------------------------------------------
         self.agent_executions_total = Counter(
-            name="codevault_agent_executions_total",
+            name="cerberus_agent_executions_total",
             documentation="Invocations of individual specialized review agents.",
             labelnames=["agent", "status"],
             registry=self.registry
         )
 
         self.agent_duration_seconds = Histogram(
-            name="codevault_agent_duration_seconds",
+            name="cerberus_agent_duration_seconds",
             documentation="Execution duration of individual specialized agent nodes.",
             labelnames=["agent"],
             buckets=[0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 45.0],
@@ -248,14 +248,14 @@ class MetricsCollector:
         )
 
         self.agent_findings_total = Counter(
-            name="codevault_agent_findings_total",
+            name="cerberus_agent_findings_total",
             documentation="Total findings discovered categorized by agent, severity, and rule/CWE.",
             labelnames=["agent", "severity", "cwe_id"],
             registry=self.registry
         )
 
         self.agent_crashes_total = Counter(
-            name="codevault_agent_crashes_total",
+            name="cerberus_agent_crashes_total",
             documentation="Unhandled exceptions or crashes inside specialized agent execution nodes.",
             labelnames=["agent"],
             registry=self.registry
@@ -265,14 +265,14 @@ class MetricsCollector:
         # 4. LLM Foundation Model Metrics
         # ----------------------------------------------------------------------
         self.llm_requests_total = Counter(
-            name="codevault_llm_requests_total",
+            name="cerberus_llm_requests_total",
             documentation="Outbound foundation model inference calls by provider, model, and status.",
             labelnames=["provider", "model", "status"],
             registry=self.registry
         )
 
         self.llm_latency_seconds = Histogram(
-            name="codevault_llm_latency_seconds",
+            name="cerberus_llm_latency_seconds",
             documentation="Inference response latency of upstream foundation model endpoints.",
             labelnames=["provider", "model"],
             buckets=[0.5, 1.0, 2.0, 5.0, 10.0, 15.0, 30.0],
@@ -280,14 +280,14 @@ class MetricsCollector:
         )
 
         self.llm_tokens_total = Counter(
-            name="codevault_llm_tokens_total",
+            name="cerberus_llm_tokens_total",
             documentation="Cumulative token count consumed across prompt and completion phases.",
             labelnames=["provider", "model", "token_type"],
             registry=self.registry
         )
 
         self.llm_cost_usd_total = Counter(
-            name="codevault_llm_cost_usd_total",
+            name="cerberus_llm_cost_usd_total",
             documentation="Cumulative monetary expenditure in USD for foundation model inference.",
             labelnames=["provider", "model"],
             registry=self.registry
@@ -297,55 +297,55 @@ class MetricsCollector:
         # 5. Infrastructure, Database & Cache Metrics
         # ----------------------------------------------------------------------
         self.cache_hits_total = Counter(
-            name="codevault_cache_hits_total",
+            name="cerberus_cache_hits_total",
             documentation="Cache hit counter across in-memory and Redis caches.",
             registry=self.registry
         )
 
         self.cache_misses_total = Counter(
-            name="codevault_cache_misses_total",
+            name="cerberus_cache_misses_total",
             documentation="Cache miss counter.",
             registry=self.registry
         )
 
         self.cache_evictions_total = Counter(
-            name="codevault_cache_evictions_total",
+            name="cerberus_cache_evictions_total",
             documentation="Cache items evicted due to LRU policy or TTL expiry.",
             registry=self.registry
         )
 
         self.cache_hit_rate = Gauge(
-            name="codevault_cache_hit_rate",
+            name="cerberus_cache_hit_rate",
             documentation="Instantaneous cache hit ratio (0.0 to 1.0).",
             registry=self.registry
         )
 
         self.db_pool_size = Gauge(
-            name="codevault_db_pool_size",
+            name="cerberus_db_pool_size",
             documentation="Total configured database connection pool capacity.",
             registry=self.registry
         )
 
         self.db_pool_checked_out = Gauge(
-            name="codevault_db_pool_checked_out",
+            name="cerberus_db_pool_checked_out",
             documentation="Active database connections currently checked out by worker sessions.",
             registry=self.registry
         )
 
         self.db_pool_overflow = Gauge(
-            name="codevault_db_pool_overflow",
+            name="cerberus_db_pool_overflow",
             documentation="Active overflow connections currently allocated beyond base pool size.",
             registry=self.registry
         )
 
         self.rate_limit_tracked_keys = Gauge(
-            name="codevault_rate_limit_tracked_keys",
+            name="cerberus_rate_limit_tracked_keys",
             documentation="Number of active client identifiers currently tracked in rate limiter memory.",
             registry=self.registry
         )
 
         self.websocket_active_connections = Gauge(
-            name="codevault_websocket_active_connections",
+            name="cerberus_websocket_active_connections",
             documentation="Number of active client WebSocket connections streaming review events.",
             registry=self.registry
         )
@@ -361,7 +361,7 @@ metrics = MetricsCollector()
 Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition encompassing 24 production panels organized into 5 functional rows.
 
 ```json
-// File: config/grafana/dashboards/codevault-overview.json
+// File: config/grafana/dashboards/cerberus-overview.json
 {
   "annotations": {
     "list": [
@@ -397,7 +397,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "(1 - (sum(rate(codevault_api_requests_total{status=~\"5..\"}[30d])) / sum(rate(codevault_api_requests_total[30d])))) * 100",
+          "expr": "(1 - (sum(rate(cerberus_api_requests_total{status=~\"5..\"}[30d])) / sum(rate(cerberus_api_requests_total[30d])))) * 100",
           "legendFormat": "Uptime %"
         }
       ],
@@ -423,7 +423,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(increase(codevault_reviews_total{status=\"completed\"}[24h]))",
+          "expr": "sum(increase(cerberus_reviews_total{status=\"completed\"}[24h]))",
           "legendFormat": "Reviews"
         }
       ],
@@ -442,7 +442,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(codevault_review_duration_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.95, sum(rate(cerberus_review_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "P95 Latency"
         }
       ],
@@ -470,7 +470,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "codevault_reviews_in_progress",
+          "expr": "cerberus_reviews_in_progress",
           "legendFormat": "Active Reviews"
         }
       ],
@@ -505,7 +505,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(rate(codevault_api_requests_total[2m])) by (endpoint)",
+          "expr": "sum(rate(cerberus_api_requests_total[2m])) by (endpoint)",
           "legendFormat": "{{endpoint}}"
         }
       ],
@@ -519,7 +519,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(rate(codevault_api_requests_total[2m])) by (status)",
+          "expr": "sum(rate(cerberus_api_requests_total[2m])) by (status)",
           "legendFormat": "HTTP {{status}}"
         }
       ],
@@ -533,15 +533,15 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum(rate(codevault_api_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.50, sum(rate(cerberus_api_request_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "P50"
         },
         {
-          "expr": "histogram_quantile(0.90, sum(rate(codevault_api_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.90, sum(rate(cerberus_api_request_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "P90"
         },
         {
-          "expr": "histogram_quantile(0.99, sum(rate(codevault_api_request_duration_seconds_bucket[5m])) by (le))",
+          "expr": "histogram_quantile(0.99, sum(rate(cerberus_api_request_duration_seconds_bucket[5m])) by (le))",
           "legendFormat": "P99"
         }
       ],
@@ -555,7 +555,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "(sum(rate(codevault_api_requests_total{status=~\"5..\"}[5m])) / sum(rate(codevault_api_requests_total[5m]))) * 100",
+          "expr": "(sum(rate(cerberus_api_requests_total{status=~\"5..\"}[5m])) / sum(rate(cerberus_api_requests_total[5m]))) * 100",
           "legendFormat": "5xx Error Rate %"
         }
       ],
@@ -587,7 +587,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(codevault_agent_duration_seconds_bucket[5m])) by (le, agent))",
+          "expr": "histogram_quantile(0.95, sum(rate(cerberus_agent_duration_seconds_bucket[5m])) by (le, agent))",
           "legendFormat": "{{agent}}"
         }
       ],
@@ -601,7 +601,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(rate(codevault_agent_executions_total[5m])) by (status)",
+          "expr": "sum(rate(cerberus_agent_executions_total[5m])) by (status)",
           "legendFormat": "{{status}}"
         }
       ],
@@ -615,7 +615,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(increase(codevault_agent_findings_total[1h])) by (severity)",
+          "expr": "sum(increase(cerberus_agent_findings_total[1h])) by (severity)",
           "legendFormat": "{{severity}}"
         }
       ],
@@ -629,7 +629,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(rate(codevault_agent_crashes_total[5m])) by (agent)",
+          "expr": "sum(rate(cerberus_agent_crashes_total[5m])) by (agent)",
           "legendFormat": "{{agent}} Crash"
         }
       ],
@@ -648,7 +648,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(increase(codevault_blocking_reviews_total[24h])) by (decision)",
+          "expr": "sum(increase(cerberus_blocking_reviews_total[24h])) by (decision)",
           "legendFormat": "{{decision}}"
         }
       ],
@@ -662,7 +662,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(rate(codevault_review_score_bucket[1h])) by (le)",
+          "expr": "sum(rate(cerberus_review_score_bucket[1h])) by (le)",
           "legendFormat": "le={{le}}"
         }
       ],
@@ -683,7 +683,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(rate(codevault_llm_tokens_total[5m])) by (token_type)",
+          "expr": "sum(rate(cerberus_llm_tokens_total[5m])) by (token_type)",
           "legendFormat": "{{token_type}}"
         }
       ],
@@ -697,7 +697,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "codevault_llm_cost_usd_total - (codevault_llm_cost_usd_total offset 1d)",
+          "expr": "cerberus_llm_cost_usd_total - (cerberus_llm_cost_usd_total offset 1d)",
           "legendFormat": "Today Spend ($)"
         }
       ],
@@ -723,7 +723,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(codevault_llm_latency_seconds_bucket[5m])) by (le, provider))",
+          "expr": "histogram_quantile(0.95, sum(rate(cerberus_llm_latency_seconds_bucket[5m])) by (le, provider))",
           "legendFormat": "{{provider}} P95"
         }
       ],
@@ -737,7 +737,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(rate(codevault_llm_requests_total{status=\"429\"}[5m])) by (provider)",
+          "expr": "sum(rate(cerberus_llm_requests_total{status=\"429\"}[5m])) by (provider)",
           "legendFormat": "{{provider}} 429 Throttle"
         }
       ],
@@ -758,11 +758,11 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "codevault_db_pool_checked_out",
+          "expr": "cerberus_db_pool_checked_out",
           "legendFormat": "Checked Out Connections"
         },
         {
-          "expr": "codevault_db_pool_size",
+          "expr": "cerberus_db_pool_size",
           "legendFormat": "Max Pool Capacity"
         }
       ],
@@ -776,11 +776,11 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "codevault_cache_hit_rate * 100",
+          "expr": "cerberus_cache_hit_rate * 100",
           "legendFormat": "Hit Ratio %"
         },
         {
-          "expr": "rate(codevault_cache_evictions_total[5m])",
+          "expr": "rate(cerberus_cache_evictions_total[5m])",
           "legendFormat": "Evictions/sec"
         }
       ],
@@ -794,11 +794,11 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(rate(container_cpu_usage_seconds_total{container=\"codevault-api\"}[5m])) / sum(kube_pod_container_resource_limits{resource=\"cpu\", container=\"codevault-api\"}) * 100",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{container=\"cerberus-api\"}[5m])) / sum(kube_pod_container_resource_limits{resource=\"cpu\", container=\"cerberus-api\"}) * 100",
           "legendFormat": "CPU % of Limit"
         },
         {
-          "expr": "sum(container_memory_working_set_bytes{container=\"codevault-api\"}) / sum(kube_pod_container_resource_limits{resource=\"memory\", container=\"codevault-api\"}) * 100",
+          "expr": "sum(container_memory_working_set_bytes{container=\"cerberus-api\"}) / sum(kube_pod_container_resource_limits{resource=\"memory\", container=\"cerberus-api\"}) * 100",
           "legendFormat": "Memory % of Limit"
         }
       ],
@@ -812,7 +812,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "codevault_websocket_active_connections",
+          "expr": "cerberus_websocket_active_connections",
           "legendFormat": "Active Client Sockets"
         }
       ],
@@ -826,7 +826,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "codevault_rate_limit_tracked_keys",
+          "expr": "cerberus_rate_limit_tracked_keys",
           "legendFormat": "Tracked Keys"
         }
       ],
@@ -852,7 +852,7 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "rate(codevault_db_query_duration_seconds_sum[5m]) / rate(codevault_db_query_duration_seconds_count[5m])",
+          "expr": "rate(cerberus_db_query_duration_seconds_sum[5m]) / rate(cerberus_db_query_duration_seconds_count[5m])",
           "legendFormat": "Avg Query Duration"
         }
       ],
@@ -861,12 +861,12 @@ Below is the complete, valid, copy-paste ready Grafana 10 dashboard definition e
   ],
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["codevault", "production", "sre", "multi-agent"],
+  "tags": ["cerberus", "production", "sre", "multi-agent"],
   "time": { "from": "now-6h", "to": "now" },
   "timepicker": { "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"] },
   "timezone": "utc",
-  "title": "CodeVault AI - Enterprise Production Observability",
-  "uid": "codevault-prod-overview",
+  "title": "Cerberus - Enterprise Production Observability",
+  "uid": "cerberus-prod-overview",
   "version": 1
 }
 ```
@@ -919,7 +919,7 @@ inhibit_rules:
 receivers:
   - name: 'slack-default'
     slack_configs:
-      - channel: '#codevault-sre-alerts'
+      - channel: '#cerberus-sre-alerts'
         api_url: '${SLACK_DEFAULT_WEBHOOK_URL}'
         send_resolved: true
         title: '{{ template "slack.default.title" . }}'
@@ -933,40 +933,40 @@ receivers:
 
   - name: 'slack-finops'
     slack_configs:
-      - channel: '#codevault-finops-alerts'
+      - channel: '#cerberus-finops-alerts'
         api_url: '${SLACK_FINOPS_WEBHOOK_URL}'
         send_resolved: true
 
   - name: 'slack-infosec'
     slack_configs:
-      - channel: '#codevault-infosec-alerts'
+      - channel: '#cerberus-infosec-alerts'
         api_url: '${SLACK_INFOSEC_WEBHOOK_URL}'
         send_resolved: true
 ```
 
 ---
 
-### 4.2 Production Alerting Rules Catalog (k8s/alerts/codevault-alerts.yaml)
+### 4.2 Production Alerting Rules Catalog (k8s/alerts/cerberus-alerts.yaml)
 
 This catalog defines 32 production alerting rules with explicit PromQL queries, thresholds, severity tiers, and runbook links across Infrastructure, Multi-Agent Performance, LLM & Cost, Database, and Security.
 
 ```yaml
-# File: k8s/alerts/codevault-alerts.yaml
+# File: k8s/alerts/cerberus-alerts.yaml
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: codevault-production-alerts
-  namespace: codevault
+  name: cerberus-production-alerts
+  namespace: cerberus
   labels:
     role: alert-rules
-    app.kubernetes.io/name: codevault
+    app.kubernetes.io/name: cerberus
 spec:
   groups:
-    - name: codevault.api.rules
+    - name: cerberus.api.rules
       rules:
         # 1. High API Error Rate
         - alert: HighAPIErrorRate
-          expr: sum(rate(codevault_api_requests_total{status=~"5.."}[5m])) / sum(rate(codevault_api_requests_total[5m])) > 0.05
+          expr: sum(rate(cerberus_api_requests_total{status=~"5.."}[5m])) / sum(rate(cerberus_api_requests_total[5m])) > 0.05
           for: 3m
           labels:
             severity: critical
@@ -977,7 +977,7 @@ spec:
 
         # 2. API Latency Warning
         - alert: APILatencyBreach
-          expr: histogram_quantile(0.95, sum(rate(codevault_api_request_duration_seconds_bucket[5m])) by (le)) > 10.0
+          expr: histogram_quantile(0.95, sum(rate(cerberus_api_request_duration_seconds_bucket[5m])) by (le)) > 10.0
           for: 5m
           labels:
             severity: warning
@@ -987,7 +987,7 @@ spec:
 
         # 3. API Critical Latency
         - alert: APICriticalLatency
-          expr: histogram_quantile(0.99, sum(rate(codevault_api_request_duration_seconds_bucket[5m])) by (le)) > 30.0
+          expr: histogram_quantile(0.99, sum(rate(cerberus_api_request_duration_seconds_bucket[5m])) by (le)) > 30.0
           for: 5m
           labels:
             severity: critical
@@ -998,7 +998,7 @@ spec:
 
         # 4. Review Throughput Drop
         - alert: ReviewThroughputDrop
-          expr: rate(codevault_reviews_total[15m]) < (rate(codevault_reviews_total[15m] offset 1d) * 0.5)
+          expr: rate(cerberus_reviews_total[15m]) < (rate(cerberus_reviews_total[15m] offset 1d) * 0.5)
           for: 15m
           labels:
             severity: warning
@@ -1008,7 +1008,7 @@ spec:
 
         # 5. High Review Failure Rate
         - alert: HighReviewFailureRate
-          expr: sum(rate(codevault_reviews_total{status="failed"[5m]})) / sum(rate(codevault_reviews_total[5m])) > 0.10
+          expr: sum(rate(cerberus_reviews_total{status="failed"[5m]})) / sum(rate(cerberus_reviews_total[5m])) > 0.10
           for: 5m
           labels:
             severity: critical
@@ -1019,7 +1019,7 @@ spec:
 
         # 6. Agent Crash Detected
         - alert: AgentCrashDetected
-          expr: sum(rate(codevault_agent_crashes_total[5m])) > 0
+          expr: sum(rate(cerberus_agent_crashes_total[5m])) > 0
           for: 2m
           labels:
             severity: warning
@@ -1029,7 +1029,7 @@ spec:
 
         # 7. Agent Crash Critical Spike
         - alert: AgentCrashCritical
-          expr: sum(rate(codevault_agent_executions_total{status="failed"}[5m])) / sum(rate(codevault_agent_executions_total[5m])) > 0.50
+          expr: sum(rate(cerberus_agent_executions_total{status="failed"}[5m])) / sum(rate(cerberus_agent_executions_total[5m])) > 0.50
           for: 3m
           labels:
             severity: critical
@@ -1040,7 +1040,7 @@ spec:
 
         # 8. Security Agent Down
         - alert: SecurityAgentDown
-          expr: rate(codevault_agent_executions_total{agent="security", status="failed"}[5m]) > 0.2
+          expr: rate(cerberus_agent_executions_total{agent="security", status="failed"}[5m]) > 0.2
           for: 3m
           labels:
             severity: critical
@@ -1051,7 +1051,7 @@ spec:
 
         # 9. Agent Execution Timeout
         - alert: AgentExecutionTimeout
-          expr: histogram_quantile(0.95, sum(rate(codevault_agent_duration_seconds_bucket[5m])) by (le, agent)) > 60.0
+          expr: histogram_quantile(0.95, sum(rate(cerberus_agent_duration_seconds_bucket[5m])) by (le, agent)) > 60.0
           for: 5m
           labels:
             severity: warning
@@ -1061,7 +1061,7 @@ spec:
 
         # 10. Agent Deadlock Warning
         - alert: AgentDeadlockWarning
-          expr: codevault_reviews_in_progress > 20 and rate(codevault_reviews_total[5m]) == 0
+          expr: cerberus_reviews_in_progress > 20 and rate(cerberus_reviews_total[5m]) == 0
           for: 5m
           labels:
             severity: critical
@@ -1070,7 +1070,7 @@ spec:
             summary: "Multi-agent graph deadlock: 20+ reviews in progress but zero reviews completing."
             runbook_url: "https://cerberus.example.com/docs/runbooks#86"
 
-    - name: codevault.infrastructure.rules
+    - name: cerberus.infrastructure.rules
       rules:
         # 11. PostgreSQL Down
         - alert: DatabaseDown
@@ -1085,7 +1085,7 @@ spec:
 
         # 12. PostgreSQL Connection Pool Exhaustion
         - alert: DatabasePoolExhaustion
-          expr: codevault_db_pool_checked_out / codevault_db_pool_size > 0.90
+          expr: cerberus_db_pool_checked_out / cerberus_db_pool_size > 0.90
           for: 3m
           labels:
             severity: critical
@@ -1096,7 +1096,7 @@ spec:
 
         # 13. PostgreSQL High Query Latency
         - alert: DatabaseHighLatency
-          expr: rate(codevault_db_query_duration_seconds_sum[5m]) / rate(codevault_db_query_duration_seconds_count[5m]) > 0.5
+          expr: rate(cerberus_db_query_duration_seconds_sum[5m]) / rate(cerberus_db_query_duration_seconds_count[5m]) > 0.5
           for: 5m
           labels:
             severity: warning
@@ -1148,7 +1148,7 @@ spec:
 
         # 18. Cache Hit Rate Low
         - alert: CacheHitRateLow
-          expr: codevault_cache_hit_rate < 0.40
+          expr: cerberus_cache_hit_rate < 0.40
           for: 15m
           labels:
             severity: warning
@@ -1158,7 +1158,7 @@ spec:
 
         # 19. Rate Limiter Capacity Warning
         - alert: RateLimiterCapacityWarning
-          expr: codevault_rate_limit_tracked_keys > 20000
+          expr: cerberus_rate_limit_tracked_keys > 20000
           for: 5m
           labels:
             severity: warning
@@ -1168,7 +1168,7 @@ spec:
 
         # 20. Rate Limiter Memory Exhaustion
         - alert: RateLimiterExhaustion
-          expr: codevault_rate_limit_tracked_keys > 24000
+          expr: cerberus_rate_limit_tracked_keys > 24000
           for: 3m
           labels:
             severity: critical
@@ -1199,7 +1199,7 @@ spec:
 
         # 23. Pod High CPU
         - alert: PodHighCPU
-          expr: sum(rate(container_cpu_usage_seconds_total{container="codevault-api"}[5m])) / sum(kube_pod_container_resource_limits{resource="cpu", container="codevault-api"}) > 0.85
+          expr: sum(rate(container_cpu_usage_seconds_total{container="cerberus-api"}[5m])) / sum(kube_pod_container_resource_limits{resource="cpu", container="cerberus-api"}) > 0.85
           for: 10m
           labels:
             severity: warning
@@ -1209,7 +1209,7 @@ spec:
 
         # 24. Pod High Memory
         - alert: PodHighMemory
-          expr: sum(container_memory_working_set_bytes{container="codevault-api"}) / sum(kube_pod_container_resource_limits{resource="memory", container="codevault-api"}) > 0.85
+          expr: sum(container_memory_working_set_bytes{container="cerberus-api"}) / sum(kube_pod_container_resource_limits{resource="memory", container="cerberus-api"}) > 0.85
           for: 5m
           labels:
             severity: warning
@@ -1218,11 +1218,11 @@ spec:
             summary: "API Pods Working Set memory exceeds 85% of limit."
             runbook_url: "https://cerberus.example.com/docs/runbooks#82"
 
-    - name: codevault.llm.cost.rules
+    - name: cerberus.llm.cost.rules
       rules:
         # 25. LLM Rate Limit 429 Throttle
         - alert: LLMRateLimit429
-          expr: rate(codevault_llm_requests_total{status="429"}[5m]) > 0.1
+          expr: rate(cerberus_llm_requests_total{status="429"}[5m]) > 0.1
           for: 3m
           labels:
             severity: warning
@@ -1233,7 +1233,7 @@ spec:
 
         # 26. LLM Provider Down
         - alert: LLMProviderDown
-          expr: sum(rate(codevault_llm_requests_total{status=~"5.."}[5m])) / sum(rate(codevault_llm_requests_total[5m])) > 0.50
+          expr: sum(rate(cerberus_llm_requests_total{status=~"5.."}[5m])) / sum(rate(cerberus_llm_requests_total[5m])) > 0.50
           for: 3m
           labels:
             severity: critical
@@ -1244,7 +1244,7 @@ spec:
 
         # 27. LLM Latency Spike
         - alert: LLMLatencySpike
-          expr: histogram_quantile(0.95, sum(rate(codevault_llm_latency_seconds_bucket[5m])) by (le)) > 20.0
+          expr: histogram_quantile(0.95, sum(rate(cerberus_llm_latency_seconds_bucket[5m])) by (le)) > 20.0
           for: 5m
           labels:
             severity: warning
@@ -1254,7 +1254,7 @@ spec:
 
         # 28. Token Budget Exceeded
         - alert: TokenBudgetExceeded
-          expr: (codevault_llm_cost_usd_total - (codevault_llm_cost_usd_total offset 1d)) > 500.0
+          expr: (cerberus_llm_cost_usd_total - (cerberus_llm_cost_usd_total offset 1d)) > 500.0
           for: 1m
           labels:
             severity: critical
@@ -1265,7 +1265,7 @@ spec:
 
         # 29. Cost Anomaly Spike
         - alert: CostAnomalySpike
-          expr: rate(codevault_llm_cost_usd_total[1h]) > (rate(codevault_llm_cost_usd_total[1h] offset 1d) * 3)
+          expr: rate(cerberus_llm_cost_usd_total[1h]) > (rate(cerberus_llm_cost_usd_total[1h] offset 1d) * 3)
           for: 1h
           labels:
             severity: warning
@@ -1275,7 +1275,7 @@ spec:
 
         # 30. WebSocket Connection Leak
         - alert: WebSocketConnectionLeak
-          expr: codevault_websocket_active_connections > 1000 and rate(codevault_api_requests_total[10m]) < 1
+          expr: cerberus_websocket_active_connections > 1000 and rate(cerberus_api_requests_total[10m]) < 1
           for: 15m
           labels:
             severity: warning
@@ -1311,14 +1311,14 @@ spec:
 
 ### 5.1 Structured Log Schema & Correlation Context
 
-Every log entry emitted by CodeVault AI is a single-line JSON string containing distributed context headers and metadata.
+Every log entry emitted by Cerberus is a single-line JSON string containing distributed context headers and metadata.
 
 ```json
 // File: config/logging/example-structured-log.json
 {
   "timestamp": "2026-09-24T14:30:00.123Z",
   "level": "INFO",
-  "service": "codevault-api",
+  "service": "cerberus-api",
   "component": "langgraph_orchestrator",
   "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
   "span_id": "00f067aa0ba902b7",
@@ -1417,12 +1417,12 @@ clients:
   - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-  - job_name: kubernetes-pods-codevault
+  - job_name: kubernetes-pods-cerberus
     kubernetes_sd_configs:
       - role: pod
         namespaces:
           names:
-            - codevault
+            - cerberus
     pipeline_stages:
       - json:
           expressions:
@@ -1464,7 +1464,7 @@ filter {
 
   mutate {
     add_field => {
-      "[@metadata][target_index]" => "codevault-logs-%{+YYYY.MM.dd}"
+      "[@metadata][target_index]" => "cerberus-logs-%{+YYYY.MM.dd}"
     }
   }
 
@@ -1511,7 +1511,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 def setup_telemetry(app: FastAPI, engine: Optional[AsyncEngine] = None):
     """Configures OpenTelemetry APM tracer with OTLP HTTP exporter."""
-    service_name = os.getenv("OTEL_SERVICE_NAME", "codevault-api")
+    service_name = os.getenv("OTEL_SERVICE_NAME", "cerberus-api")
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://jaeger:4318/v1/traces")
     environment = os.getenv("ENVIRONMENT", "production")
 
@@ -1620,7 +1620,7 @@ class LLMCostGovernanceService:
 
     def _get_daily_key(self) -> str:
         today = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
-        return f"codevault:cost:daily:{today}"
+        return f"cerberus:cost:daily:{today}"
 
     def calculate_cost(self, model: str, prompt_tokens: int, completion_tokens: int) -> float:
         """Calculates exact USD expenditure for an inference transaction."""
@@ -1684,7 +1684,7 @@ class LLMCostGovernanceService:
      ```bash
      # File: scripts/runbooks/check_llm_latency.sh
      # Check upstream LLM inference latency
-     kubectl -n codevault logs -l app.kubernetes.io/name=codevault-api --tail=100 | grep "llm_latency_ms"
+     kubectl -n cerberus logs -l app.kubernetes.io/name=cerberus-api --tail=100 | grep "llm_latency_ms"
      ```
   3. Inspect PostgreSQL active queries:
      ```sql
@@ -1697,7 +1697,7 @@ class LLMCostGovernanceService:
   1. If watsonx is responding slowly, temporarily switch to local Ollama or static AST evaluation:
      ```bash
      # File: scripts/runbooks/switch_llm_heuristic.sh
-     kubectl set env deployment/codevault-api -n codevault LLM_PROVIDER=heuristic
+     kubectl set env deployment/cerberus-api -n cerberus LLM_PROVIDER=heuristic
      ```
   2. If slow database queries are blocking, kill queries exceeding 60 seconds:
      ```sql
@@ -1718,24 +1718,24 @@ class LLMCostGovernanceService:
   1. Verify which pods were restarted:
      ```bash
      # File: scripts/runbooks/check_oom_pods.sh
-     kubectl get pods -n codevault -o wide | grep OOMKilled
+     kubectl get pods -n cerberus -o wide | grep OOMKilled
      ```
   2. Review memory consumption per container in Grafana panel 21.
   3. Inspect in-memory cache capacity (`CACHE_MAX_ITEMS`) and rate limiter tracked keys (`RATE_LIMIT_MAX_TRACKED`):
      ```bash
      # File: scripts/runbooks/check_cache_evictions.sh
-     kubectl -n codevault logs <pod-name> | grep "evicting"
+     kubectl -n cerberus logs <pod-name> | grep "evicting"
      ```
 - **Mitigation:**
   1. Immediately bump Kubernetes memory limit to 6Gi:
      ```bash
      # File: scripts/runbooks/scale_pod_memory.sh
-     kubectl set resources deployment/codevault-api -n codevault --limits=memory=6144Mi
+     kubectl set resources deployment/cerberus-api -n cerberus --limits=memory=6144Mi
      ```
   2. Force garbage collection and purge in-memory cache if leak is in worker process:
      ```bash
      # File: scripts/runbooks/rollout_restart_api.sh
-     kubectl rollout restart deployment/codevault-api -n codevault
+     kubectl rollout restart deployment/cerberus-api -n cerberus
      ```
 - **Resolution:** Observe steady-state memory utilization stabilizing below 70%.
 - **Post-Mortem:** Run `tracemalloc` profile during batch review load tests to isolate uncollected AST node objects.
@@ -1771,8 +1771,8 @@ class LLMCostGovernanceService:
   2. Increase pool size and overflow configuration via ConfigMap:
      ```bash
      # File: scripts/runbooks/patch_db_pool.sh
-     kubectl patch configmap codevault-config -n codevault --type merge -p '{"data":{"DB_POOL_SIZE":"40","DB_MAX_OVERFLOW":"30"}}'
-     kubectl rollout restart deployment/codevault-api -n codevault
+     kubectl patch configmap cerberus-config -n cerberus --type merge -p '{"data":{"DB_POOL_SIZE":"40","DB_MAX_OVERFLOW":"30"}}'
+     kubectl rollout restart deployment/cerberus-api -n cerberus
      ```
 - **Resolution:** Connection pool saturation drops below 50% in Grafana panel 19.
 - **Post-Mortem:** Audit async session context managers (`async with get_db_session():`) to guarantee all sessions commit or rollback on exception.
@@ -1786,12 +1786,12 @@ class LLMCostGovernanceService:
   - Reviews fail or take excessive time due to backoff retries.
 - **Investigation:**
   1. Check rate of HTTP 429 responses in Grafana panel 18.
-  2. Check current concurrent batch reviews in Prometheus: `sum(codevault_reviews_in_progress)`.
+  2. Check current concurrent batch reviews in Prometheus: `sum(cerberus_reviews_in_progress)`.
 - **Mitigation:**
   1. Reduce batch concurrency limit immediately:
      ```bash
      # File: scripts/runbooks/patch_batch_concurrency.sh
-     kubectl patch configmap codevault-config -n codevault --type merge -p '{"data":{"MAX_CONCURRENT_BATCH_REVIEWS":"3"}}'
+     kubectl patch configmap cerberus-config -n cerberus --type merge -p '{"data":{"MAX_CONCURRENT_BATCH_REVIEWS":"3"}}'
      ```
   2. Temporarily route tier-2 agents (documentation, style) to heuristic evaluators to conserve token quota for tier-1 (security).
 - **Resolution:** Rate of HTTP 429 errors returns to zero.
@@ -1803,7 +1803,7 @@ class LLMCostGovernanceService:
 
 - **Symptoms:**
   - Alert `RedisDown` or `RedisMemoryHigh` firing.
-  - High cache miss rates (`codevault_cache_misses_total` increasing rapidly).
+  - High cache miss rates (`cerberus_cache_misses_total` increasing rapidly).
 - **Investigation:**
   1. Inspect Redis cluster health:
      ```bash
@@ -1848,7 +1848,7 @@ class LLMCostGovernanceService:
   2. Inspect pod logs for asyncio deadlocks or circular waiting in LangGraph nodes:
      ```bash
      # File: scripts/runbooks/check_deadlock_logs.sh
-     kubectl logs -n codevault -l app.kubernetes.io/name=codevault-api --tail=500 | grep "deadlock"
+     kubectl logs -n cerberus -l app.kubernetes.io/name=cerberus-api --tail=500 | grep "deadlock"
      ```
 - **Mitigation:**
   1. Enforce hard timeout on stuck reviews by updating database status to `failed`:
@@ -1861,9 +1861,9 @@ class LLMCostGovernanceService:
   2. Rollout restart of API pods to terminate hung asyncio event loop tasks:
      ```bash
      # File: scripts/runbooks/restart_deadlocked_pods.sh
-     kubectl rollout restart deployment/codevault-api -n codevault
+     kubectl rollout restart deployment/cerberus-api -n cerberus
      ```
-- **Resolution:** `codevault_reviews_in_progress` returns to healthy baseline (< 10).
+- **Resolution:** `cerberus_reviews_in_progress` returns to healthy baseline (< 10).
 - **Post-Mortem:** Implement strict `asyncio.wait_for(node_execution(), timeout=45.0)` across all LangGraph agent state transitions.
 
 ---
@@ -1887,12 +1887,12 @@ class LLMCostGovernanceService:
   1. Enable automated circuit breaker by forcing fallback model:
      ```bash
      # File: scripts/runbooks/circuit_breaker_ollama.sh
-     kubectl patch configmap codevault-config -n codevault --type merge -p '{"data":{"LLM_PROVIDER":"ollama"}}'
+     kubectl patch configmap cerberus-config -n cerberus --type merge -p '{"data":{"LLM_PROVIDER":"ollama"}}'
      ```
   2. Restrict maximum file size analyzed per PR to 200 lines until daily reset:
      ```bash
      # File: scripts/runbooks/restrict_file_lines.sh
-     kubectl patch configmap codevault-config -n codevault --type merge -p '{"data":{"MAX_FILE_LINES":"200"}}'
+     kubectl patch configmap cerberus-config -n cerberus --type merge -p '{"data":{"MAX_FILE_LINES":"200"}}'
      ```
 - **Resolution:** Hourly spend rate drops to compute-only baseline ($0/hr).
 - **Post-Mortem:** Implement per-tenant daily quota tiers and throttle excessive batch reviews.
@@ -1908,18 +1908,18 @@ class LLMCostGovernanceService:
   1. Check open socket counts:
      ```bash
      # File: scripts/runbooks/check_socket_descriptors.sh
-     kubectl exec -it <pod-name> -n codevault -- ss -s
+     kubectl exec -it <pod-name> -n cerberus -- ss -s
      ```
   2. Inspect logs for uncleaned WebSocket connections upon client abort:
      ```bash
      # File: scripts/runbooks/check_ws_disconnect_logs.sh
-     kubectl logs -n codevault <pod-name> | grep "WebSocketDisconnect"
+     kubectl logs -n cerberus <pod-name> | grep "WebSocketDisconnect"
      ```
 - **Mitigation:**
   1. Force restart of leaking pods:
      ```bash
      # File: scripts/runbooks/delete_leaking_ws_pods.sh
-     kubectl delete pod -l app.kubernetes.io/name=codevault-api -n codevault
+     kubectl delete pod -l app.kubernetes.io/name=cerberus-api -n cerberus
      ```
   2. Ensure server-side ping/pong heartbeat drops dead connections after 30s.
 - **Resolution:** Active WebSocket connections drop to match real concurrent browser sessions.
@@ -1936,7 +1936,7 @@ class LLMCostGovernanceService:
   1. Inspect ExternalSecret resource status:
      ```bash
      # File: scripts/runbooks/describe_external_secret.sh
-     kubectl describe externalsecret codevault-vault-secrets -n codevault
+     kubectl describe externalsecret cerberus-vault-secrets -n cerberus
      ```
   2. Check Vault Kubernetes service account token validity:
      ```bash
@@ -1952,7 +1952,7 @@ class LLMCostGovernanceService:
   2. Force immediate refresh of ExternalSecret:
      ```bash
      # File: scripts/runbooks/force_sync_secret.sh
-     kubectl annotate externalsecret codevault-vault-secrets -n codevault force-sync=$(date +%s) --overwrite
+     kubectl annotate externalsecret cerberus-vault-secrets -n cerberus force-sync=$(date +%s) --overwrite
      ```
 - **Resolution:** ExternalSecret status changes to `SecretSynced: True`.
 - **Post-Mortem:** Extend Vault token TTL to 24h with periodic background renewal sidecar.
@@ -1974,13 +1974,13 @@ class LLMCostGovernanceService:
   2. Inspect Redis for stale keys:
      ```bash
      # File: scripts/runbooks/check_stale_redis_keys.sh
-     redis-cli -h redis-cluster.redis.svc.cluster.local -a "$REDIS_PASSWORD" KEYS "codevault:review:*"
+     redis-cli -h redis-cluster.redis.svc.cluster.local -a "$REDIS_PASSWORD" KEYS "cerberus:review:*"
      ```
 - **Mitigation:**
   1. Purge review cache keys for affected repository:
      ```bash
      # File: scripts/runbooks/purge_stale_cache_keys.sh
-     redis-cli -h redis-cluster.redis.svc.cluster.local -a "$REDIS_PASSWORD" --scan --pattern "codevault:review:*" | xargs -L 100 redis-cli -h redis-cluster.redis.svc.cluster.local -a "$REDIS_PASSWORD" DEL
+     redis-cli -h redis-cluster.redis.svc.cluster.local -a "$REDIS_PASSWORD" --scan --pattern "cerberus:review:*" | xargs -L 100 redis-cli -h redis-cluster.redis.svc.cluster.local -a "$REDIS_PASSWORD" DEL
      ```
 - **Resolution:** New review submissions generate fresh analysis with current code diffs.
 - **Post-Mortem:** Enforce git commit SHA hashing in cache key generation to guarantee automatic invalidation upon new commits.
@@ -2072,7 +2072,7 @@ async def startup_probe(response: Response) -> Dict[str, str]:
 
 ### 9.3 Multi-Window Error Budget Burn Rate Policies
 
-CodeVault AI implements Google SRE multi-window, multi-burn-rate alerting policies to protect platform reliability:
+Cerberus implements Google SRE multi-window, multi-burn-rate alerting policies to protect platform reliability:
 
 | Severity | Burn Rate | Budget Consumed | Short Window | Long Window | Operational Action |
 |---|---|---|---|---|---|
@@ -2092,7 +2092,7 @@ CodeVault AI implements Google SRE multi-window, multi-burn-rate alerting polici
 
 ## 10. Summary & Pointer to Next Document
 
-This manual established the comprehensive observability, metrics instrumentation, alerting rules, structured logging, distributed tracing, and incident response foundation for CodeVault AI.
+This manual established the comprehensive observability, metrics instrumentation, alerting rules, structured logging, distributed tracing, and incident response foundation for Cerberus.
 
 To review test framework configurations, unit/integration/E2E test suites, mock fixtures for IBM watsonx Orchestrate, and distributed load testing scripts, proceed to the next document:
 

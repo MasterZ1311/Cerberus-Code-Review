@@ -91,7 +91,7 @@ async def get_repository_analytics(
                 severity_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0, "info": 0}
 
     except Exception as e:
-        logger.warning(f"Error computing live analytics for {owner}/{repo}: {e}")
+        logger.warning("Error computing live analytics for %s/%s: %s", owner, repo, e)
         total_reviews = 0
         avg_score = 0.0
         vulnerabilities_prevented = 0
@@ -131,7 +131,7 @@ async def get_global_trends(
             res_avg = await session.execute(avg_stmt)
             avg_score = round(float(res_avg.scalar() or 0.0), 1)
     except Exception as e:
-        logger.warning(f"Error computing global trends: {e}")
+        logger.warning("Error computing global trends: %s", e)
         total_reviews = 0
         avg_score = 0.0
 

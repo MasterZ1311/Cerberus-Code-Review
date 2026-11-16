@@ -1,6 +1,6 @@
 # cerberus</> Documentation
 
-Welcome to the **cerberus</>** documentation! cerberus</> (project codename: CodeVault AI) is an autonomous enterprise multi-agent code review and automated quality assurance platform built with FastAPI, SQLAlchemy, Redis, and specialized static and LLM analysis agents.
+Welcome to the **cerberus</>** documentation! cerberus</> (project codename: Cerberus) is an autonomous enterprise multi-agent code review and automated quality assurance platform built with FastAPI, SQLAlchemy, Redis, and specialized static and LLM analysis agents.
 
 ---
 

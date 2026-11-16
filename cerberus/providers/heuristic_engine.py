@@ -997,3 +997,456 @@ class HeuristicEngine:
 
         score = 100.0 - (len(findings) * 20.0)
         return findings, max(0.0, score)
+
+    # ===================================================================
+    # MULTI-LANGUAGE SECURITY ANALYSIS (Java, C#, Ruby, PHP, Go, Rust)
+    # ===================================================================
+
+    @staticmethod
+    def analyze_java_security(code: str, filename: Optional[str] = None) -> List[Finding]:
+        """Analyze Java code for security vulnerabilities."""
+        findings: List[Finding] = []
+        lines = code.split("\n")
+        is_test = HeuristicEngine._is_test_or_fixture_context(filename)
+
+        for idx, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("//") or stripped.startswith("/*"):
+                continue
+
+            # SQL Injection via Statement
+            if re.search(r"Statement\s+\w+\s*=.*\.createStatement\(\)", line):
+                if re.search(r"\.execute(?:Query|Update)?\s*\([^?]*\+", line):
+                    findings.append(
+                        Finding(
+                            id=f"JAVA-SQLI-{idx}",
+                            severity=SeverityEnum.CRITICAL,
+                            category="injection",
+                            title="SQL Injection in Java (Statement)",
+                            message="String concatenation detected in SQL Statement execution",
+                            line=idx,
+                            code_snippet=stripped,
+                            recommendation="Use PreparedStatement with parameterized queries",
+                            suggestion='PreparedStatement ps = conn.prepareStatement("SELECT * FROM users WHERE id = ?"); ps.setInt(1, userId);',
+                            cwe_id="CWE-89",
+                            cvss_score=9.8,
+                        )
+                    )
+
+            # XXE Vulnerability
+            if "DocumentBuilderFactory.newInstance()" in line:
+                # Check if secure features are set in nearby lines
+                context_lines = "\n".join(lines[max(0, idx - 3) : min(len(lines), idx + 3)])
+                if "setFeature" not in context_lines:
+                    findings.append(
+                        Finding(
+                            id=f"JAVA-XXE-{idx}",
+                            severity=SeverityEnum.HIGH,
+                            category="xml",
+                            title="XML External Entity (XXE) Vulnerability",
+                            message="DocumentBuilderFactory created without disabling external entities",
+                            line=idx,
+                            code_snippet=stripped,
+                            recommendation="Disable DTDs and external entities",
+                            suggestion='factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);',
+                            cwe_id="CWE-611",
+                            cvss_score=8.2,
+                        )
+                    )
+
+            # Insecure Random
+            if "new Random()" in line or "Math.random()" in line:
+                if not is_test:
+                    findings.append(
+                        Finding(
+                            id=f"JAVA-WEAK-RANDOM-{idx}",
+                            severity=SeverityEnum.MEDIUM,
+                            category="cryptography",
+                            title="Weak Random Number Generator",
+                            message="Using non-cryptographic random generator for security-sensitive operations",
+                            line=idx,
+                            code_snippet=stripped,
+                            recommendation="Use SecureRandom for cryptographic or security purposes",
+                            suggestion="SecureRandom secureRandom = new SecureRandom();",
+                            cwe_id="CWE-338",
+                            cvss_score=5.3,
+                        )
+                    )
+
+        return findings
+
+    @staticmethod
+    def analyze_csharp_security(code: str, filename: Optional[str] = None) -> List[Finding]:
+        """Analyze C# code for security vulnerabilities."""
+        findings: List[Finding] = []
+        lines = code.split("\n")
+
+        for idx, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("//"):
+                continue
+
+            # SQL Injection via string concatenation
+            if re.search(r"new\s+SqlCommand\s*\([^)]*\+[^)]*\)", line):
+                findings.append(
+                    Finding(
+                        id=f"CS-SQLI-{idx}",
+                        severity=SeverityEnum.CRITICAL,
+                        category="injection",
+                        title="SQL Injection in C# (SqlCommand)",
+                        message="String concatenation detected in SqlCommand construction",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Use parameterized queries with SqlParameter",
+                        suggestion='SqlCommand cmd = new SqlCommand("SELECT * FROM users WHERE id = @id"); cmd.Parameters.AddWithValue("@id", userId);',
+                        cwe_id="CWE-89",
+                        cvss_score=9.8,
+                    )
+                )
+
+            # Command Injection
+            if re.search(r"Process\.Start\s*\([^)]*\+", line):
+                findings.append(
+                    Finding(
+                        id=f"CS-CMD-{idx}",
+                        severity=SeverityEnum.HIGH,
+                        category="injection",
+                        title="Command Injection in C# (Process.Start)",
+                        message="User input concatenated into Process.Start command",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Validate and sanitize all user inputs, use ProcessStartInfo with Arguments property",
+                        cwe_id="CWE-78",
+                        cvss_score=8.4,
+                    )
+                )
+
+            # Insecure Deserialization
+            if "BinaryFormatter" in line or "NetDataContractSerializer" in line:
+                findings.append(
+                    Finding(
+                        id=f"CS-DESER-{idx}",
+                        severity=SeverityEnum.HIGH,
+                        category="deserialization",
+                        title="Insecure Deserialization in C#",
+                        message="BinaryFormatter and NetDataContractSerializer are vulnerable to deserialization attacks",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Use Json.NET or DataContractSerializer with type filtering",
+                        cwe_id="CWE-502",
+                        cvss_score=8.1,
+                    )
+                )
+
+        return findings
+
+    @staticmethod
+    def analyze_ruby_security(code: str, filename: Optional[str] = None) -> List[Finding]:
+        """Analyze Ruby code for security vulnerabilities."""
+        findings: List[Finding] = []
+        lines = code.split("\n")
+
+        for idx, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+
+            # SQL Injection
+            if re.search(r'\.where\s*\(["\'].*#\{.*\}', line) or re.search(r'\.find_by_sql\s*\(["\'].*#\{', line):
+                findings.append(
+                    Finding(
+                        id=f"RUBY-SQLI-{idx}",
+                        severity=SeverityEnum.CRITICAL,
+                        category="injection",
+                        title="SQL Injection in Ruby/Rails",
+                        message="String interpolation detected in SQL query",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Use ActiveRecord parameterized queries",
+                        suggestion='User.where("id = ?", user_id)',
+                        cwe_id="CWE-89",
+                        cvss_score=9.8,
+                    )
+                )
+
+            # Command Injection
+            if re.search(r"`[^`]*#\{", line) or re.search(r'system\s*\(["\'].*#\{', line):
+                findings.append(
+                    Finding(
+                        id=f"RUBY-CMD-{idx}",
+                        severity=SeverityEnum.HIGH,
+                        category="injection",
+                        title="Command Injection in Ruby",
+                        message="User input interpolated into shell command",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Use array form of system() or Open3 module",
+                        suggestion='system("command", arg1, arg2)',
+                        cwe_id="CWE-78",
+                        cvss_score=8.4,
+                    )
+                )
+
+            # eval() usage
+            if re.search(r"\beval\s*\(", line):
+                findings.append(
+                    Finding(
+                        id=f"RUBY-EVAL-{idx}",
+                        severity=SeverityEnum.CRITICAL,
+                        category="injection",
+                        title="Code Injection via eval()",
+                        message="Dynamic code evaluation allows arbitrary code execution",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Avoid eval(), use safe alternatives like JSON.parse or YAML.safe_load",
+                        cwe_id="CWE-94",
+                        cvss_score=9.8,
+                    )
+                )
+
+        return findings
+
+    @staticmethod
+    def analyze_php_security(code: str, filename: Optional[str] = None) -> List[Finding]:
+        """Analyze PHP code for security vulnerabilities."""
+        findings: List[Finding] = []
+        lines = code.split("\n")
+
+        for idx, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("//") or stripped.startswith("#"):
+                continue
+
+            # SQL Injection
+            if re.search(r'mysql_query\s*\(["\'].*\$', line) or re.search(r'\$mysqli->query\s*\(["\'].*\$', line):
+                findings.append(
+                    Finding(
+                        id=f"PHP-SQLI-{idx}",
+                        severity=SeverityEnum.CRITICAL,
+                        category="injection",
+                        title="SQL Injection in PHP",
+                        message="Variable concatenation in SQL query",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Use prepared statements with PDO or mysqli",
+                        suggestion='$stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?"); $stmt->execute([$userId]);',
+                        cwe_id="CWE-89",
+                        cvss_score=9.8,
+                    )
+                )
+
+            # Command Injection
+            if re.search(r'\b(?:exec|shell_exec|system|passthru)\s*\(["\'].*\$', line):
+                findings.append(
+                    Finding(
+                        id=f"PHP-CMD-{idx}",
+                        severity=SeverityEnum.HIGH,
+                        category="injection",
+                        title="Command Injection in PHP",
+                        message="User input passed to shell execution function",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Use escapeshellarg() or avoid shell functions entirely",
+                        cwe_id="CWE-78",
+                        cvss_score=8.4,
+                    )
+                )
+
+            # File Inclusion
+            if re.search(r'\b(?:include|require|include_once|require_once)\s*\(["\']?\$', line):
+                findings.append(
+                    Finding(
+                        id=f"PHP-LFI-{idx}",
+                        severity=SeverityEnum.HIGH,
+                        category="path_traversal",
+                        title="Local File Inclusion Vulnerability",
+                        message="User-controlled variable used in file inclusion",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Use whitelist of allowed files, validate and sanitize inputs",
+                        cwe_id="CWE-98",
+                        cvss_score=7.5,
+                    )
+                )
+
+            # eval() usage
+            if re.search(r"\beval\s*\(", line):
+                findings.append(
+                    Finding(
+                        id=f"PHP-EVAL-{idx}",
+                        severity=SeverityEnum.CRITICAL,
+                        category="injection",
+                        title="Code Injection via eval()",
+                        message="eval() allows arbitrary code execution",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Avoid eval(), use safer alternatives",
+                        cwe_id="CWE-94",
+                        cvss_score=9.8,
+                    )
+                )
+
+        return findings
+
+    @staticmethod
+    def analyze_go_security(code: str, filename: Optional[str] = None) -> List[Finding]:
+        """Analyze Go code for security vulnerabilities."""
+        findings: List[Finding] = []
+        lines = code.split("\n")
+
+        for idx, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("//"):
+                continue
+
+            # SQL Injection via fmt.Sprintf
+            if re.search(r'fmt\.Sprintf\s*\(["\'].*SELECT.*%[sv]', line):
+                findings.append(
+                    Finding(
+                        id=f"GO-SQLI-{idx}",
+                        severity=SeverityEnum.CRITICAL,
+                        category="injection",
+                        title="SQL Injection in Go",
+                        message="String formatting used to construct SQL query",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Use parameterized queries with database/sql",
+                        suggestion='db.Query("SELECT * FROM users WHERE id = $1", userID)',
+                        cwe_id="CWE-89",
+                        cvss_score=9.8,
+                    )
+                )
+
+            # Command Injection
+            if re.search(r'exec\.Command\s*\(["\'][^"\']*\+', line):
+                findings.append(
+                    Finding(
+                        id=f"GO-CMD-{idx}",
+                        severity=SeverityEnum.HIGH,
+                        category="injection",
+                        title="Command Injection in Go",
+                        message="String concatenation in exec.Command",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Pass arguments separately to exec.Command",
+                        suggestion='exec.Command("command", arg1, arg2)',
+                        cwe_id="CWE-78",
+                        cvss_score=8.4,
+                    )
+                )
+
+            # Unhandled error
+            if re.search(r"_\s*=\s*\w+\s*\(.*\)\s*$", line) and "err" in line:
+                findings.append(
+                    Finding(
+                        id=f"GO-ERR-{idx}",
+                        severity=SeverityEnum.LOW,
+                        category="error_handling",
+                        title="Ignored Error Return Value",
+                        message="Error return value silently discarded with underscore",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Always check and handle error returns",
+                        cwe_id="CWE-703",
+                        cvss_score=3.1,
+                    )
+                )
+
+        return findings
+
+    @staticmethod
+    def analyze_rust_security(code: str, filename: Optional[str] = None) -> List[Finding]:
+        """Analyze Rust code for security vulnerabilities."""
+        findings: List[Finding] = []
+        lines = code.split("\n")
+
+        for idx, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("//"):
+                continue
+
+            # Undocumented unsafe block
+            if "unsafe" in line and "{" in line:
+                # Check for SAFETY comment in previous 2 lines
+                context = "\n".join(lines[max(0, idx - 3) : idx])
+                if "SAFETY:" not in context and "Safety:" not in context:
+                    findings.append(
+                        Finding(
+                            id=f"RUST-UNSAFE-{idx}",
+                            severity=SeverityEnum.MEDIUM,
+                            category="unsafe_code",
+                            title="Undocumented unsafe Block",
+                            message="unsafe block without safety rationale comment",
+                            line=idx,
+                            code_snippet=stripped,
+                            recommendation="Document all unsafe blocks with // SAFETY: explaining why it's safe",
+                            cwe_id="CWE-242",
+                            cvss_score=4.0,
+                        )
+                    )
+
+            # Unwrap on Result/Option without handling
+            if re.search(r"\.unwrap\(\)", line) and not (
+                "test" in (filename or "").lower() or "example" in (filename or "").lower()
+            ):
+                findings.append(
+                    Finding(
+                        id=f"RUST-UNWRAP-{idx}",
+                        severity=SeverityEnum.LOW,
+                        category="error_handling",
+                        title="Panic via unwrap()",
+                        message="unwrap() will panic if Result/Option is Err/None",
+                        line=idx,
+                        code_snippet=stripped,
+                        recommendation="Use pattern matching, expect(), or the ? operator for error propagation",
+                        suggestion='value.expect("descriptive error message")',
+                        cwe_id="CWE-703",
+                        cvss_score=2.3,
+                    )
+                )
+
+        return findings
+
+    @staticmethod
+    def analyze_multi_language_security(
+        code: str, language: str, filename: Optional[str] = None
+    ) -> Tuple[List[Finding], float]:
+        """
+        Unified multi-language security analyzer.
+        Routes to language-specific analyzers based on detected language.
+        """
+        language_lower = language.lower()
+
+        # Route to language-specific analyzers
+        if language_lower == "java":
+            lang_findings = HeuristicEngine.analyze_java_security(code, filename)
+        elif language_lower in ("csharp", "c#", "cs"):
+            lang_findings = HeuristicEngine.analyze_csharp_security(code, filename)
+        elif language_lower == "ruby":
+            lang_findings = HeuristicEngine.analyze_ruby_security(code, filename)
+        elif language_lower == "php":
+            lang_findings = HeuristicEngine.analyze_php_security(code, filename)
+        elif language_lower in ("go", "golang"):
+            lang_findings = HeuristicEngine.analyze_go_security(code, filename)
+        elif language_lower == "rust":
+            lang_findings = HeuristicEngine.analyze_rust_security(code, filename)
+        elif language_lower == "python":
+            # Use existing Python analyzer
+            return HeuristicEngine.analyze_security(code, language, filename)
+        else:
+            # For unsupported languages, return empty findings
+            lang_findings = []
+
+        # Calculate score
+        if not lang_findings:
+            score = 100.0
+        else:
+            critical_count = sum(1 for f in lang_findings if f.severity == SeverityEnum.CRITICAL)
+            high_count = sum(1 for f in lang_findings if f.severity == SeverityEnum.HIGH)
+            medium_count = sum(1 for f in lang_findings if f.severity == SeverityEnum.MEDIUM)
+            low_count = sum(1 for f in lang_findings if f.severity == SeverityEnum.LOW)
+
+            deductions = (critical_count * 20) + (high_count * 10) + (medium_count * 5) + (low_count * 2)
+            score = max(0.0, 100.0 - deductions)
+
+        return lang_findings, score

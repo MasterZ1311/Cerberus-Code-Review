@@ -1,6 +1,6 @@
 # Database Design & Optimization Specification
 
-Comprehensive architectural and implementation guide for the enterprise persistence and caching layer of the CodeVault AI multi-agent code review platform.
+Comprehensive architectural and implementation guide for the enterprise persistence and caching layer of the Cerberus multi-agent code review platform.
 
 ---
 
@@ -70,7 +70,7 @@ Comprehensive architectural and implementation guide for the enterprise persiste
 
 ### System Architecture & Persistence Principles
 
-The CodeVault AI multi-agent platform leverages a hybrid persistence architecture combining **PostgreSQL 16+** for durable, ACID-compliant relational and semi-structured storage, and **Redis 7+** for sub-millisecond deduplication caching and distributed token bucket rate limiting.
+The Cerberus multi-agent platform leverages a hybrid persistence architecture combining **PostgreSQL 16+** for durable, ACID-compliant relational and semi-structured storage, and **Redis 7+** for sub-millisecond deduplication caching and distributed token bucket rate limiting.
 
 Key database architectural principles include:
 1. **Durable Orchestration State**: Every review execution is tracked with a primary UUID entity in the `reviews` table, supporting asynchronous job queues and idempotent retry mechanics.
@@ -219,7 +219,7 @@ Below is the complete, self-contained SQL DDL containing over 50 executable stat
 ```sql
 -- # File: src/db/migrations/001_initial_schema.sql
 -- PostgreSQL 16+ Enterprise DDL Specification
--- Database: codevault_db
+-- Database: cerberus_db
 -- Encoding: UTF8
 
 -- 1. Enable Cryptographic Utilities for Secure UUID Generation
@@ -934,7 +934,7 @@ The following production-grade seed script populates all 11 domain tables and au
 
 ```sql
 -- # File: src/db/seeds/001_sample_data.sql
--- Seed Data for CodeVault AI Integration & Staging
+-- Seed Data for Cerberus Integration & Staging
 
 -- 1. Seed: reviews
 INSERT INTO reviews (
@@ -1257,7 +1257,7 @@ prepend_sys_path = .
 version_locations = alembic/versions
 version_path_separator = os
 
-sqlalchemy.url = postgresql+asyncpg://codevault:production_password@pgbouncer:6432/codevault_db
+sqlalchemy.url = postgresql+asyncpg://cerberus:production_password@pgbouncer:6432/cerberus_db
 
 [loggers]
 keys = root,sqlalchemy,alembic
@@ -1844,7 +1844,7 @@ set -euo pipefail
 
 BACKUP_DIR="/mnt/backups/postgresql/logical"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-DUMP_PATH="${BACKUP_DIR}/codevault_dump_${TIMESTAMP}"
+DUMP_PATH="${BACKUP_DIR}/cerberus_dump_${TIMESTAMP}"
 LOG_FILE="/var/log/postgresql/logical_dump.log"
 
 mkdir -p "${BACKUP_DIR}"
@@ -1854,8 +1854,8 @@ echo "[$(date -u)] Starting multi-threaded pg_dump (-j 4) to ${DUMP_PATH}..." | 
 PGPASSWORD="${POSTGRES_PASSWORD}" pg_dump \
   -h localhost \
   -p 5432 \
-  -U codevault \
-  -d codevault_db \
+  -U cerberus \
+  -d cerberus_db \
   -Fd \
   -j 4 \
   -f "${DUMP_PATH}" \
@@ -2048,7 +2048,7 @@ engine = create_async_engine(
     connect_args={
         "command_timeout": 60,
         "server_settings": {
-            "application_name": "codevault_api_worker",
+            "application_name": "cerberus_api_worker",
             "statement_timeout": "30000",                # Enforce 30-second query execution limit
             "idle_in_transaction_session_timeout": "10000"  # Terminate uncommitted tx after 10s
         }
@@ -2095,7 +2095,7 @@ PgBouncer operates in **transaction pooling** mode, multiplexing 1,000 active cl
 ```ini
 ; File: /etc/pgbouncer/pgbouncer.ini
 [databases]
-codevault_db = host=postgres-primary.internal port=5432 dbname=codevault_db pool_size=50
+cerberus_db = host=postgres-primary.internal port=5432 dbname=cerberus_db pool_size=50
 
 [pgbouncer]
 listen_addr = 0.0.0.0
@@ -2219,7 +2219,7 @@ SELECT
     max(now() - state_change) AS max_duration_in_state,
     max(now() - xact_start) AS max_transaction_age
 FROM pg_stat_activity
-WHERE datname = 'codevault_db'
+WHERE datname = 'cerberus_db'
 GROUP BY application_name, state
 ORDER BY connection_count DESC;
 ```
@@ -2262,7 +2262,7 @@ WHERE NOT blocked_locks.granted;
 ## 11. Summary & Next Document Pointer
 
 ### Architectural Summary
-The CodeVault AI database design provides:
+The Cerberus database design provides:
 - **Comprehensive DDL & Data Integrity**: 50+ executable SQL statements across 11 core domain tables and 3 auxiliary tables with strict `ON DELETE CASCADE` cascades, check constraints, and microsecond-precision audit triggers.
 - **Enterprise High-Throughput Indexing**: Multi-column composite B-trees, GIN indexing for JSONB telemetry and text arrays, and GiST/tsvector inverted full-text search indexing.
 - **Automated Asynchronous Schema Migrations**: Fully configured Alembic migration environment utilizing `asyncpg` with `NullPool` for clean zero-downtime schema evolution.

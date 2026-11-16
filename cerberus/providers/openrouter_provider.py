@@ -73,7 +73,7 @@ class OpenRouterProvider(OpenAIProvider):
                 if choices and len(choices) > 0:
                     return choices[0].get("message", {}).get("content")
             elif res is not None:
-                logger.warning(f"OpenRouter API returned HTTP {res.status_code}: {res.text}")
+                logger.warning("OpenRouter API returned HTTP %s: %s", res.status_code, res.text)
         except Exception as e:
-            logger.warning(f"OpenRouter completion failed: {e}")
+            logger.warning("OpenRouter completion failed: %s", e)
         return None

@@ -1,4 +1,7 @@
+import asyncio
 import pytest
+
+from cerberus.core.background import background_tasks
 from cerberus.core.security import rate_limiter
 
 
@@ -11,3 +14,14 @@ def reset_test_rate_limiter():
     yield
     rate_limiter.limit = orig_limit
     rate_limiter.requests.clear()
+
+
+@pytest.fixture(autouse=True)
+def drain_test_background_tasks():
+    """Cancel and clear any pending background tasks to avoid cross-loop leaks and closed-loop warnings."""
+    yield
+    if getattr(background_tasks, "_tasks", None):
+        for task in list(background_tasks._tasks):
+            if not task.done():
+                task.cancel()
+        background_tasks._tasks.clear()

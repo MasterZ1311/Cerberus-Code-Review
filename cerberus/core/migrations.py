@@ -71,12 +71,12 @@ async def _migrate_multitenancy_columns(conn) -> None:
                 res = await conn.execute(text(f"PRAGMA table_info({table});"))
                 existing_cols = {row[1] for row in res.fetchall()}
                 if existing_cols and col not in existing_cols:
-                    logger.info(f"Adding column '{col}' to table '{table}'")
+                    logger.info("Adding column '%s' to table '%s'", col, table)
                     await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type};"))
             else:
                 await conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type};"))
         except Exception as e:
-            logger.debug(f"Schema migration column check ({table}.{col}): {e}")
+            logger.debug("Schema migration column check (%s.%s): %s", table, col, e)
 
     # Safe backfill strategy for legacy unowned records to prevent silent access
     backfill_statements = [
@@ -97,7 +97,7 @@ async def _migrate_multitenancy_columns(conn) -> None:
         try:
             await conn.execute(stmt)
         except Exception as e:
-            logger.debug(f"Safe backfill check: {e}")
+            logger.debug("Safe backfill check: %s", e)
 
 
 async def run_migrations(engine: AsyncEngine) -> int:
@@ -131,7 +131,7 @@ async def run_migrations(engine: AsyncEngine) -> int:
             # 3. Apply missing migrations
             for version, description, sql_stmt in MIGRATIONS:
                 if version not in applied_versions:
-                    logger.info(f"Applying schema migration '{version}': {description}")
+                    logger.info("Applying schema migration '%s': %s", version, description)
                     if sql_stmt.strip():
                         for stmt in sql_stmt.strip().split(";"):
                             clean_stmt = stmt.strip()
@@ -148,10 +148,10 @@ async def run_migrations(engine: AsyncEngine) -> int:
                         {"version": version, "description": description, "checksum": checksum, "applied_at": now},
                     )
                     applied_count += 1
-                    logger.info(f"Schema migration '{version}' applied successfully.")
+                    logger.info("Schema migration '%s' applied successfully.", version)
 
     except Exception as e:
-        logger.critical(f"Schema migration failed on {version if 'version' in locals() else 'ledger'}: {e}")
+        logger.critical("Schema migration failed on %s: %s", version if "version" in locals() else "ledger", e)
         raise
 
     return applied_count

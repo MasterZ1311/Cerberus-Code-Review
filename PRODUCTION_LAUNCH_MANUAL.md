@@ -61,7 +61,7 @@
 
 ## 1. Executive Summary & Launch Framework
 
-The CodeVault AI / Cerberus platform provides enterprise-wide multi-agent static and dynamic code review automation. Because this platform sits directly in the path of critical software deployment pipelines and GitHub/GitLab pull requests, a failed deployment or operational outage can freeze developer velocity across the enterprise.
+The Cerberus platform provides enterprise-wide multi-agent static and dynamic code review automation. Because this platform sits directly in the path of critical software deployment pipelines and GitHub/GitLab pull requests, a failed deployment or operational outage can freeze developer velocity across the enterprise.
 
 This manual serves as the authoritative operational runbook for executing production cutovers, performing zero-downtime maintenance, managing on-call rotations, responding to severity incidents, and ensuring continuous compliance with global enterprise security frameworks.
 
@@ -83,14 +83,14 @@ During any production launch or major version cutover, the following roles must 
 | **Database Architect** | Executes database schema migrations, monitors replication lag and lock contention. | Authority to abort migrations if locks exceed 5s. |
 | **Security Engineer** | Audits live TLS certificates, API key hashing, WAF rules, and credential rotation. | Authority to veto deployment on security grounds. |
 | **Network & Ingress Lead** | Monitors Cloudflare/Ingress routing, DNS TTL transitions, and SSL termination. | Authority to shift traffic or enable DDoS protections. |
-| **Communications Lead** | Updates `status.codevault.ai`, coordinates internal developer communications. | Authority over public/internal status messaging. |
+| **Communications Lead** | Updates `status.cerberus.ai`, coordinates internal developer communications. | Authority over public/internal status messaging. |
 
 ### 1.3 Communication Protocol & Command Center
 
 - **Virtual War Room**: Dedicated audio bridge open from T-4h through T+4h.
 - **Dedicated Chat Channel**: `#prod-cutover-warroom` in Slack/Teams (read-only for non-launch personnel).
 - **Executive Status Channel**: `#exec-updates` updated every 30 minutes by the Communications Lead.
-- **Public Status Page**: `https://status.codevault.ai` updated upon cutover initiation and completion.
+- **Public Status Page**: `https://status.cerberus.ai` updated upon cutover initiation and completion.
 
 ---
 
@@ -103,7 +103,7 @@ The following 105 verification items must all receive verified `PASS` status bef
 | Item # | Verification Requirement | Verification Command / CLI Check | Expected Output | Owner | Sign-off |
 |---|---|---|---|---|---|
 | 1 | High Availability across 3 Availability Zones | `kubectl get nodes -o custom-columns=NAME:.metadata.name,ZONE:.metadata.labels.topology\.kubernetes\.io/zone` | Nodes distributed across at least 3 distinct AZs | SRE | [PASS] |
-| 2 | Stateless API pods with zero local disk state | `kubectl get pods -l app=codevault-api -o jsonpath='{.items[*].spec.volumes}'` | No persistent volume claims mounted to application pods | SRE | [PASS] |
+| 2 | Stateless API pods with zero local disk state | `kubectl get pods -l app=cerberus-api -o jsonpath='{.items[*].spec.volumes}'` | No persistent volume claims mounted to application pods | SRE | [PASS] |
 | 3 | Pod graceful termination handling (SIGTERM) | `kubectl logs <pod-name> \| grep "Shutting down gracefully"` | Clean drain within 30s grace period | SRE | [PASS] |
 | 4 | External HTTP call timeouts configured | `python -c "from cerberus.core.config import settings; print(settings.HTTP_TIMEOUT_SECONDS)"` | `15.0` or configured finite float <= 30.0 | Dev | [PASS] |
 | 5 | Database connection timeouts enforced | `python -c "from cerberus.core.config import settings; print(settings.DB_POOL_TIMEOUT)"` | `30` seconds max queue wait timeout | DBA | [PASS] |
@@ -129,43 +129,43 @@ The following 105 verification items must all receive verified `PASS` status bef
 |---|---|---|---|---|---|
 | 21 | Insecure default SECRET_KEY rejected in production | `python -m pytest tests/test_suite_a_security.py -k "test_production_secret_key_rejection"` | `1 passed` | Sec | [PASS] |
 | 22 | Production SECRET_KEY length >= 32 characters | `python -m pytest tests/test_suite_a_security.py -k "test_production_secret_key_minimum_length_enforced"` | `1 passed` | Sec | [PASS] |
-| 23 | HashiCorp Vault secrets sync active | `kubectl get externalsecrets -n codevault` | All external secrets in `SecretSynced` status | Sec | [PASS] |
+| 23 | HashiCorp Vault secrets sync active | `kubectl get externalsecrets -n cerberus` | All external secrets in `SecretSynced` status | Sec | [PASS] |
 | 24 | API keys stored using SHA-256 cryptographic hashes | `python -m pytest tests/test_suite_a_security.py -k "test_verify_api_key_hash_cryptographic_equality"` | `1 passed` | Sec | [PASS] |
 | 25 | Unregistered or fake `cvai_` tokens rejected | `python -m pytest tests/test_suite_a_security.py -k "test_fabricated_cvai_token_rejected"` | `1 passed` | Sec | [PASS] |
 | 26 | Expired API keys return HTTP 401 Unauthorized | `curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer cvai_expired_key" https://api.cerberus.example.com/api/v1/health` | `401` | Sec | [PASS] |
 | 27 | Inactive (revoked) API keys rejected | `python -m pytest tests/test_suite_a_security.py -k "test_inactive_api_key_rejected"` | `1 passed` | Sec | [PASS] |
 | 28 | CORS wildcard disallowed with credentials | `python -m pytest tests/test_suite_a_security.py -k "test_cors_wildcard_with_credentials_rejected"` | `1 passed` | Sec | [PASS] |
 | 29 | CORS whitelist restricted to trusted domains | `curl -s -I -H "Origin: https://malicious-site.com" https://api.cerberus.example.com/api/v1/health \| grep -i "access-control-allow-origin"` | No matching allow-origin header returned | Sec | [PASS] |
-| 30 | Container runtime runs as non-root UID 10001 | `kubectl get pods -l app=codevault-api -o jsonpath='{.items[0].spec.securityContext.runAsUser}'` | `10001` | Sec | [PASS] |
-| 31 | Container root filesystem mounted read-only | `kubectl get pods -l app=codevault-api -o jsonpath='{.items[0].spec.containers[0].securityContext.readOnlyRootFilesystem}'` | `true` | Sec | [PASS] |
-| 32 | Linux capabilities dropped (`ALL`) on containers | `kubectl get pods -l app=codevault-api -o jsonpath='{.items[0].spec.containers[0].securityContext.capabilities.drop}'` | `["ALL"]` | Sec | [PASS] |
-| 33 | Privilege escalation disallowed in container spec | `kubectl get pods -l app=codevault-api -o jsonpath='{.items[0].spec.containers[0].securityContext.allowPrivilegeEscalation}'` | `false` | Sec | [PASS] |
-| 34 | Kubernetes NetworkPolicies isolate DB and Redis | `kubectl get networkpolicy -n codevault` | Policies restrict ingress to pod labels | Sec | [PASS] |
+| 30 | Container runtime runs as non-root UID 10001 | `kubectl get pods -l app=cerberus-api -o jsonpath='{.items[0].spec.securityContext.runAsUser}'` | `10001` | Sec | [PASS] |
+| 31 | Container root filesystem mounted read-only | `kubectl get pods -l app=cerberus-api -o jsonpath='{.items[0].spec.containers[0].securityContext.readOnlyRootFilesystem}'` | `true` | Sec | [PASS] |
+| 32 | Linux capabilities dropped (`ALL`) on containers | `kubectl get pods -l app=cerberus-api -o jsonpath='{.items[0].spec.containers[0].securityContext.capabilities.drop}'` | `["ALL"]` | Sec | [PASS] |
+| 33 | Privilege escalation disallowed in container spec | `kubectl get pods -l app=cerberus-api -o jsonpath='{.items[0].spec.containers[0].securityContext.allowPrivilegeEscalation}'` | `false` | Sec | [PASS] |
+| 34 | Kubernetes NetworkPolicies isolate DB and Redis | `kubectl get networkpolicy -n cerberus` | Policies restrict ingress to pod labels | Sec | [PASS] |
 | 35 | TLS 1.3 enforced on ingress endpoints | `nmap --script ssl-enum-ciphers -p 443 api.cerberus.example.com \| grep "TLSv1.3"` | `TLSv1.3: Supported` | Sec | [PASS] |
 | 36 | HSTS header enforced with max-age >= 31536000 | `curl -s -I https://api.cerberus.example.com/api/v1/health \| grep -i "strict-transport-security"` | `max-age=31536000; includeSubDomains` | Sec | [PASS] |
 | 37 | Automated Bandit SAST scan clean of Highs | `bandit -r cerberus/ -c bandit.yaml -lll -ii` | Zero issues identified | Sec | [PASS] |
 | 38 | Automated Semgrep OWASP scan clean of Errors | `semgrep scan --config semgrep.yaml --error cerberus/` | Zero blocking findings | Sec | [PASS] |
 | 39 | Automated TruffleHog secret scan clean | `trufflehog git file://. --only-verified --fail` | `0 verified secrets found` | Sec | [PASS] |
-| 40 | Trivy container image scan clean of CVEs | `trivy image --severity HIGH,CRITICAL --exit-code 1 codevault-api:latest` | Zero High/Critical CVEs | Sec | [PASS] |
-| 41 | Database encrypted at rest with AES-256 | `aws rds describe-db-instances --db-instance-identifier codevault-pg-prod --query "DBInstances[0].StorageEncrypted"` | `true` | Sec | [PASS] |
+| 40 | Trivy container image scan clean of CVEs | `trivy image --severity HIGH,CRITICAL --exit-code 1 cerberus-api:latest` | Zero High/Critical CVEs | Sec | [PASS] |
+| 41 | Database encrypted at rest with AES-256 | `aws rds describe-db-instances --db-instance-identifier cerberus-pg-prod --query "DBInstances[0].StorageEncrypted"` | `true` | Sec | [PASS] |
 | 42 | In-transit SSL encryption enforced for Postgres | `psql "sslmode=verify-full" -c "SHOW ssl;"` | `on` | DBA | [PASS] |
-| 43 | In-transit TLS encryption enforced for Redis | `redis-cli -u rediss://redis.codevault.internal:6379 ping` | `PONG` | SRE | [PASS] |
-| 44 | Structured log masking redacts authorization tokens | `grep "Bearer [REDACTED]" /var/log/pods/*codevault*/*.log` | Sensitive tokens sanitized | Sec | [PASS] |
+| 43 | In-transit TLS encryption enforced for Redis | `redis-cli -u rediss://redis.cerberus.internal:6379 ping` | `PONG` | SRE | [PASS] |
+| 44 | Structured log masking redacts authorization tokens | `grep "Bearer [REDACTED]" /var/log/pods/*cerberus*/*.log` | Sensitive tokens sanitized | Sec | [PASS] |
 | 45 | Public vulnerability disclosure policy published | `curl -s -I https://cerberus.example.com/.well-known/security.txt` | `HTTP/2 200` | Sec | [PASS] |
 
 ### 2.3 Pillar 3: Data Integrity, Migrations & Storage Systems (Items 46–65)
 
 | Item # | Verification Requirement | Verification Command / CLI Check | Expected Output | Owner | Sign-off |
 |---|---|---|---|---|---|
-| 46 | PostgreSQL version 15+ installed and verified | `psql -U codevault -c "SELECT version();"` | `PostgreSQL 15.x ...` | DBA | [PASS] |
+| 46 | PostgreSQL version 15+ installed and verified | `psql -U cerberus -c "SELECT version();"` | `PostgreSQL 15.x ...` | DBA | [PASS] |
 | 47 | Alembic migrations up-to-date with head | `alembic current` | `head` revision matches codebase | DBA | [PASS] |
 | 48 | Reversible down-migrations verified in staging | `alembic downgrade -1 && alembic upgrade head` | Clean migration execution without data loss | DBA | [PASS] |
 | 49 | B-tree indexes exist on foreign keys | `psql -c "\d reviews"` | B-tree index on `tenant_id`, `created_at` | DBA | [PASS] |
 | 50 | Composite index exists on (tenant_id, created_at) | `psql -c "SELECT indexname FROM pg_indexes WHERE tablename='reviews';"` | `idx_reviews_tenant_created` present | DBA | [PASS] |
 | 51 | Table autovacuum parameters tuned for scale | `psql -c "SHOW autovacuum_vacuum_scale_factor;"` | `0.05` | DBA | [PASS] |
 | 52 | pg_cron automated nightly VACUUM scheduled | `psql -c "SELECT * FROM cron.job WHERE jobname='vacuum_reviews';"` | Active job scheduled daily at 02:00 UTC | DBA | [PASS] |
-| 53 | Continuous WAL archiving active to S3 bucket | `aws s3 ls s3://codevault-db-wal-prod/` | Recent WAL segments archived < 5m ago | DBA | [PASS] |
-| 54 | Daily database snapshot automated with 90d retention | `aws rds describe-db-snapshots --db-instance-identifier codevault-pg-prod` | Automated backup window active | DBA | [PASS] |
+| 53 | Continuous WAL archiving active to S3 bucket | `aws s3 ls s3://cerberus-db-wal-prod/` | Recent WAL segments archived < 5m ago | DBA | [PASS] |
+| 54 | Daily database snapshot automated with 90d retention | `aws rds describe-db-snapshots --db-instance-identifier cerberus-pg-prod` | Automated backup window active | DBA | [PASS] |
 | 55 | Point-In-Time Recovery (PITR) rehearsed | Review staging PITR test log from previous week | Successful recovery within 15 minutes | DBA | [PASS] |
 | 56 | PostgreSQL connection pool sized for max pods | `psql -c "SHOW max_connections;"` | `>= 500` connections permitted | DBA | [PASS] |
 | 57 | PgBouncer connection pooler active and healthy | `psql -p 6432 -U pgbouncer -c "SHOW POOLS;"` | Pools active with zero queued clients | DBA | [PASS] |
@@ -183,43 +183,43 @@ The following 105 verification items must all receive verified `PASS` status bef
 | Item # | Verification Requirement | Verification Command / CLI Check | Expected Output | Owner | Sign-off |
 |---|---|---|---|---|---|
 | 66 | Kubernetes cluster version >= 1.28 | `kubectl version --short` | Server Version >= v1.28.x | SRE | [PASS] |
-| 67 | API deployment minimum 5 replicas active | `kubectl get deployment codevault-api -n codevault` | `5/5 ready` | SRE | [PASS] |
-| 68 | CPU resource requests (1000m) and limits (2000m) | `kubectl get deployment codevault-api -o jsonpath='{.spec.template.spec.containers[0].resources}'` | Requests and limits verified | SRE | [PASS] |
-| 69 | Memory resource requests (2Gi) and limits (4Gi) | `kubectl get deployment codevault-api -o jsonpath='{.spec.template.spec.containers[0].resources}'` | Requests and limits verified | SRE | [PASS] |
-| 70 | Horizontal Pod Autoscaler (HPA) configured | `kubectl get hpa codevault-api -n codevault` | Min: 5, Max: 20, Target CPU: 70% | SRE | [PASS] |
-| 71 | PodDisruptionBudget configured (`minAvailable: 3`) | `kubectl get pdb codevault-api-pdb -n codevault` | `minAvailable: 3` | SRE | [PASS] |
-| 72 | Pod anti-affinity prevents colocation on same node | `kubectl get deployment codevault-api -o jsonpath='{.spec.template.spec.affinity.podAntiAffinity}'` | Preferred or required anti-affinity set | SRE | [PASS] |
+| 67 | API deployment minimum 5 replicas active | `kubectl get deployment cerberus-api -n cerberus` | `5/5 ready` | SRE | [PASS] |
+| 68 | CPU resource requests (1000m) and limits (2000m) | `kubectl get deployment cerberus-api -o jsonpath='{.spec.template.spec.containers[0].resources}'` | Requests and limits verified | SRE | [PASS] |
+| 69 | Memory resource requests (2Gi) and limits (4Gi) | `kubectl get deployment cerberus-api -o jsonpath='{.spec.template.spec.containers[0].resources}'` | Requests and limits verified | SRE | [PASS] |
+| 70 | Horizontal Pod Autoscaler (HPA) configured | `kubectl get hpa cerberus-api -n cerberus` | Min: 5, Max: 20, Target CPU: 70% | SRE | [PASS] |
+| 71 | PodDisruptionBudget configured (`minAvailable: 3`) | `kubectl get pdb cerberus-api-pdb -n cerberus` | `minAvailable: 3` | SRE | [PASS] |
+| 72 | Pod anti-affinity prevents colocation on same node | `kubectl get deployment cerberus-api -o jsonpath='{.spec.template.spec.affinity.podAntiAffinity}'` | Preferred or required anti-affinity set | SRE | [PASS] |
 | 73 | Ingress controller deployed with redundant pods | `kubectl get pods -n ingress-nginx` | At least 3 active ingress pods | Net | [PASS] |
 | 74 | DNS TTL reduced to 60 seconds prior to cutover | `dig +nocmd +noall +answer cerberus.example.com` | `TTL = 60` | Net | [PASS] |
 | 75 | Route53 latency-based routing active | `aws route53 list-resource-record-sets --hosted-zone-id Z12345` | Latency routing verified | Net | [PASS] |
-| 76 | Cloudflare / AWS WAF rate limiting rules enabled | `aws wafv2 get-web-acl --name codevault-prod-waf` | WAF rules active and in BLOCK mode | Sec | [PASS] |
-| 77 | Let's Encrypt / DigiCert SSL certificate valid > 30d | `kubectl get certificate codevault-tls -n codevault` | `Ready: True`, Renewal in > 30 days | Sec | [PASS] |
+| 76 | Cloudflare / AWS WAF rate limiting rules enabled | `aws wafv2 get-web-acl --name cerberus-prod-waf` | WAF rules active and in BLOCK mode | Sec | [PASS] |
+| 77 | Let's Encrypt / DigiCert SSL certificate valid > 30d | `kubectl get certificate cerberus-tls -n cerberus` | `Ready: True`, Renewal in > 30 days | Sec | [PASS] |
 | 78 | Egress NAT Gateway has static Elastic IPs | `aws ec2 describe-nat-gateways --filter "Name=state,Values=available"` | Elastic IPs bound and whitelisted in IBM Cloud | Net | [PASS] |
-| 79 | Kubernetes namespace isolated with ResourceQuota | `kubectl get resourcequota -n codevault` | Hard limits on CPU, memory, pods | SRE | [PASS] |
+| 79 | Kubernetes namespace isolated with ResourceQuota | `kubectl get resourcequota -n cerberus` | Hard limits on CPU, memory, pods | SRE | [PASS] |
 | 80 | StorageClass uses high-speed NVMe/gp3 volumes | `kubectl get storageclass` | `gp3` or `io2` default StorageClass | SRE | [PASS] |
 | 81 | Node termination handlers handle Spot drains | `kubectl get daemonset -n kube-system aws-node-termination-handler` | Active on all worker nodes | SRE | [PASS] |
 | 82 | Cluster Autoscaler configured (min 3, max 25 nodes) | `kubectl get deployment cluster-autoscaler -n kube-system` | Running and healthy | SRE | [PASS] |
 | 83 | CoreDNS scaled horizontally to avoid lookup stalls | `kubectl get deployment coredns -n kube-system` | At least 4 ready replicas | Net | [PASS] |
-| 84 | Image pull secrets configured for private registry | `kubectl get secret ghcr-pull-secret -n codevault` | Secret exists and credentials valid | SRE | [PASS] |
+| 84 | Image pull secrets configured for private registry | `kubectl get secret ghcr-pull-secret -n cerberus` | Secret exists and credentials valid | SRE | [PASS] |
 | 85 | Internal load balancers health probes returning 200 | `curl -s -o /dev/null -w "%{http_code}" http://internal-lb.local/api/v1/health` | `200` | Net | [PASS] |
 
 ### 2.5 Pillar 5: Observability, Alerting & Incident Response (Items 86–105)
 
 | Item # | Verification Requirement | Verification Command / CLI Check | Expected Output | Owner | Sign-off |
 |---|---|---|---|---|---|
-| 86 | Prometheus server actively scraping `/metrics` | `curl -s http://prometheus:9090/api/v1/targets \| grep codevault` | Target health is `UP` | Ops | [PASS] |
+| 86 | Prometheus server actively scraping `/metrics` | `curl -s http://prometheus:9090/api/v1/targets \| grep cerberus` | Target health is `UP` | Ops | [PASS] |
 | 87 | Prometheus scrape interval set to 15 seconds | `grep "scrape_interval" /etc/prometheus/prometheus.yml` | `scrape_interval: 15s` | Ops | [PASS] |
 | 88 | Prometheus data retention set to 30 days | `ps aux \| grep prometheus \| grep storage.tsdb.retention.time` | `30d` | Ops | [PASS] |
-| 89 | Grafana dashboard provisioned with 20+ panels | `curl -s -u admin:pass http://grafana:3000/api/dashboards/uid/codevault-overview` | Dashboard JSON returned | Ops | [PASS] |
+| 89 | Grafana dashboard provisioned with 20+ panels | `curl -s -u admin:pass http://grafana:3000/api/dashboards/uid/cerberus-overview` | Dashboard JSON returned | Ops | [PASS] |
 | 90 | Grafana alert channels linked to PagerDuty & Slack | `curl -s -u admin:pass http://grafana:3000/api/alert-notifications` | PagerDuty and Slack webhooks active | Ops | [PASS] |
 | 91 | 32 AlertManager alert rules loaded and green | `curl -s http://alertmanager:9093/api/v2/alerts` | Zero active alerts firing | Ops | [PASS] |
 | 92 | PagerDuty test alert successfully paged on-call | Trigger test alert in AlertManager | Primary on-call receives phone call/push | Ops | [PASS] |
-| 93 | Loki / Promtail logging pipeline streaming JSON | `curl -G -s "http://loki:3100/loki/api/v1/query" --data-urlencode 'query={service="codevault-api"}'` | Recent structured log entries returned | Ops | [PASS] |
+| 93 | Loki / Promtail logging pipeline streaming JSON | `curl -G -s "http://loki:3100/loki/api/v1/query" --data-urlencode 'query={service="cerberus-api"}'` | Recent structured log entries returned | Ops | [PASS] |
 | 94 | OpenTelemetry tracing exporting to Jaeger/Tempo | `curl -s http://tempo:3200/api/traces/<recent-trace-id>` | Trace span hierarchy returned | Ops | [PASS] |
 | 95 | Synthetic ping monitors active globally | `curl -s https://uptime.betterstack.com/api/v2/monitors` | Global probes returning 200 OK | Ops | [PASS] |
-| 96 | Daily LLM token spend tracking active | `curl -s http://localhost:8000/metrics \| grep codevault_llm_cost_usd_total` | Metric counter populated | Ops | [PASS] |
+| 96 | Daily LLM token spend tracking active | `curl -s http://localhost:8000/metrics \| grep cerberus_llm_cost_usd_total` | Metric counter populated | Ops | [PASS] |
 | 97 | 10 production incident runbooks published | Check internal engineering wiki runbook index | All 10 runbooks present and reviewed | Ops | [PASS] |
-| 98 | Public status page configured and accessible | `curl -s -I https://status.codevault.ai` | `HTTP/2 200` | Comms | [PASS] |
+| 98 | Public status page configured and accessible | `curl -s -I https://status.cerberus.ai` | `HTTP/2 200` | Comms | [PASS] |
 | 99 | Daily shift handover protocol rehearsed | On-call sync completed at 10:00 UTC | Sign-off recorded in `#oncall-handover` | Ops | [PASS] |
 | 100 | SLAs published and agreed by stakeholders | SLA document signed by VP Engineering | Active 99.9% uptime commitment | Lead | [PASS] |
 | 101 | Incident Commander role assigned for cutover | Roster published in `#prod-cutover-warroom` | Primary IC confirmed on bridge | IC | [PASS] |
@@ -249,13 +249,13 @@ The following 105 verification items must all receive verified `PASS` status bef
   ```bash
   # File: scripts/pre_cutover_snapshot.sh
   aws rds create-db-snapshot \
-    --db-instance-identifier codevault-pg-prod \
-    --db-snapshot-identifier codevault-pg-pre-cutover-$(date +%Y%m%d%H%M)
+    --db-instance-identifier cerberus-pg-prod \
+    --db-snapshot-identifier cerberus-pg-pre-cutover-$(date +%Y%m%d%H%M)
   ```
 - **T-23h 00m**: **Verify Standby Replication**. DBA verifies replication lag is < 500ms across all secondary replicas.
 
 ### 3.2 Phase 2: Staging Dry Run & Readiness Confirmation (T-12h to T-4h)
-- **T-12h 00m**: **Customer Advisory Published**. Communications Lead updates `https://status.codevault.ai` and sends notification to enterprise tenant administrators.
+- **T-12h 00m**: **Customer Advisory Published**. Communications Lead updates `https://status.cerberus.ai` and sends notification to enterprise tenant administrators.
 - **T-11h 00m**: **Full Staging Cutover Dry Run**. Lead SRE executes full canary deployment and smoke test suite in staging environment. Logs MTTR and verification timings.
 - **T-08h 00m**: **PagerDuty Handover & Test Paging**. Primary On-Call triggers test incident to verify phone, SMS, and push notification delivery.
 
@@ -264,7 +264,7 @@ The following 105 verification items must all receive verified `PASS` status bef
 - **T-03h 30m**: **Pre-Scale Kubernetes Worker Nodes**. SRE scales cluster worker node group to ensure immediate headroom:
   ```bash
   # File: scripts/pre_warm_nodes.sh
-  kubectl scale deployment codevault-api -n codevault --replicas=10
+  kubectl scale deployment cerberus-api -n cerberus --replicas=10
   ```
 - **T-02h 00m**: **Warm Redis Cache**. Run pre-warming script to load custom enterprise governance rules into Redis.
 
@@ -286,8 +286,8 @@ The following 105 verification items must all receive verified `PASS` status bef
   apiVersion: networking.k8s.io/v1
   kind: Ingress
   metadata:
-    name: codevault-ingress-canary
-    namespace: codevault
+    name: cerberus-ingress-canary
+    namespace: cerberus
     annotations:
       nginx.ingress.kubernetes.io/canary: "true"
       nginx.ingress.kubernetes.io/canary-weight: "10"
@@ -316,7 +316,7 @@ The following 105 verification items must all receive verified `PASS` status bef
 
 ## 4. Zero-Downtime Database Migration Runbook (Expand-Contract Pattern)
 
-Applying schema changes directly to high-throughput relational tables during peak traffic can cause exclusive table locks, query timeouts, and cascading connection pool exhaustion. All CodeVault AI database evolutions must strictly adhere to the **Expand-Contract (Parallel Run) Pattern**.
+Applying schema changes directly to high-throughput relational tables during peak traffic can cause exclusive table locks, query timeouts, and cascading connection pool exhaustion. All Cerberus database evolutions must strictly adhere to the **Expand-Contract (Parallel Run) Pattern**.
 
 ### 4.1 The 3-Phase Expand-Contract Methodology
 
@@ -473,16 +473,16 @@ During production cutover or rolling releases, human reaction time is insufficie
 | **Trigger 5** | Database Deadlocks / Corruption| `> 10` deadlocks / min | 1 minute | Abort active transactions; rollback schema migration |
 
 1. **API HTTP 5xx Error Rate**:
-   - `PromQL`: `sum(rate(codevault_api_requests_total{status=~"5.."}[2m])) / sum(rate(codevault_api_requests_total[2m])) > 0.01`
+   - `PromQL`: `sum(rate(cerberus_api_requests_total{status=~"5.."}[2m])) / sum(rate(cerberus_api_requests_total[2m])) > 0.01`
    - Duration: 2 consecutive minutes.
 2. **P99 Review Latency Breach**:
-   - `PromQL`: `histogram_quantile(0.99, sum(rate(codevault_api_request_duration_seconds_bucket[3m])) by (le)) > 30.0`
+   - `PromQL`: `histogram_quantile(0.99, sum(rate(cerberus_api_request_duration_seconds_bucket[3m])) by (le)) > 30.0`
    - Duration: 3 consecutive minutes.
 3. **Database Connection Pool Saturation**:
-   - `PromQL`: `codevault_db_pool_checked_out / codevault_db_pool_size > 0.95`
+   - `PromQL`: `cerberus_db_pool_checked_out / cerberus_db_pool_size > 0.95`
    - Duration: 60 seconds.
 4. **Core Review Agent Crash Rate**:
-   - `PromQL`: `sum(rate(codevault_agent_executions_total{status="failed"}[5m])) / sum(rate(codevault_agent_executions_total[5m])) > 0.05`
+   - `PromQL`: `sum(rate(cerberus_agent_executions_total{status="failed"}[5m])) / sum(rate(cerberus_agent_executions_total[5m])) > 0.05`
    - Duration: 3 consecutive minutes.
 5. **Database Deadlocks / Serialization Failures**:
    - `PromQL`: `rate(pg_stat_database_deadlocks[1m]) > 10`
@@ -497,35 +497,35 @@ When any trigger fires or the Incident Commander calls a rollback, execute this 
 #!/usr/bin/env bash
 set -euo pipefail
 
-NAMESPACE="codevault"
+NAMESPACE="cerberus"
 PREVIOUS_REVISION="${1:-0}"  # Defaults to previous revision if omitted
 
 echo "=========================================================="
-echo " [ALERT] EMERGENCY ROLLBACK INITIATED FOR CODEVAULT AI    "
+echo " [ALERT] EMERGENCY ROLLBACK INITIATED FOR CERBERUS    "
 echo "=========================================================="
 echo "Target Namespace: ${NAMESPACE}"
 echo "Rolling back to Helm revision: ${PREVIOUS_REVISION}"
 
 # Step 1: Instant Ingress Traffic Reversion
 echo "[1/5] Flipping Ingress canary traffic back to 0%..."
-kubectl annotate ingress codevault-ingress-canary -n ${NAMESPACE} \
+kubectl annotate ingress cerberus-ingress-canary -n ${NAMESPACE} \
   nginx.ingress.kubernetes.io/canary-weight="0" --overwrite
 
 # Step 2: Rollback Helm Release
 echo "[2/5] Rolling back Helm release..."
 if [ "${PREVIOUS_REVISION}" -eq "0" ]; then
-  helm rollback codevault -n ${NAMESPACE}
+  helm rollback cerberus -n ${NAMESPACE}
 else
-  helm rollback codevault "${PREVIOUS_REVISION}" -n ${NAMESPACE}
+  helm rollback cerberus "${PREVIOUS_REVISION}" -n ${NAMESPACE}
 fi
 
 # Step 3: Wait for Previous Pods to Reach Ready State
 echo "[3/5] Awaiting healthy status on rolled-back pods..."
-kubectl rollout status deployment/codevault-api -n ${NAMESPACE} --timeout=120s
+kubectl rollout status deployment/cerberus-api -n ${NAMESPACE} --timeout=120s
 
 # Step 4: Purge In-Flight Redis Review State
 echo "[4/5] Evicting potentially corrupt in-flight review cache..."
-redis-cli --scan --pattern "codevault:review:in_progress:*" | xargs -r redis-cli DEL || true
+redis-cli --scan --pattern "cerberus:review:in_progress:*" | xargs -r redis-cli DEL || true
 
 # Step 5: Verify Health Endpoint
 echo "[5/5] Testing health probe on restored pods..."
@@ -561,7 +561,7 @@ Prior to production launch, engineering teams must execute "Game Day" exercises 
 
   sleep 15
   echo "Terminating 50% of API pods concurrently..."
-  kubectl delete pod -n codevault -l app=codevault-api --grace-period=0 --force &
+  kubectl delete pod -n cerberus -l app=cerberus-api --grace-period=0 --force &
 
   wait ${LOCUST_PID}
   ```
@@ -580,15 +580,15 @@ Prior to production launch, engineering teams must execute "Game Day" exercises 
   kind: NetworkChaos
   metadata:
     name: postgres-latency-chaos
-    namespace: codevault
+    namespace: cerberus
   spec:
     action: delay
     mode: all
     selector:
       namespaces:
-        - codevault
+        - cerberus
       labelSelectors:
-        app: codevault-postgres
+        app: cerberus-postgres
     delay:
       latency: '2000ms'
       jitter: '200ms'
@@ -609,11 +609,11 @@ Prior to production launch, engineering teams must execute "Game Day" exercises 
   kind: NetworkPolicy
   metadata:
     name: block-watsonx-egress
-    namespace: codevault
+    namespace: cerberus
   spec:
     podSelector:
       matchLabels:
-        app: codevault-api
+        app: cerberus-api
     policyTypes:
       - Egress
     egress:
@@ -621,10 +621,10 @@ Prior to production launch, engineering teams must execute "Game Day" exercises 
       - to:
         - podSelector:
             matchLabels:
-              app: codevault-postgres
+              app: cerberus-postgres
         - podSelector:
             matchLabels:
-              app: codevault-redis
+              app: cerberus-redis
         ports:
           - protocol: TCP
             port: 5432
@@ -647,7 +647,7 @@ Prior to production launch, engineering teams must execute "Game Day" exercises 
   ```bash
   # File: scripts/chaos/redis_failure_chaos.sh
   echo "Crashing Redis container..."
-  kubectl scale deployment codevault-redis -n codevault --replicas=0
+  kubectl scale deployment cerberus-redis -n cerberus --replicas=0
 
   echo "Submitting review request..."
   curl -s -X POST https://api.cerberus.example.com/api/v1/reviews \
@@ -672,7 +672,7 @@ Prior to production launch, engineering teams must execute "Game Day" exercises 
   # Open 500 connections holding idle transactions
   connections = []
   for i in range(450):
-      conn = psycopg2.connect("postgresql://codevault:${DB_PASSWORD}@localhost:5432/codevault_db")
+      conn = psycopg2.connect("postgresql://cerberus:${DB_PASSWORD}@localhost:5432/cerberus_db")
       cur = conn.cursor()
       cur.execute("BEGIN; SELECT pg_sleep(60);")
       connections.append(conn)
@@ -688,7 +688,7 @@ Prior to production launch, engineering teams must execute "Game Day" exercises 
 
 ## 7. On-Call Rotation Framework, Escalation Trees & Shift Handover
 
-CodeVault AI operates a follow-the-sun 24/7 on-call rotation to guarantee enterprise SLA compliance.
+Cerberus operates a follow-the-sun 24/7 on-call rotation to guarantee enterprise SLA compliance.
 
 ### 7.1 On-Call Roles & Core Responsibilities
 
@@ -771,9 +771,9 @@ To maintain database performance, prevent certificate expiration, and eliminate 
 
 | Frequency | Target System | Maintenance Activity | Procedure / Command |
 |---|---|---|---|
-| **Daily** | Backup Storage | Audit S3 WAL archiving & RDS automated snapshots | `aws s3 ls s3://codevault-backups/$(date +%Y%m%d)/` |
+| **Daily** | Backup Storage | Audit S3 WAL archiving & RDS automated snapshots | `aws s3 ls s3://cerberus-backups/$(date +%Y%m%d)/` |
 | **Daily** | Token Governance | Reconcile daily LLM cost burn vs $500 budget limit | Inspect Grafana panel: "Cumulative Daily LLM Cost" |
-| **Daily** | Application Logs | Review Loki error log clustering for emerging warnings | `logcli query '{service="codevault-api"} \|= "ERROR"' --since=24h` |
+| **Daily** | Application Logs | Review Loki error log clustering for emerging warnings | `logcli query '{service="cerberus-api"} \|= "ERROR"' --since=24h` |
 | **Weekly** | PostgreSQL | Execute `VACUUM ANALYZE` on high-churn tables | Automated via `pg_cron` (Sunday 02:00 UTC) |
 | **Weekly** | Redis | Audit memory fragmentation and purge untracked keys | `redis-cli memory purge` |
 | **Weekly** | Dependencies | Review and merge automated Dependabot / Renovate PRs | Security patch review gate |
@@ -791,8 +791,8 @@ To maintain database performance, prevent certificate expiration, and eliminate 
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: codevault-weekly-db-maintenance
-  namespace: codevault
+  name: cerberus-weekly-db-maintenance
+  namespace: cerberus
 spec:
   schedule: "0 2 * * 0"  # Every Sunday at 02:00 UTC
   successfulJobsHistoryLimit: 3
@@ -816,7 +816,7 @@ spec:
                 - name: DATABASE_URL
                   valueFrom:
                     secretKeyRef:
-                      name: codevault-db-secrets
+                      name: cerberus-db-secrets
                       key: database_url
           restartPolicy: OnFailure
 ```
@@ -825,11 +825,11 @@ spec:
 
 ## 9. Enterprise Security Compliance Audit Checklists
 
-CodeVault AI is architected to satisfy strict multi-framework security audits across SOC 2 Type II, HIPAA, PCI-DSS v4.0, and ISO/IEC 27001:2022.
+Cerberus is architected to satisfy strict multi-framework security audits across SOC 2 Type II, HIPAA, PCI-DSS v4.0, and ISO/IEC 27001:2022.
 
 ### 9.1 SOC 2 Type II Security & Confidentiality Controls
 
-| Control ID | Trust Service Criteria | CodeVault AI Implementation | Audit Evidence Location |
+| Control ID | Trust Service Criteria | Cerberus Implementation | Audit Evidence Location |
 |---|---|---|---|
 | **CC6.1** | Logical Access Controls | Role-Based Access Control (RBAC) enforced; API keys hashed with SHA-256 before storage; MFA enforced for all cloud and cluster management. | `cerberus/core/auth.py`, Vault AppRole policies. |
 | **CC6.6** | Perimeter & Boundary Protection | Kubernetes NetworkPolicies isolate DB and Redis; Cloudflare/AWS WAF filters malicious payloads and blocks unauthorized IP addresses. | `k8s/networkpolicies.yaml`, WAF rule configs. |
@@ -857,7 +857,7 @@ CodeVault AI is architected to satisfy strict multi-framework security audits ac
 
 ### 9.4 ISO/IEC 27001:2022 Annex A Information Security Controls
 
-| Annex A Control | Control Objective | CodeVault AI Implementation | Verification Method |
+| Annex A Control | Control Objective | Cerberus Implementation | Verification Method |
 |---|---|---|---|
 | **A.5.15** | Access Control | Principle of least privilege enforced on Kubernetes ServiceAccounts and AWS IAM roles; root container execution blocked. | `kubectl get serviceaccount`, IAM policy audits. |
 | **A.8.8** | Vulnerability Management | Continuous dependency and container scanning; Critical CVE patching SLA enforced: `< 7 calendar days`. | Trivy scan reports, Dependabot pull requests. |
@@ -868,10 +868,10 @@ CodeVault AI is architected to satisfy strict multi-framework security audits ac
 
 ## 10. Summary & Next Steps
 
-This **Production Launch & Operations Manual** provides the comprehensive operational framework required to launch, monitor, maintain, and safeguard CodeVault AI in mission-critical enterprise environments. By combining a 105-item pre-launch verification checklist, a minute-by-minute cutover plan, zero-downtime database migration methodologies, automated rollback procedures, chaos engineering exercises, and rigorous compliance checklists, operations and site reliability teams have the tools needed to guarantee high availability and security.
+This **Production Launch & Operations Manual** provides the comprehensive operational framework required to launch, monitor, maintain, and safeguard Cerberus in mission-critical enterprise environments. By combining a 105-item pre-launch verification checklist, a minute-by-minute cutover plan, zero-downtime database migration methodologies, automated rollback procedures, chaos engineering exercises, and rigorous compliance checklists, operations and site reliability teams have the tools needed to guarantee high availability and security.
 
 ### Documentation Roadmap Index
-For complete architectural, implementation, API, and testing specifications across the CodeVault AI platform, reference the comprehensive documentation suite:
+For complete architectural, implementation, API, and testing specifications across the Cerberus platform, reference the comprehensive documentation suite:
 
 1. **Phase 1 Implementation Guide**: `PHASE_1_DETAILED_IMPLEMENTATION.md`
 2. **Specialized Agent Specifications**: `AGENT_SPECIFICATIONS.md`

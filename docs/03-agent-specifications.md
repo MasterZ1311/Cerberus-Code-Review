@@ -1,4 +1,4 @@
-# CodeVault AI - Agent Specifications
+# Cerberus - Agent Specifications
 
 **Version:** 0.1.0  
 **Last Updated:** September 21, 2026
@@ -1029,7 +1029,7 @@ client.review(
 
 ### Project-Level Configuration
 
-Create `.codevault.yml` in your project root:
+Create `.cerberus.yml` in your project root:
 
 ```yaml
 version: 1
@@ -1067,7 +1067,7 @@ ignore:
 ### Agent Development SDK
 
 ```python
-from codevault.agents import BaseAgent, AgentResult, Finding
+from cerberus.agents import BaseAgent, AgentResult, Finding
 
 class TypeScriptLinterAgent(BaseAgent):
     """Custom agent for TypeScript-specific linting."""
@@ -1135,10 +1135,10 @@ class TypeScriptLinterAgent(BaseAgent):
 ### Registering Custom Agents
 
 ```python
-from codevault import CodeVault
+from cerberus import Cerberus
 from my_agents import TypeScriptLinterAgent
 
-client = CodeVault(api_key="...")
+client = Cerberus(api_key="...")
 
 # Register custom agent
 client.register_agent(TypeScriptLinterAgent)
@@ -1210,4 +1210,4 @@ consensus:
 
 ---
 
-*CodeVault AI Agent Specifications - v0.1.0*
+*Cerberus Agent Specifications - v0.1.0*

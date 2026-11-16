@@ -33,7 +33,7 @@ async def health_check():
         async with AsyncSessionLocal() as session:
             await session.execute(text("SELECT 1"))
     except Exception as e:
-        logger.warning(f"Database health check probe failed: {e}")
+        logger.warning("Database health check probe failed: %s", e)
         db_status = "disconnected"
         overall_status = "degraded"
 
@@ -44,7 +44,7 @@ async def health_check():
             await cache_manager.redis_client.ping()
             cache_status = "redis"
         except Exception as e:
-            logger.warning(f"Redis health check probe failed: {e}")
+            logger.warning("Redis health check probe failed: %s", e)
             cache_status = "disconnected"
             overall_status = "degraded"
     elif not cache_manager.enabled:
@@ -74,7 +74,7 @@ async def readiness_check(response: Response):
         async with AsyncSessionLocal() as session:
             await session.execute(text("SELECT 1"))
     except Exception as e:
-        logger.error(f"Readiness check failed: Database unavailable ({e})")
+        logger.error("Readiness check failed: Database unavailable (%s)", e)
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return {
             "status": "not_ready",
@@ -91,7 +91,7 @@ async def readiness_check(response: Response):
                 await cache_manager.redis_client.ping()
                 redis_status = "connected"
             except Exception as e:
-                logger.error(f"Readiness check failed: Redis ping failed ({e})")
+                logger.error("Readiness check failed: Redis ping failed (%s)", e)
                 response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
                 return {
                     "status": "not_ready",

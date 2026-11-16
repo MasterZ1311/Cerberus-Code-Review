@@ -9,7 +9,7 @@
    - [Week 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (Days 22–28)](#week-4-enterprise-hardening-real-time-streaming-cicd--final-verification-days-2228)
 3. [Production-Ready Master Orchestrator Architecture (500+ Lines)](#3-production-ready-master-orchestrator-architecture-500-lines)
    - [Architecture Specification & File Manifest](#architecture-specification--file-manifest)
-   - [Complete Implementation: `src/codevault/orchestration/master_orchestrator.py`](#complete-implementation-srccodevaultorchestrationmaster_orchestratorpy)
+   - [Complete Implementation: `src/cerberus/orchestration/master_orchestrator.py`](#complete-implementation-srccerberusorchestrationmaster_orchestratorpy)
 4. [Comprehensive Troubleshooting Scenarios](#4-comprehensive-troubleshooting-scenarios)
    - [Scenario 1: watsonx API Rate Limiting & Read Timeout During Concurrent Review Burst](#scenario-1-watsonx-api-rate-limiting--read-timeout-during-concurrent-review-burst)
    - [Scenario 2: Memory Exhaustion (OOMKilled) Due to Unbounded In-Memory Caches & WebSocket Buffers](#scenario-2-memory-exhaustion-oomkilled-due-to-unbounded-in-memory-caches--websocket-buffers)
@@ -24,7 +24,7 @@
 
 ## 1. Executive Overview & Phase 1 Objectives
 
-Phase 1 of the **CodeVault AI** platform delivers the core foundational runtime, asynchronous orchestration architecture, and primary code review capabilities. Powered by IBM watsonx Granite foundation models and LangGraph state graphs, Phase 1 establishes an enterprise-grade multi-agent system designed to review source code across security, performance, testability, documentation, and best practices.
+Phase 1 of the **Cerberus** platform delivers the core foundational runtime, asynchronous orchestration architecture, and primary code review capabilities. Powered by IBM watsonx Granite foundation models and LangGraph state graphs, Phase 1 establishes an enterprise-grade multi-agent system designed to review source code across security, performance, testability, documentation, and best practices.
 
 ### Key Architectural Pillars
 - **Deterministic State Graph Execution**: State transitions and agent executions are orchestrated via LangGraph `StateGraph(ReviewState)` supporting asynchronous fan-out dispatch and fan-in aggregation.
@@ -58,8 +58,8 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
 - **Key Files Created/Modified**:
   - `# File: pyproject.toml`
   - `# File: .pre-commit-config.yaml`
-  - `# File: src/codevault/__init__.py`
-  - `# File: src/codevault/core/config.py`
+  - `# File: src/cerberus/__init__.py`
+  - `# File: src/cerberus/core/config.py`
 - **Acceptance Criteria**:
   - `poetry run ruff check .` passes with zero warnings.
   - `poetry run mypy --strict src/` reports zero type errors.
@@ -72,8 +72,8 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Declare initial core schema tables: `code_reviews`, `review_findings`, and `api_keys`.
   - Initialize Alembic environment with async template and generate initial migration.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/core/database.py`
-  - `# File: src/codevault/models/entities.py`
+  - `# File: src/cerberus/core/database.py`
+  - `# File: src/cerberus/models/entities.py`
   - `# File: alembic.ini`
   - `# File: alembic/versions/001_initial_schema.py`
 - **Acceptance Criteria**:
@@ -88,7 +88,7 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Implement deterministic cache key generation using SHA-256 over code contents, language ID, and sorted active agent names.
   - Enforce a 300-second (5-minute) default TTL on review cache entries.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/core/cache.py`
+  - `# File: src/cerberus/core/cache.py`
   - `# File: tests/unit/test_cache.py`
 - **Acceptance Criteria**:
   - Submitting identical code payload returns cached response within < 10ms.
@@ -101,8 +101,8 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Define immutable Pydantic v2 domain schemas: `SeverityEnum`, `Finding`, `AgentResult`, `ReviewContext`, `CodeReviewRequest`, and `CodeReviewResponse`.
   - Implement field validators enforcing line bounds, CVSS ranges [0.0, 10.0], and non-empty messages.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/agents/base.py`
-  - `# File: src/codevault/models/schemas.py`
+  - `# File: src/cerberus/agents/base.py`
+  - `# File: src/cerberus/models/schemas.py`
   - `# File: tests/unit/test_schemas.py`
 - **Acceptance Criteria**:
   - Pydantic models reject invalid severity levels, negative line numbers, or out-of-range CVSS scores.
@@ -115,7 +115,7 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Implement custom reducer `merge_agent_results` to safely merge parallel branch updates into `Dict[str, AgentResult]` without mutating parent state.
   - Configure `Annotated[List[Finding], operator.add]` for thread-safe concurrent finding accumulation.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/orchestration/state.py`
+  - `# File: src/cerberus/orchestration/state.py`
   - `# File: tests/unit/test_state_reducers.py`
 - **Acceptance Criteria**:
   - Parallel writes from multiple simulated workers merge deterministically without race conditions or dropped keys.
@@ -128,7 +128,7 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Connect conditional routing edges dispatching only requested active agents.
   - Implement entry point and termination edges to `END`.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/orchestration/graph.py`
+  - `# File: src/cerberus/orchestration/graph.py`
   - `# File: tests/unit/test_graph_compilation.py`
 - **Acceptance Criteria**:
   - `workflow.compile()` succeeds with zero orphan nodes or circular execution paths.
@@ -158,8 +158,8 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Implement IBM Granite prompt template formatting (`[ROLE]`, `[TASK]`, `[FORMAT]`).
   - Implement `MockWatsonxProvider` for offline deterministic testing and CI pipelines.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/providers/watsonx_provider.py`
-  - `# File: src/codevault/providers/mock_provider.py`
+  - `# File: src/cerberus/providers/watsonx_provider.py`
+  - `# File: src/cerberus/providers/mock_provider.py`
   - `# File: tests/unit/test_watsonx_provider.py`
 - **Acceptance Criteria**:
   - Provider reuses HTTP connection pool across consecutive requests.
@@ -172,8 +172,8 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Implement `RegexScannerTool` with Shannon entropy calculation for high-entropy secret detection.
   - Calculate dynamic security scores and CVSS 3.1 severity deductions.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/agents/security_agent.py`
-  - `# File: src/codevault/tools/security_scanner.py`
+  - `# File: src/cerberus/agents/security_agent.py`
+  - `# File: src/cerberus/tools/security_scanner.py`
   - `# File: tests/unit/test_security_agent.py`
 - **Acceptance Criteria**:
   - 100% detection rate on OWASP injection test corpus with accurate line numbers and CWE tags.
@@ -186,8 +186,8 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Implement static pattern detection for unbuffered string concatenation (`+=`) in iterative loops.
   - Implement database N+1 ORM query detection inside iteration blocks.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/agents/performance_agent.py`
-  - `# File: src/codevault/tools/ast_metrics.py`
+  - `# File: src/cerberus/agents/performance_agent.py`
+  - `# File: src/cerberus/tools/ast_metrics.py`
   - `# File: tests/unit/test_performance_agent.py`
 - **Acceptance Criteria**:
   - Flags nested loops over dynamic collections with $O(N^2)$ severity warnings.
@@ -200,8 +200,8 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Detect vacuous test anti-patterns (test functions containing zero `assert` or expectation statements).
   - Generate property-based test recommendations formatted for `Hypothesis` and `pytest`.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/agents/testing_agent.py`
-  - `# File: src/codevault/tools/test_analyzer.py`
+  - `# File: src/cerberus/agents/testing_agent.py`
+  - `# File: src/cerberus/tools/test_analyzer.py`
   - `# File: tests/unit/test_testing_agent.py`
 - **Acceptance Criteria**:
   - Flags functions lacking tests with medium severity findings.
@@ -214,8 +214,8 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Detect missing argument explanations, undocumented return values, and unhandled exception documentation.
   - Automatically bypass auto-generated code headers (`@generated`, `DO NOT EDIT`).
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/agents/documentation_agent.py`
-  - `# File: src/codevault/tools/docstring_checker.py`
+  - `# File: src/cerberus/agents/documentation_agent.py`
+  - `# File: src/cerberus/tools/docstring_checker.py`
   - `# File: tests/unit/test_documentation_agent.py`
 - **Acceptance Criteria**:
   - Emits specific low/medium findings for undocumented public APIs.
@@ -228,8 +228,8 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Implement detection for dangerous blanket `except:` and `except Exception:` clauses.
   - Detect namespace pollution via wildcard imports (`from module import *`).
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/agents/best_practices_agent.py`
-  - `# File: src/codevault/tools/complexity_scanner.py`
+  - `# File: src/cerberus/agents/best_practices_agent.py`
+  - `# File: src/cerberus/tools/complexity_scanner.py`
   - `# File: tests/unit/test_best_practices_agent.py`
 - **Acceptance Criteria**:
   - Flags bare exceptions as HIGH severity anti-patterns.
@@ -259,7 +259,7 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Implement deduplication key generator based on `(category, line, title)`.
   - Resolve severity conflicts on duplicate lines by selecting the maximum severity level.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/services/aggregation.py`
+  - `# File: src/cerberus/services/aggregation.py`
   - `# File: tests/unit/test_aggregation.py`
 - **Acceptance Criteria**:
   - Overlapping findings on identical line and category merge into a single finding.
@@ -272,7 +272,7 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Implement gatekeeper logic: block review if CRITICAL findings > 0, or if HIGH findings > 0 when threshold is HIGH.
   - Enforce strict score bounds [0.0, 100.0] and assign 0.0 to crashed agents without inflating overall scores.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/services/scoring.py`
+  - `# File: src/cerberus/services/scoring.py`
   - `# File: tests/unit/test_scoring.py`
 - **Acceptance Criteria**:
   - Single critical security finding immediately triggers `is_blocked = True`.
@@ -285,7 +285,7 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Configure graceful shutdown disposing connection pools cleanly.
   - Add CORS middleware rejecting wildcard `*` origins when credentials are enabled.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/api/app.py`
+  - `# File: src/cerberus/api/app.py`
   - `# File: tests/api/test_lifespan.py`
 - **Acceptance Criteria**:
   - Database pool initializes on server startup and closes cleanly on SIGTERM/SIGINT.
@@ -298,7 +298,7 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Hash incoming tokens with SHA-256 and query database `api_keys` table using `hmac.compare_digest`.
   - Reject unauthorized, fabricated, or unregistered tokens (including fake `cvai_` tokens).
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/api/dependencies.py`
+  - `# File: src/cerberus/api/dependencies.py`
   - `# File: tests/api/test_auth.py`
 - **Acceptance Criteria**:
   - Fabricated or invalid tokens return HTTP 401 Unauthorized.
@@ -311,7 +311,7 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Implement `GET /api/v1/reviews/{id}` fetching persistent historical review audit records from PostgreSQL.
   - Implement `GET /health` verifying database and orchestrator operational status.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/api/v1/endpoints/reviews.py`
+  - `# File: src/cerberus/api/v1/endpoints/reviews.py`
   - `# File: tests/api/test_review_endpoints.py`
 - **Acceptance Criteria**:
   - Review endpoints return compliant OpenAPI 3.1 JSON payloads.
@@ -324,7 +324,7 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Stream events: `review_started`, `agent_started`, `agent_completed`, `review_completed`.
   - Implement client connection registry with guaranteed cleanup on `WebSocketDisconnect`.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/api/v1/endpoints/streaming.py`
+  - `# File: src/cerberus/api/v1/endpoints/streaming.py`
   - `# File: tests/api/test_websocket.py`
 - **Acceptance Criteria**:
   - Events stream in real-time as each agent finishes execution.
@@ -354,7 +354,7 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Expose `/metrics` endpoint for Prometheus scraper.
   - Instrument LangGraph nodes with OpenTelemetry span attributes.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/core/telemetry.py`
+  - `# File: src/cerberus/core/telemetry.py`
   - `# File: tests/unit/test_telemetry.py`
 - **Acceptance Criteria**:
   - Prometheus `/metrics` endpoint returns valid metric format.
@@ -367,7 +367,7 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Implement `SecretsMaskingFilter` redacting API keys, passwords, and authorization headers.
   - Install logging middleware injecting `X-Correlation-ID` header into all request contexts.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/core/logging.py`
+  - `# File: src/cerberus/core/logging.py`
   - `# File: tests/unit/test_logging.py`
 - **Acceptance Criteria**:
   - Log output is valid JSON parseable by log aggregation engines (ELK/Loki).
@@ -380,7 +380,7 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
   - Implement exponential backoff with full jitter for retriable HTTP calls.
   - Ensure orchestrator automatically routes to offline heuristic review when circuit is open.
 - **Key Files Created/Modified**:
-  - `# File: src/codevault/core/resilience.py`
+  - `# File: src/cerberus/core/resilience.py`
   - `# File: tests/unit/test_resilience.py`
 - **Acceptance Criteria**:
   - Upstream outage trips circuit breaker, failing fast in < 5ms without hanging request threads.
@@ -403,7 +403,7 @@ WEEK 4: Enterprise Hardening, Real-Time Streaming, CI/CD & Final Verification (D
 #### Day 26: Multi-Stage Production Containerization
 - **Objective**: Create secure, hardened, minimal-footprint Docker container configuration.
 - **Daily Engineering Deliverables**:
-  - Implement multi-stage `Dockerfile` utilizing Python 3.11-slim base and non-root execution user (`codevault:10001`).
+  - Implement multi-stage `Dockerfile` utilizing Python 3.11-slim base and non-root execution user (`cerberus:10001`).
   - Configure `docker-compose.yml` orchestrating API service, PostgreSQL 15, Redis 7, and Prometheus.
   - Add container health check probes verifying `/health`.
 - **Key Files Created/Modified**:
@@ -453,12 +453,12 @@ The production implementation below brings together the entire Phase 1 runtime i
 - **PostgreSQL Connection Pooling**: Asynchronous connection management via `asyncpg` and SQLAlchemy 2.0 with pre-ping and lifecycle safety.
 - **FastAPI Lifespan & REST Endpoints**: Lifespan startup/teardown, secure CORS middleware, health check, review submission, and audit retrieval.
 
-### Complete Implementation: `src/codevault/orchestration/master_orchestrator.py`
+### Complete Implementation: `src/cerberus/orchestration/master_orchestrator.py`
 
 ```python
-# File: src/codevault/orchestration/master_orchestrator.py
+# File: src/cerberus/orchestration/master_orchestrator.py
 """
-CodeVault AI: Master Orchestrator Agent & Multi-Agent Execution Engine.
+Cerberus: Master Orchestrator Agent & Multi-Agent Execution Engine.
 Enterprise Production-Grade Implementation utilizing LangGraph, Pydantic v2,
 FastAPI Lifespan, and SQLAlchemy Async Connection Pooling.
 
@@ -508,7 +508,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='{"timestamp": "%(asctime)s", "level": "%(levelname)s", "logger": "%(name)s", "message": "%(message)s"}',
 )
-logger = logging.getLogger("codevault.master_orchestrator")
+logger = logging.getLogger("cerberus.master_orchestrator")
 
 
 # ==============================================================================
@@ -622,7 +622,7 @@ class ReviewRecord(Base):
 
 class DatabaseConfig:
     """Async connection pool configuration."""
-    URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://codevault:dev_password@localhost:5432/codevault_db")
+    URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://cerberus:dev_password@localhost:5432/cerberus_db")
     POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "20"))
     MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "10"))
     POOL_TIMEOUT = float(os.getenv("DB_POOL_TIMEOUT", "30.0"))
@@ -1294,15 +1294,15 @@ orchestrator_instance = MasterOrchestrator()
 @asynccontextmanager
 async def app_lifespan(app: FastAPI):
     """FastAPI lifespan managing database connection pool and resource warm-up."""
-    logger.info("Initializing CodeVault AI Master Orchestrator...")
+    logger.info("Initializing Cerberus Master Orchestrator...")
     await db_service.initialize()
     yield
-    logger.info("Shutting down CodeVault AI Master Orchestrator...")
+    logger.info("Shutting down Cerberus Master Orchestrator...")
     await db_service.close()
 
 
 app = FastAPI(
-    title="CodeVault AI: Master Orchestrator API",
+    title="Cerberus: Master Orchestrator API",
     version="1.0.0",
     description="Enterprise Multi-Agent Code Review System with IBM watsonx & LangGraph",
     lifespan=app_lifespan,
@@ -1311,7 +1311,7 @@ app = FastAPI(
 # Enforce secure CORS policy
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://dashboard.codevault.ai", "http://localhost:3000"],
+    allow_origins=["https://dashboard.cerberus.ai", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
@@ -1373,7 +1373,7 @@ async def get_review_results(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("src.codevault.orchestration.master_orchestrator:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("src.cerberus.orchestration.master_orchestrator:app", host="0.0.0.0", port=8000, reload=True)
 ```
 
 ---
@@ -1392,7 +1392,7 @@ if __name__ == "__main__":
   1. Wrap all calls in `WatsonxProvider` with a token bucket limiter matching the provisioned tier.
   2. Implement exponential backoff with full randomized jitter:
      ```python
-     # File: src/codevault/providers/watsonx_provider.py
+     # File: src/cerberus/providers/watsonx_provider.py
      import random
      import asyncio
 
@@ -1416,7 +1416,7 @@ if __name__ == "__main__":
 
 ### Scenario 2: Memory Exhaustion (OOMKilled) Due to Unbounded In-Memory Caches & WebSocket Buffers
 - **Symptoms**:
-  - Kubernetes API server restarts the `codevault-api` pod with termination reason `OOMKilled` (`ExitCode: 137`).
+  - Kubernetes API server restarts the `cerberus-api` pod with termination reason `OOMKilled` (`ExitCode: 137`).
   - Container resident set size (RSS) memory steadily climbs under load without stabilizing.
 - **Root Cause Diagnosis**:
   - The local in-memory fallback cache was implemented using a raw Python `dict` with no maximum size bounds or LRU eviction policy.
@@ -1424,7 +1424,7 @@ if __name__ == "__main__":
 - **Step-by-Step Remediation**:
   1. Replace unbounded dictionary caches with bounded `OrderedDict` implementations enforcing strict capacity:
      ```python
-     # File: src/codevault/core/cache.py
+     # File: src/cerberus/core/cache.py
      from collections import OrderedDict
 
      class BoundedLRUCache:
@@ -1456,7 +1456,7 @@ if __name__ == "__main__":
 - **Step-by-Step Remediation**:
   1. Refactor all database session interactions to strictly use asynchronous context managers:
      ```python
-     # File: src/codevault/core/database.py
+     # File: src/cerberus/core/database.py
      async with session_factory() as session:
          async with session.begin():
              # Execute transactional logic
@@ -1477,7 +1477,7 @@ if __name__ == "__main__":
 - **Step-by-Step Remediation**:
   1. Modify orchestrator agent node exception handlers to explicitly capture errors, assign `score=0.0`, and mark agent status as `failed`:
      ```python
-     # File: src/codevault/orchestration/master_orchestrator.py
+     # File: src/cerberus/orchestration/master_orchestrator.py
      except Exception as exc:
          failed_res = AgentResult(agent_name="security", status="failed", score=0.0, error=str(exc))
          return {"agent_results": {"security": failed_res}, "errors": [f"SecurityAgent: {str(exc)}"]}
@@ -1498,7 +1498,7 @@ if __name__ == "__main__":
 - **Step-by-Step Remediation**:
   1. Implement a 15-second bidirectional heartbeat ping/pong loop:
      ```python
-     # File: src/codevault/api/v1/endpoints/streaming.py
+     # File: src/cerberus/api/v1/endpoints/streaming.py
      try:
          while True:
              await asyncio.wait_for(websocket.send_json({"type": "ping"}), timeout=5.0)
@@ -1538,7 +1538,7 @@ env:
   PYTHON_VERSION: "3.11"
   POETRY_VERSION: "1.8.2"
   DOCKER_REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/codevault-api
+  IMAGE_NAME: ${{ github.repository }}/cerberus-api
 
 jobs:
   lint-and-typecheck:
@@ -1576,7 +1576,7 @@ jobs:
       postgres:
         image: postgres:15-alpine
         env:
-          POSTGRES_DB: codevault_test
+          POSTGRES_DB: cerberus_test
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: test_password
         ports:
@@ -1598,7 +1598,7 @@ jobs:
           --health-retries 5
 
     env:
-      DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/codevault_test
+      DATABASE_URL: postgresql+asyncpg://test_user:test_password@localhost:5432/cerberus_test
       REDIS_URL: redis://localhost:6379/0
       ENVIRONMENT: test
 
@@ -1696,7 +1696,7 @@ jobs:
 ## 6. Summary & Next Steps
 
 ### Phase 1 Verification Sign-Off
-Phase 1 establishes the rock-solid core of CodeVault AI:
+Phase 1 establishes the rock-solid core of Cerberus:
 1. **28-Day Delivery Plan**: Complete granular daily breakdown detailing objectives, deliverables, files, and acceptance criteria across all 4 weeks.
 2. **Production-Ready Master Orchestrator**: 500+ lines of production Python code integrating LangGraph StateGraph, Pydantic v2 schemas, tool abstractions, 5 core review agents, weighted scoring, asyncpg connection pooling, and FastAPI lifespan architecture.
 3. **Comprehensive Troubleshooting**: 5 production runbooks addressing rate limiting, OOM crashes, connection starvation, partial agent failure, and socket leaks.

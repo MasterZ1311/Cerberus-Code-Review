@@ -156,7 +156,9 @@ class RateLimiter:
             self._redis_client = client
             logger.info("Connected distributed Redis RateLimiter successfully.")
         except Exception as e:
-            logger.debug(f"Distributed Redis rate limiting not available ({e}). Using robust in-memory sliding window.")
+            logger.debug(
+                "Distributed Redis rate limiting not available (%s). Using robust in-memory sliding window.", e
+            )
             self._redis_client = None
 
     async def close(self) -> None:
@@ -255,7 +257,7 @@ class RateLimiter:
                     retry_after = int(res[2])
                     return allowed, remaining, retry_after
             except Exception as e:
-                logger.warning(f"Redis atomic rate limit check failed ({e}); falling back to local memory.")
+                logger.warning("Redis atomic rate limit check failed (%s); falling back to local memory.", e)
 
         # Fallback to local in-memory sliding window
         return self.is_allowed(identifier)

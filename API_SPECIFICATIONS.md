@@ -1,6 +1,6 @@
 # API Specifications & FastAPI Setup
 
-Complete architectural, contract, and implementation guide for the enterprise backend REST and WebSocket APIs powering the CodeVault AI multi-agent code review platform.
+Complete architectural, contract, and implementation guide for the enterprise backend REST and WebSocket APIs powering the Cerberus multi-agent code review platform.
 
 ---
 
@@ -47,7 +47,7 @@ Complete architectural, contract, and implementation guide for the enterprise ba
 
 ### API Design Principles
 
-The CodeVault AI application programming interface provides high-throughput, low-latency code review orchestration for IDE plugins, CLI tools, GitHub Actions, and web dashboards:
+The Cerberus application programming interface provides high-throughput, low-latency code review orchestration for IDE plugins, CLI tools, GitHub Actions, and web dashboards:
 
 1. **Strict Contract First (OpenAPI 3.1)**: Fully described endpoints conforming to OpenAPI 3.1 with standardized JSON Schema models, typed request bodies, polymorphic responses, and standard error formats.
 2. **Asynchronous & Synchronous Execution**: Supports both immediate synchronous review responses (backed by sub-millisecond Redis SHA-256 fingerprint caching) and asynchronous distributed task processing for large pull requests.
@@ -59,8 +59,8 @@ The CodeVault AI application programming interface provides high-throughput, low
 ### Protocol & Namespace Structure
 
 All operational endpoints are versioned and namespaced:
-- **Base REST Path**: `https://api.codevault.ai/api/v1`
-- **Streaming Path**: `wss://api.codevault.ai/api/v1/reviews/{id}/stream`
+- **Base REST Path**: `https://api.cerberus.ai/api/v1`
+- **Streaming Path**: `wss://api.cerberus.ai/api/v1/reviews/{id}/stream`
 - **Health & Monitoring Probes**: `/health`, `/ready`, `/metrics` (unauthenticated at root or versioned path)
 
 ### System Topology & Request Flow
@@ -122,24 +122,24 @@ Below is the complete, valid OpenAPI 3.1 contract covering all 18 endpoints, req
 # File: docs/openapi_v1.yaml
 openapi: 3.1.0
 info:
-  title: CodeVault AI Enterprise Multi-Agent Code Review API
+  title: Cerberus Enterprise Multi-Agent Code Review API
   version: 1.0.0
   description: >-
     Production-grade multi-agent autonomous code analysis, vulnerability remediation, 
     architectural validation, and compliance gate platform powered by IBM watsonx Orchestrate 
     and LangGraph.
   contact:
-    name: CodeVault AI Security & Architecture Team
-    email: api-support@codevault.ai
-    url: https://codevault.ai
+    name: Cerberus Security & Architecture Team
+    email: api-support@cerberus.ai
+    url: https://cerberus.ai
   license:
     name: Proprietary
-    url: https://codevault.ai/terms
+    url: https://cerberus.ai/terms
 
 servers:
-  - url: https://api.codevault.ai/api/v1
+  - url: https://api.cerberus.ai/api/v1
     description: Production API Gateway
-  - url: https://staging-api.codevault.ai/api/v1
+  - url: https://staging-api.cerberus.ai/api/v1
     description: Staging Environment
   - url: http://localhost:8000/api/v1
     description: Local Development Environment
@@ -1159,18 +1159,18 @@ from src.routers import (
 
 # Configure structured JSON logging
 setup_logging()
-logger = logging.getLogger("codevault.api")
+logger = logging.getLogger("cerberus.api")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan context managing database and Redis connection pools."""
-    logger.info("Initializing CodeVault AI backend services...")
+    logger.info("Initializing Cerberus backend services...")
     # Initialize DB connection probe
     await init_db()
     logger.info("PostgreSQL database connection pool established.")
     yield
-    logger.info("Shutting down CodeVault AI backend services...")
+    logger.info("Shutting down Cerberus backend services...")
     # Dispose connection pools
     await close_db()
     logger.info("PostgreSQL and Redis connection pools terminated gracefully.")
@@ -1179,7 +1179,7 @@ async def lifespan(app: FastAPI):
 def create_application() -> FastAPI:
     """Build and configure the production FastAPI application."""
     app = FastAPI(
-        title="CodeVault AI Multi-Agent API",
+        title="Cerberus Multi-Agent API",
         version="1.0.0",
         description="Autonomous Multi-Agent Code Review & Security Gate Platform",
         docs_url="/docs",
@@ -1271,7 +1271,7 @@ class Settings(BaseSettings):
 
     # Persistence
     DATABASE_URL: str = Field(
-        "postgresql+asyncpg://codevault:dev_password@localhost:5432/codevault_db",
+        "postgresql+asyncpg://cerberus:dev_password@localhost:5432/cerberus_db",
         description="Async SQLAlchemy database connection string"
     )
     REDIS_URL: str = Field("redis://localhost:6379/0", description="Redis connection URL")
@@ -1520,7 +1520,7 @@ class RedisSlidingWindowRateLimiter:
                         "X-RateLimit-Reset": str(reset_time),
                     },
                     content={
-                        "type": "https://api.codevault.ai/errors/rate-limit-exceeded",
+                        "type": "https://api.cerberus.ai/errors/rate-limit-exceeded",
                         "title": "Rate Limit Exceeded",
                         "status": 429,
                         "detail": f"Quota of {limit} requests per hour exceeded. Please retry after {window_seconds}s.",
@@ -1553,7 +1553,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-logger = logging.getLogger("codevault.error_handler")
+logger = logging.getLogger("cerberus.error_handler")
 
 
 async def rfc7807_error_middleware(request: Request, call_next):
@@ -1572,7 +1572,7 @@ async def rfc7807_error_middleware(request: Request, call_next):
             media_type="application/problem+json",
             headers={"X-Correlation-ID": correlation_id},
             content={
-                "type": f"https://api.codevault.ai/errors/http-{exc.status_code}",
+                "type": f"https://api.cerberus.ai/errors/http-{exc.status_code}",
                 "title": exc.detail if isinstance(exc.detail, str) else "HTTP Error",
                 "status": exc.status_code,
                 "detail": str(exc.detail),
@@ -1588,7 +1588,7 @@ async def rfc7807_error_middleware(request: Request, call_next):
             media_type="application/problem+json",
             headers={"X-Correlation-ID": correlation_id},
             content={
-                "type": "https://api.codevault.ai/errors/validation-error",
+                "type": "https://api.cerberus.ai/errors/validation-error",
                 "title": "Unprocessable Entity",
                 "status": 422,
                 "detail": "Request body or query parameters failed schema validation.",
@@ -1605,7 +1605,7 @@ async def rfc7807_error_middleware(request: Request, call_next):
             media_type="application/problem+json",
             headers={"X-Correlation-ID": correlation_id},
             content={
-                "type": "https://api.codevault.ai/errors/internal-server-error",
+                "type": "https://api.cerberus.ai/errors/internal-server-error",
                 "title": "Internal Server Error",
                 "status": 500,
                 "detail": "An unexpected error occurred while processing your request.",
@@ -2277,7 +2277,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, status
 
 from src.config import settings
 
-logger = logging.getLogger("codevault.websocket")
+logger = logging.getLogger("cerberus.websocket")
 router = APIRouter()
 
 # Active connection registry mapping review_id to client WebSockets
@@ -2559,7 +2559,7 @@ async def github_webhook_handler(
 ## 8. Summary & Next Document Pointer
 
 ### Architectural Summary
-The CodeVault AI API specification provides:
+The Cerberus API specification provides:
 - **Comprehensive OpenAPI 3.1 YAML Contract**: 18 documented paths with typed request bodies, responses, and RFC 7807 problem details.
 - **Enterprise Security**: Salted cryptographic hash token authentication with fine-grained scopes (`review:read`, `review:write`, `rules:write`, `admin`) and origin-restricted CORS.
 - **High-Throughput Concurrency Protection**: Redis sliding-window rate limiting with `X-RateLimit-*` and `Retry-After` headers, plus semaphore-bounded batch review processing.

@@ -50,9 +50,11 @@ class SecurityAgent(BaseAgent):
     ) -> AgentResult:
         start_time = time.perf_counter()
 
-        # 1. Always execute baseline deterministic heuristic & AST rules
+        # 1. Always execute baseline deterministic heuristic & AST rules (multi-language support)
         filename = (context or {}).get("filename")
-        h_findings, h_score = HeuristicEngine.analyze_security(code, language=language, filename=filename)
+        h_findings, h_score = HeuristicEngine.analyze_multi_language_security(
+            code, language=language, filename=filename
+        )
 
         final_findings = h_findings
         final_score = h_score
@@ -112,7 +114,7 @@ class SecurityAgent(BaseAgent):
                         heuristic_score=h_score,
                     )
             except Exception as e:
-                logger.warning(f"SecurityAgent LLM analysis failed; falling back to heuristic engine: {e}")
+                logger.warning("SecurityAgent LLM analysis failed; falling back to heuristic engine: %s", e)
                 final_findings = h_findings
                 final_score = h_score
 

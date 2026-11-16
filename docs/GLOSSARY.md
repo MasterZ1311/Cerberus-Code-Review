@@ -8,7 +8,7 @@
 ## A
 
 **Agent**
-A specialized module in CodeVault AI that analyzes code from a specific perspective (security, performance, or quality). Each agent uses an LLM to provide intelligent, contextual analysis.
+A specialized module in Cerberus that analyzes code from a specific perspective (security, performance, or quality). Each agent uses an LLM to provide intelligent, contextual analysis.
 
 **Agent Coordinator**
 The orchestration component that manages agent execution, schedules tasks, and aggregates results from multiple agents.
@@ -20,7 +20,7 @@ The structured output from an agent containing findings, score, execution time, 
 The FastAPI-based entry point that handles authentication, validation, rate limiting, and routes requests to the Review Coordinator.
 
 **API Key**
-An authentication token used to access the CodeVault AI API. Format: `cvai_{random_string}`.
+An authentication token used to access the Cerberus API. Format: `cvai_{random_string}`.
 
 **Async Mode**
 A git hook execution mode where the review runs asynchronously and the commit proceeds immediately without waiting for results.
@@ -55,7 +55,7 @@ When a review request doesn't find existing results in cache, requiring new LLM 
 The duration cached results are kept before expiration. Default: 7 days (604,800 seconds).
 
 **CLI (Command-Line Interface)**
-The `codevault-cli` tool for interacting with CodeVault AI from the terminal.
+The `cerberus-cli` tool for interacting with Cerberus from the terminal.
 
 **Code Context**
 Additional metadata about code being reviewed (language, filename, project name, git commit) that helps agents provide better analysis.
@@ -68,10 +68,10 @@ An agent that reviews code maintainability, readability, naming conventions, doc
 ## D
 
 **Deployment**
-The process of installing and configuring CodeVault AI in a specific environment (local, cloud, Kubernetes).
+The process of installing and configuring Cerberus in a specific environment (local, cloud, Kubernetes).
 
 **Docker Compose**
-A tool for defining and running multi-container Docker applications. CodeVault AI uses this for local deployment.
+A tool for defining and running multi-container Docker applications. Cerberus uses this for local deployment.
 
 ---
 
@@ -88,7 +88,7 @@ How agents are run: `parallel` (all at once), `sequential` (one after another), 
 An alternative LLM provider that's used if the primary provider fails or is unavailable.
 
 **FastAPI**
-The Python web framework used to build CodeVault AI's REST API.
+The Python web framework used to build Cerberus's REST API.
 
 **Finding**
 A single issue identified by an agent (e.g., SQL injection vulnerability, O(n²) loop, missing docstring).
@@ -98,17 +98,17 @@ A single issue identified by an agent (e.g., SQL injection vulnerability, O(n²)
 ## G
 
 **Git Hook**
-A script that runs automatically at specific points in the git workflow (pre-commit, pre-push). CodeVault AI uses these for automatic code review.
+A script that runs automatically at specific points in the git workflow (pre-commit, pre-push). Cerberus uses these for automatic code review.
 
 **Grafana**
-An open-source platform for monitoring and observability, used to visualize CodeVault AI metrics.
+An open-source platform for monitoring and observability, used to visualize Cerberus metrics.
 
 ---
 
 ## H
 
 **Health Check**
-An API endpoint (`/api/v1/health`) that returns the status of CodeVault AI and its dependencies.
+An API endpoint (`/api/v1/health`) that returns the status of Cerberus and its dependencies.
 
 **Hook Configuration**
 Settings that control when and how git hooks execute reviews.
@@ -125,10 +125,10 @@ Reviewing only changed files rather than the entire codebase, improving speed an
 ## L
 
 **LangChain**
-A framework for building applications with LLMs, used by CodeVault AI for agent implementation.
+A framework for building applications with LLMs, used by Cerberus for agent implementation.
 
 **LLM (Large Language Model)**
-An AI model trained on vast amounts of text (e.g., GPT-4, Claude) that can understand and generate human-like text. CodeVault AI uses LLMs to analyze code.
+An AI model trained on vast amounts of text (e.g., GPT-4, Claude) that can understand and generate human-like text. Cerberus uses LLMs to analyze code.
 
 **LLM Provider**
 A service that provides access to LLMs (OpenAI, Anthropic, Ollama, Azure OpenAI).
@@ -141,7 +141,7 @@ A cache eviction policy that removes the least recently used items when the cach
 ## M
 
 **Mermaid**
-A markdown-based diagramming language used in CodeVault AI documentation for architecture diagrams.
+A markdown-based diagramming language used in Cerberus documentation for architecture diagrams.
 
 **Multi-Agent Architecture**
 The design pattern where multiple specialized agents work together to provide comprehensive code analysis.
@@ -174,13 +174,13 @@ A list of the 10 most critical web application security risks. The Security Agen
 An agent that analyzes code for performance bottlenecks, algorithmic complexity, memory issues, and optimization opportunities.
 
 **Pre-commit Hook**
-A git hook that runs before a commit is finalized. Used by CodeVault AI to review staged changes.
+A git hook that runs before a commit is finalized. Used by Cerberus to review staged changes.
 
 **Pre-push Hook**
 A git hook that runs before code is pushed to a remote repository. Used for comprehensive reviews.
 
 **Prometheus**
-An open-source monitoring system that collects and stores metrics as time series data. Used to monitor CodeVault AI.
+An open-source monitoring system that collects and stores metrics as time series data. Used to monitor Cerberus.
 
 ---
 
@@ -190,10 +190,10 @@ An open-source monitoring system that collects and stores metrics as time series
 Restricting the number of API requests a client can make in a time period to prevent abuse.
 
 **Redis**
-An in-memory data structure store used by CodeVault AI for caching review results.
+An in-memory data structure store used by Cerberus for caching review results.
 
 **REST API**
-The HTTP-based interface for interacting with CodeVault AI programmatically.
+The HTTP-based interface for interacting with Cerberus programmatically.
 
 **Review**
 The process of analyzing code with multiple agents and returning findings and recommendations.
@@ -209,7 +209,7 @@ A unique identifier for a review request (e.g., `rev_abc123`).
 ## S
 
 **SARIF (Static Analysis Results Interchange Format)**
-A standard JSON format for representing static analysis results. CodeVault AI can export to SARIF for integration with other tools.
+A standard JSON format for representing static analysis results. Cerberus can export to SARIF for integration with other tools.
 
 **Score**
 A numerical rating (0-100) indicating code quality. Higher scores indicate fewer and less severe issues.
@@ -221,10 +221,10 @@ An agent that identifies security vulnerabilities, including injection attacks, 
 The importance level of a finding: `critical`, `high`, `medium`, `low`, or `info`.
 
 **SQLAlchemy**
-A Python SQL toolkit and ORM (Object-Relational Mapping) library used by CodeVault AI for database operations.
+A Python SQL toolkit and ORM (Object-Relational Mapping) library used by Cerberus for database operations.
 
 **SQLite**
-A lightweight, file-based database. Used by CodeVault AI for development and small deployments.
+A lightweight, file-based database. Used by Cerberus for development and small deployments.
 
 ---
 

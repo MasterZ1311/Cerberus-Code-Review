@@ -1,4 +1,4 @@
-# CodeVault AI - Installation & Setup Guide
+# Cerberus - Installation & Setup Guide
 
 **Version:** 0.1.0  
 **Last Updated:** September 21, 2026
@@ -76,7 +76,7 @@ Get Cerberus running locally in under 5 minutes.
 
 ```bash
 # Clone repository
-git clone https://github.com/codevault-ai/MultiAgent-CodeReview.git
+git clone https://github.com/cerberus-ai/MultiAgent-CodeReview.git
 cd MultiAgent-CodeReview
 
 # Copy example environment file
@@ -178,7 +178,7 @@ services:
       - HOST=0.0.0.0
       - PORT=8000
       - ENVIRONMENT=production
-      - DATABASE_URL=postgresql+asyncpg://codevault:${DB_PASSWORD:-dev_password}@db:5432/codevault_db
+      - DATABASE_URL=postgresql+asyncpg://cerberus:${DB_PASSWORD:-dev_password}@db:5432/cerberus_db
       - REDIS_URL=redis://redis:6379/0
       - CACHE_ENABLED=true
       - LLM_PROVIDER=${LLM_PROVIDER:-heuristic}
@@ -201,9 +201,9 @@ services:
     container_name: cerberus-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: codevault
+      POSTGRES_USER: cerberus
       POSTGRES_PASSWORD: ${DB_PASSWORD:-dev_password}
-      POSTGRES_DB: codevault_db
+      POSTGRES_DB: cerberus_db
     ports:
       - "5432:5432"
     volumes:
@@ -361,30 +361,30 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 ```bash
 # Build image
-docker build -t codevault/api:latest .
+docker build -t cerberus/api:latest .
 
 # Tag for ECR
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <account>.dkr.ecr.us-east-1.amazonaws.com
 
-docker tag codevault/api:latest <account>.dkr.ecr.us-east-1.amazonaws.com/codevault:latest
+docker tag cerberus/api:latest <account>.dkr.ecr.us-east-1.amazonaws.com/cerberus:latest
 
 # Push to ECR
-docker push <account>.dkr.ecr.us-east-1.amazonaws.com/codevault:latest
+docker push <account>.dkr.ecr.us-east-1.amazonaws.com/cerberus:latest
 ```
 
 **Step 2: Create ECS Task Definition**
 
 ```json
 {
-  "family": "codevault-api",
+  "family": "cerberus-api",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "1024",
   "memory": "2048",
   "containerDefinitions": [
     {
-      "name": "codevault-api",
-      "image": "<account>.dkr.ecr.us-east-1.amazonaws.com/codevault:latest",
+      "name": "cerberus-api",
+      "image": "<account>.dkr.ecr.us-east-1.amazonaws.com/cerberus:latest",
       "portMappings": [
         {
           "containerPort": 8000,
@@ -398,13 +398,13 @@ docker push <account>.dkr.ecr.us-east-1.amazonaws.com/codevault:latest
       "secrets": [
         {
           "name": "OPENAI_API_KEY",
-          "valueFrom": "arn:aws:secretsmanager:us-east-1:...:secret:codevault/openai-key"
+          "valueFrom": "arn:aws:secretsmanager:us-east-1:...:secret:cerberus/openai-key"
         }
       ],
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {
-          "awslogs-group": "/ecs/codevault",
+          "awslogs-group": "/ecs/cerberus",
           "awslogs-region": "us-east-1",
           "awslogs-stream-prefix": "api"
         }
@@ -418,29 +418,29 @@ docker push <account>.dkr.ecr.us-east-1.amazonaws.com/codevault:latest
 
 ```bash
 aws ecs create-service \
-  --cluster codevault-cluster \
-  --service-name codevault-api \
-  --task-definition codevault-api:1 \
+  --cluster cerberus-cluster \
+  --service-name cerberus-api \
+  --task-definition cerberus-api:1 \
   --desired-count 2 \
   --launch-type FARGATE \
   --network-configuration "awsvpcConfiguration={subnets=[subnet-xxx],securityGroups=[sg-xxx],assignPublicIp=ENABLED}" \
-  --load-balancers "targetGroupArn=arn:aws:elasticloadbalancing:...,containerName=codevault-api,containerPort=8000"
+  --load-balancers "targetGroupArn=arn:aws:elasticloadbalancing:...,containerName=cerberus-api,containerPort=8000"
 ```
 
 ### GCP Deployment (Cloud Run)
 
 ```bash
 # Build and push to Google Container Registry
-gcloud builds submit --tag gcr.io/PROJECT-ID/codevault
+gcloud builds submit --tag gcr.io/PROJECT-ID/cerberus
 
 # Deploy to Cloud Run
-gcloud run deploy codevault \
-  --image gcr.io/PROJECT-ID/codevault \
+gcloud run deploy cerberus \
+  --image gcr.io/PROJECT-ID/cerberus \
   --platform managed \
   --region us-central1 \
   --allow-unauthenticated \
   --set-env-vars="DATABASE_URL=postgresql://...,REDIS_URL=redis://..." \
-  --set-secrets="OPENAI_API_KEY=codevault-openai-key:latest" \
+  --set-secrets="OPENAI_API_KEY=cerberus-openai-key:latest" \
   --memory 2Gi \
   --cpu 2 \
   --max-instances 10
@@ -451,10 +451,10 @@ gcloud run deploy codevault \
 ```bash
 # Create Container App
 az containerapp create \
-  --name codevault \
-  --resource-group codevault-rg \
-  --environment codevault-env \
-  --image codevault/api:latest \
+  --name cerberus \
+  --resource-group cerberus-rg \
+  --environment cerberus-env \
+  --image cerberus/api:latest \
   --target-port 8000 \
   --ingress external \
   --cpu 1.0 \
@@ -476,33 +476,33 @@ az containerapp create \
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: codevault-api
-  namespace: codevault
+  name: cerberus-api
+  namespace: cerberus
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: codevault-api
+      app: cerberus-api
   template:
     metadata:
       labels:
-        app: codevault-api
+        app: cerberus-api
     spec:
       containers:
       - name: api
-        image: codevault/api:latest
+        image: cerberus/api:latest
         ports:
         - containerPort: 8000
         env:
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
-              name: codevault-secrets
+              name: cerberus-secrets
               key: database-url
         - name: OPENAI_API_KEY
           valueFrom:
             secretKeyRef:
-              name: codevault-secrets
+              name: cerberus-secrets
               key: openai-api-key
         resources:
           requests:
@@ -527,11 +527,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: codevault-api
-  namespace: codevault
+  name: cerberus-api
+  namespace: cerberus
 spec:
   selector:
-    app: codevault-api
+    app: cerberus-api
   ports:
   - port: 80
     targetPort: 8000
@@ -542,20 +542,20 @@ spec:
 
 ```bash
 # Create namespace
-kubectl create namespace codevault
+kubectl create namespace cerberus
 
 # Create secrets
-kubectl create secret generic codevault-secrets \
+kubectl create secret generic cerberus-secrets \
   --from-literal=openai-api-key=sk-... \
   --from-literal=database-url=postgresql://... \
-  -n codevault
+  -n cerberus
 
 # Deploy
 kubectl apply -f deployment.yaml
 
 # Check status
-kubectl get pods -n codevault
-kubectl logs -f deployment/codevault-api -n codevault
+kubectl get pods -n cerberus
+kubectl logs -f deployment/cerberus-api -n cerberus
 ```
 
 ---
@@ -567,16 +567,16 @@ kubectl logs -f deployment/codevault-api -n codevault
 **Automatic Installation:**
 
 ```bash
-# Install CodeVault CLI
-pip install codevault-cli
+# Install Cerberus CLI
+pip install cerberus-cli
 
 # Initialize in your project
 cd /path/to/your/project
-codevault init
+cerberus init
 
 # This creates:
 # - .git/hooks/pre-commit
-# - .codevault.yml (config file)
+# - .cerberus.yml (config file)
 ```
 
 **Manual Installation:**
@@ -586,11 +586,11 @@ codevault init
 cat > .git/hooks/pre-commit << 'EOF'
 #!/bin/bash
 
-CODEVAULT_API_URL="${CODEVAULT_API_URL:-http://localhost:8000}"
-CODEVAULT_API_KEY="${CODEVAULT_API_KEY}"
+CERBERUS_API_URL="${CERBERUS_API_URL:-http://localhost:8000}"
+CERBERUS_API_KEY="${CERBERUS_API_KEY}"
 
-if [ -z "$CODEVAULT_API_KEY" ]; then
-  echo "⚠️  CODEVAULT_API_KEY not set. Skipping review."
+if [ -z "$CERBERUS_API_KEY" ]; then
+  echo "⚠️  CERBERUS_API_KEY not set. Skipping review."
   exit 0
 fi
 
@@ -602,7 +602,7 @@ if [ -z "$STAGED_FILES" ]; then
   exit 0
 fi
 
-echo "🔍 Running CodeVault AI review..."
+echo "🔍 Running Cerberus review..."
 
 FAILED=0
 
@@ -614,8 +614,8 @@ for FILE in $STAGED_FILES; do
   echo "  Reviewing $FILE..."
   
   CODE=$(cat "$FILE" | jq -Rs .)
-  RESPONSE=$(curl -s -X POST "$CODEVAULT_API_URL/api/v1/review" \
-    -H "Authorization: Bearer $CODEVAULT_API_KEY" \
+  RESPONSE=$(curl -s -X POST "$CERBERUS_API_URL/api/v1/review" \
+    -H "Authorization: Bearer $CERBERUS_API_KEY" \
     -H "Content-Type: application/json" \
     -d "{\"code\": $CODE, \"filename\": \"$FILE\", \"config\": {\"blocking_mode\": true}}")
   
@@ -651,10 +651,10 @@ chmod +x .git/hooks/pre-commit
 cat > .git/hooks/pre-push << 'EOF'
 #!/bin/bash
 
-CODEVAULT_API_URL="${CODEVAULT_API_URL:-http://localhost:8000}"
-CODEVAULT_API_KEY="${CODEVAULT_API_KEY}"
+CERBERUS_API_URL="${CERBERUS_API_URL:-http://localhost:8000}"
+CERBERUS_API_KEY="${CERBERUS_API_KEY}"
 
-echo "🔍 Running comprehensive CodeVault AI review before push..."
+echo "🔍 Running comprehensive Cerberus review before push..."
 
 # Get all changed files in commits being pushed
 CHANGED_FILES=$(git diff --name-only HEAD@{u}..HEAD | grep -E '\.(py|js|ts|java|go|rb|php|cpp|c|cs)$')
@@ -671,7 +671,7 @@ chmod +x .git/hooks/pre-push
 
 ### Hook Configuration
 
-**.codevault.yml:**
+**.cerberus.yml:**
 
 ```yaml
 version: 1
@@ -725,10 +725,10 @@ agents:
 git commit --no-verify -m "Emergency fix"
 
 # Bypass specific review (environment variable)
-CODEVAULT_SKIP=1 git commit -m "Skip review"
+CERBERUS_SKIP=1 git commit -m "Skip review"
 
 # Advisory mode (warning only, don't block)
-export CODEVAULT_ADVISORY_MODE=1
+export CERBERUS_ADVISORY_MODE=1
 git commit -m "Warn but don't block"
 ```
 
@@ -828,7 +828,7 @@ export LLM_PROVIDER=heuristic
 docker-compose ps db
 
 # Test PostgreSQL connectivity
-docker-compose exec db psql -U codevault -d codevault_db -c "SELECT 1"
+docker-compose exec db psql -U cerberus -d cerberus_db -c "SELECT 1"
 
 # Or switch to zero-config local SQLite:
 # Set DATABASE_URL=sqlite+aiosqlite:///./cerberus.db in .env
@@ -869,4 +869,4 @@ python -m pytest tests/ -q --tb=short
 
 ---
 
-*CodeVault AI Installation Guide - v0.1.0*
+*Cerberus Installation Guide - v0.1.0*

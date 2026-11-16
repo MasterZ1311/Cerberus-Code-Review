@@ -1,4 +1,4 @@
-# CodeVault AI - API Reference
+# Cerberus - API Reference
 
 **Version:** 0.1.0  
 **Last Updated:** September 21, 2026  
@@ -33,7 +33,7 @@
 
 ## Overview
 
-The CodeVault AI REST API provides programmatic access to the multi-agent code review system. All endpoints return JSON responses and follow RESTful conventions.
+The Cerberus REST API provides programmatic access to the multi-agent code review system. All endpoints return JSON responses and follow RESTful conventions.
 
 **Key Features:**
 - RESTful design with predictable resource URLs
@@ -55,7 +55,7 @@ The CodeVault AI REST API provides programmatic access to the multi-agent code r
 
 ## Authentication
 
-CodeVault AI uses API key authentication for all non-health check endpoints.
+Cerberus uses API key authentication for all non-health check endpoints.
 
 ### Obtaining an API Key
 
@@ -258,7 +258,7 @@ curl -X POST http://localhost:8000/api/v1/review \
     "code": "SELECT * FROM users WHERE email = '\'' + userInput + '\'';",
     "language": "sql",
     "filename": "queries.sql",
-    "webhook_url": "https://myapp.com/webhooks/codevault",
+    "webhook_url": "https://myapp.com/webhooks/cerberus",
     "webhook_secret": "whsec_your_webhook_secret"
   }'
 ```
@@ -271,7 +271,7 @@ curl -X POST http://localhost:8000/api/v1/review \
   "created_at": "2026-09-21T10:40:00Z",
   "estimated_completion": "2026-09-21T10:40:10Z",
   "agents_scheduled": ["security", "performance", "quality"],
-  "webhook_url": "https://myapp.com/webhooks/codevault",
+  "webhook_url": "https://myapp.com/webhooks/cerberus",
   "_links": {
     "self": "/api/v1/review/rev_7f6e5d4c3b2a1908",
     "results": "/api/v1/review/rev_7f6e5d4c3b2a1908/results"
@@ -1298,22 +1298,22 @@ Include webhook URL when submitting a review:
 ```json
 {
   "code": "...",
-  "webhook_url": "https://myapp.com/webhooks/codevault",
+  "webhook_url": "https://myapp.com/webhooks/cerberus",
   "webhook_secret": "whsec_your_secret_key"
 }
 ```
 
 ### Webhook Payload
 
-When a review completes, CodeVault AI sends a POST request:
+When a review completes, Cerberus sends a POST request:
 
 **Webhook Request:**
 ```http
-POST /webhooks/codevault HTTP/1.1
+POST /webhooks/cerberus HTTP/1.1
 Host: myapp.com
 Content-Type: application/json
-X-CodeVault-Signature: sha256=abc123...
-X-CodeVault-Event: review.completed
+X-Cerberus-Signature: sha256=abc123...
+X-Cerberus-Event: review.completed
 
 {
   "event": "review.completed",
@@ -1358,9 +1358,9 @@ from flask import Flask, request
 
 app = Flask(__name__)
 
-@app.route('/webhooks/codevault', methods=['POST'])
+@app.route('/webhooks/cerberus', methods=['POST'])
 def handle_webhook():
-    signature = request.headers.get('X-CodeVault-Signature')
+    signature = request.headers.get('X-Cerberus-Signature')
     secret = '${WEBHOOK_SECRET}'
     
     if not verify_webhook(request.data, signature, secret):
@@ -1387,8 +1387,8 @@ function verifyWebhook(payload, signature, secret) {
 }
 
 // Express.js usage
-app.post('/webhooks/codevault', express.raw({type: 'application/json'}), (req, res) => {
-  const signature = req.headers['x-codevault-signature'];
+app.post('/webhooks/cerberus', express.raw({type: 'application/json'}), (req, res) => {
+  const signature = req.headers['x-cerberus-signature'];
   const secret = '${WEBHOOK_SECRET}';
   
   if (!verifyWebhook(req.body, signature, secret)) {
@@ -1418,10 +1418,10 @@ app.post('/webhooks/codevault', express.raw({type: 'application/json'}), (req, r
 ### Python SDK
 
 ```python
-from codevault import CodeVault
+from cerberus import Cerberus
 
 # Initialize client
-client = CodeVault(api_key="${CERBERUS_API_KEY}")
+client = Cerberus(api_key="${CERBERUS_API_KEY}")
 
 # Submit review
 review = client.review(
@@ -1448,7 +1448,7 @@ else:
 
 # Async usage
 async def review_code():
-    async with CodeVault(api_key="cvai_key") as client:
+    async with Cerberus(api_key="cvai_key") as client:
         review = await client.review_async(code="...", language="python")
         result = await review.wait_async()
         return result
@@ -1457,10 +1457,10 @@ async def review_code():
 ### JavaScript/TypeScript SDK
 
 ```javascript
-import { CodeVault } from '@codevault/sdk';
+import { Cerberus } from '@cerberus/sdk';
 
 // Initialize client
-const client = new CodeVault({ apiKey: '${CERBERUS_API_KEY}' });
+const client = new Cerberus({ apiKey: '${CERBERUS_API_KEY}' });
 
 // Submit review
 const review = await client.review({
@@ -1510,14 +1510,14 @@ name: Code Review
 on: [pull_request]
 
 jobs:
-  codevault-review:
+  cerberus-review:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       
-      - name: Run CodeVault AI Review
+      - name: Run Cerberus Review
         env:
-          CODEVAULT_API_KEY: ${{ secrets.CODEVAULT_API_KEY }}
+          CERBERUS_API_KEY: ${{ secrets.CERBERUS_API_KEY }}
         run: |
           # Get changed files
           git diff --name-only origin/main...HEAD > changed_files.txt
@@ -1526,7 +1526,7 @@ jobs:
           while read file; do
             if [ -f "$file" ]; then
               curl -X POST http://localhost:8000/api/v1/review \
-                -H "Authorization: Bearer $CODEVAULT_API_KEY" \
+                -H "Authorization: Bearer $CERBERUS_API_KEY" \
                 -H "Content-Type: application/json" \
                 -d @- << EOF
           {
@@ -1548,7 +1548,7 @@ jobs:
 #!/bin/bash
 # .git/hooks/pre-commit
 
-CODEVAULT_API_KEY="${CERBERUS_API_KEY}"
+CERBERUS_API_KEY="${CERBERUS_API_KEY}"
 API_URL="http://localhost:8000/api/v1/review"
 
 # Get staged files
@@ -1565,7 +1565,7 @@ for FILE in $STAGED_FILES; do
   # Submit for review
   CODE=$(cat "$FILE" | jq -Rs .)
   RESPONSE=$(curl -s -X POST "$API_URL" \
-    -H "Authorization: Bearer $CODEVAULT_API_KEY" \
+    -H "Authorization: Bearer $CERBERUS_API_KEY" \
     -H "Content-Type: application/json" \
     -d "{\"code\": $CODE, \"filename\": \"$FILE\", \"config\": {\"blocking_mode\": true}}")
   
@@ -1600,7 +1600,7 @@ All errors follow a consistent format:
     "message": "Human-readable error message",
     "details": "Additional context about the error",
     "field": "field_name",
-    "documentation_url": "https://docs.codevault.ai/errors/error_code_here"
+    "documentation_url": "https://docs.cerberus.ai/errors/error_code_here"
   },
   "request_id": "req_abc123",
   "timestamp": "2026-09-21T11:30:00Z"
@@ -1734,9 +1734,9 @@ curl -X GET "http://localhost:8000/api/v1/review/rev_abc123/export?format=sarif"
     {
       "tool": {
         "driver": {
-          "name": "CodeVault AI",
+          "name": "Cerberus",
           "version": "0.1.0",
-          "informationUri": "https://codevault.ai"
+          "informationUri": "https://cerberus.ai"
         }
       },
       "results": [
@@ -1779,4 +1779,4 @@ curl -X GET "http://localhost:8000/api/v1/review/rev_abc123/export?format=sarif"
 **Documentation Version:** 1.0  
 **Last Updated:** September 21, 2026
 
-*For support, visit [docs.codevault.ai](https://docs.codevault.ai) or open an issue on [GitHub](https://github.com/codevault-ai/codevault/issues)*
+*For support, visit [docs.cerberus.ai](https://docs.cerberus.ai) or open an issue on [GitHub](https://github.com/cerberus-ai/cerberus/issues)*

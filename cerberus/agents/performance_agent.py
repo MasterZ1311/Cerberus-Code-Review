@@ -108,7 +108,7 @@ class PerformanceAgent(BaseAgent):
                         heuristic_score=h_score,
                     )
             except Exception as e:
-                logger.warning(f"PerformanceAgent LLM analysis failed; falling back to heuristic engine: {e}")
+                logger.warning("PerformanceAgent LLM analysis failed; falling back to heuristic engine: %s", e)
                 final_findings = h_findings
                 final_score = h_score
 

@@ -74,7 +74,7 @@ class ASGIRequestSizeLimitMiddleware:
                 cl = int(content_length_raw.decode("latin-1"))
                 if cl > limit:
                     logger.warning(
-                        f"Request to {path} rejected by Content-Length check: {cl} bytes > {limit} bytes limit."
+                        "Request to %s rejected by Content-Length check: %s bytes > %s bytes limit.", path, cl, limit
                     )
                     await self._send_413_response(send, limit, cl)
                     return
@@ -110,13 +110,19 @@ class ASGIRequestSizeLimitMiddleware:
             await self.app(scope, metered_receive, metered_send)
             if limit_exceeded and not response_started:
                 logger.warning(
-                    f"Request to {path} terminated at ASGI receive layer: received {total_received} bytes > {limit} bytes limit."
+                    "Request to %s terminated at ASGI receive layer: received %s bytes > %s bytes limit.",
+                    path,
+                    total_received,
+                    limit,
                 )
                 await self._send_413_response(send, limit, total_received)
         except OversizedPayloadException as exc:
             if not response_started:
                 logger.warning(
-                    f"Request to {path} terminated at ASGI receive layer: received {exc.received} bytes > {exc.limit} bytes limit."
+                    "Request to %s terminated at ASGI receive layer: received %s bytes > %s bytes limit.",
+                    path,
+                    exc.received,
+                    exc.limit,
                 )
                 await self._send_413_response(send, exc.limit, exc.received)
 

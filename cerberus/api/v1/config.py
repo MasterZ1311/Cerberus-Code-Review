@@ -47,7 +47,7 @@ async def _load_persisted_config() -> Dict[str, str]:
             for rec in res.scalars().all():
                 config_dict[rec.key] = rec.value
     except Exception as e:
-        logger.debug(f"Could not load runtime config from DB: {e}")
+        logger.debug("Could not load runtime config from DB: %s", e)
     return config_dict
 
 
@@ -62,7 +62,7 @@ async def _persist_config_key(key: str, value: str) -> None:
                 session.add(RuntimeConfigRecord(key=key, value=value))
             await session.commit()
     except Exception as e:
-        logger.warning(f"Could not persist config key '{key}' to DB: {e}")
+        logger.warning("Could not persist config key '%s' to DB: %s", key, e)
 
 
 @router.get("")

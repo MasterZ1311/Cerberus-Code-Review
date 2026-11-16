@@ -63,8 +63,10 @@ class GeminiProvider(BaseLLMProvider):
                         if parts and len(parts) > 0:
                             return parts[0].get("text")
                 elif res is not None and getattr(res, "status_code", 0) != 404:
-                    logger.warning(f"Gemini API request ({api_version}) returned HTTP {res.status_code}: {res.text}")
+                    logger.warning(
+                        "Gemini API request (%s) returned HTTP %s: %s", api_version, res.status_code, res.text
+                    )
                     break
         except Exception as e:
-            logger.warning(f"Gemini generation failed: {e}")
+            logger.warning("Gemini generation failed: %s", e)
         return None

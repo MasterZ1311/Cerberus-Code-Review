@@ -38,15 +38,16 @@ Cerberus implements a strict **defense-in-depth multi-tenant security architectu
    - If a caller attempts to access a review owned by a different tenant, Cerberus returns **HTTP 404 Not Found** (preventing enumeration attacks).
 
 3. **Synchronous Persistence & Fail-Closed Durability**:
-   - A successful review submission must persist the minimum retrieval-critical record synchronously to the database before returning to the caller:
+   - A successful review submission (REST, batch, or GitHub webhook) must persist the minimum retrieval-critical record synchronously to the database before returning to the caller, storing in memory/cache, publishing events, or dispatching external side effects:
      - Review ID (`id`)
      - Owner / Tenant ID (`owner_id`)
      - Status (`status`)
      - Timestamps (`created_at`, `completed_at`)
      - Safely sanitized / redacted results metadata (`results_json`)
    - If database persistence encounters operational or connectivity errors, Cerberus retries with exponential backoff.
-   - If persistence fails after all retries, Cerberus **fails closed** and returns **HTTP 500 Internal Server Error** with code `persistence_failure`. Cerberus **never** returns a successful review ID to the client if the record cannot be durably committed.
-   - Detailed individual finding records persist asynchronously in the background; fallback retrieval remains functional immediately.
+   - If persistence fails after all retries, Cerberus **fails closed** and returns **HTTP 500 Internal Server Error** with code `persistence_failure` (or generic safe 500 for webhooks). Cerberus **never** returns a usable review ID to the client if the record cannot be durably committed, evicts partial records from memory and cache, and refuses to post external GitHub PR review comments.
+   - Background tasks are tracked via `BackgroundTaskManager`, ensuring exceptions are safely retrieved and logged, and tasks are properly drained upon application shutdown without closed-loop warnings.
+   - Detailed individual finding records persist asynchronously in the background only after core persistence succeeds; fallback retrieval remains functional immediately.
 
 4. **Legacy Backfill and Fail-Closed Policy**:
    - Database migrations automatically backfill unowned pre-existing records to an explicit `'legacy_unassigned'` tenant identity.

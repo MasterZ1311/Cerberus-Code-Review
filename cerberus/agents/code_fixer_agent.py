@@ -225,7 +225,7 @@ class CodeFixerAgent(BaseAgent):
                     if self._verify_syntax(candidate_code, language=language):
                         repaired_code = candidate_code
             except Exception as e:
-                logger.warning(f"CodeFixerAgent LLM patch generation failed; keeping heuristic fix: {e}")
+                logger.warning("CodeFixerAgent LLM patch generation failed; keeping heuristic fix: %s", e)
 
         # Multi-Stage In-Memory Patch Verification Pipeline
         verification = PatchVerificationPipeline.verify_patch(
@@ -238,7 +238,9 @@ class CodeFixerAgent(BaseAgent):
 
         if not verification.is_valid:
             logger.warning(
-                f"Patch verification failed at stage '{verification.stage}': {verification.explanation}. Reverting to safe code."
+                "Patch verification failed at stage '%s': %s. Reverting to safe code.",
+                verification.stage,
+                verification.explanation,
             )
             repaired_code = code
             unified_diff = ""

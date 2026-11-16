@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Autonomous Multi-Agent Code Review &amp; Collaborative Quality Assurance System</strong><br>
-  <em>(CodeVault AI Architecture Concept)</em>
+  <em>(Cerberus Architecture Concept - v1.4.0)</em>
 </p>
 
 <p align="center">
@@ -40,7 +40,9 @@
 > **Think of building software like constructing a skyscraper or modern house.**  
 > Before opening the building to the public, you would never rely on just one generalist inspector to check everything. You bring in **specialized licensed inspectors**: an electrician to check wiring, a plumber to check pipes, a structural engineer to check the foundation, and a fire marshal to check safety laws.
 
-**cerberus</>** does exactly this for computer code—automatically, in **~17.5 milliseconds** (cold heuristic AST) and sub-millisecond (**<0.3 ms** cached), with reproducible benchmarks committed in `scripts/benchmark_review.py`!
+**cerberus</>** does exactly this for computer code—automatically, in **~17.5 milliseconds** (cold heuristic AST) and sub-millisecond (**<0.3 ms** cached), with reproducible benchmarks committed in `tests/performance/benchmark_review.py`!
+
+**🎯 Now with 10 Programming Languages:** Python, JavaScript, TypeScript, Go, Rust, **Java, C#, Ruby, PHP**, and more—featuring **125+ language-specific security rules**.
 
 Whenever programmers write new software, Cerberus sends in a team of **7 specialized AI detectives** who review every line of code simultaneously. They deliberate together, reach a shared verdict, and **automatically write the exact fix** so your team can release software with complete confidence.
 
@@ -95,6 +97,8 @@ The built-in web dashboard runs locally at `http://localhost:8000`:
 - 🔍 **Interactive Finding Filters:** Instant 1-click filtering by severity (`All`, `Critical`, `High`, `Medium`, `Low`) with quick search (`/`).
 - 📄 **VS Code Dark+ Diff Frame:** Side-by-side Git unified diff view highlighting exact red (deleted) and green (added) code replacements.
 - 🛡️ **Human-in-the-Loop PR Approval Modal:** Lead architects can enter their name, record justifications, and approve PRs with persistent audit records.
+- 📊 **Performance Metrics:** Real-time latency tracking, cache hit rates, and throughput monitoring.
+- 🔭 **Distributed Tracing:** Optional OpenTelemetry integration for end-to-end request tracing.
 
 ---
 
@@ -295,23 +299,17 @@ curl http://localhost:8000/metrics
 
 ## 🧪 Testing, Quality & Verification
 
-Cerberus has **594 automated tests across 42 test suites with 85.38% enforced branch coverage** running in CI across Python 3.11, 3.12, and 3.13:
+Cerberus has **615 automated tests across 44 test suites with >=85% enforced branch coverage** running in CI across Python 3.11, 3.12, and 3.13:
 
 ```bash
 # Run full automated test suite with enforced branch coverage
-python -m pytest --cov=cerberus --cov-branch --cov-report=term-missing
-```
-
-```
-TOTAL                                             5867    665   1974    343    85%
-Required test coverage of 85.0% reached. Total coverage: 85.38%
-======================= 594 passed in 113.36s =======================
+python -m pytest --cov=cerberus --cov-branch --cov-report=term-missing --cov-fail-under=85
 ```
 
 - **👑 Privilege Escalation & Scope Hierarchy (`tests/test_privilege_escalation.py`):** Proves tenant admins cannot mint `platform:admin`, cannot grant arbitrary scopes, cannot access or rotate keys belonging to other tenants, and that global runtime configuration (`/api/v1/config`) is restricted strictly to platform administrators.
 - **🔒 Complete Zero-Retention Privacy (`tests/test_privacy_complete.py`):** Directly inspects L1 in-memory cache, L2 Redis mocks, database records (`CodeReviewRecord.code_snippet`, `results_json`), child `FindingRecord`s, serialized API responses, and OpenTelemetry spans & events to verify complete absence of original source code when `RETAIN_SOURCE_CODE=false`.
-- **🐘 Database Fallback Consistency & Fail-Closed Durability (`tests/test_database_fallback_consistency.py`):** Proves that review submissions synchronously commit critical core records to durable storage before issuing IDs, verifies cross-worker retrieval and tenant isolation upon total memory eviction, asserts fail-closed HTTP 500 rejection without orphan IDs on database outages, and exercises transactional atomic batch persistence.
-- **📦 Supply Chain & Kubernetes Verification (`tests/test_supply_chain_and_k8s.py`):** Validates zero drift between `requirements.txt` and `requirements-lock.txt`, verifies `.trivyignore` exception format and expiration dates, asserts cryptographic secret generation (`scripts/bootstrap_k8s_secrets.py`), and ensures immutable image digest pinning in `k8s/kustomization.yaml`.
+- **🐘 Database Fallback Consistency & Fail-Closed Durability (`tests/test_database_fallback_consistency.py`, `tests/test_webhook_durability.py`):** Proves that single reviews, batch reviews, and GitHub webhook reviews synchronously commit critical core records to durable storage before issuing IDs, exposing cache/memory, or posting external PR reviews. Verifies cross-worker retrieval upon total memory eviction, asserts fail-closed HTTP 500 rejection without orphan IDs on database outages, and manages background task draining during application lifecycle.
+- **📦 Supply Chain & Kubernetes Verification (`tests/test_supply_chain_and_k8s.py`):** Validates zero drift between requirements and hashed lockfiles (`requirements-lock.txt` and `requirements-ci-tools-lock.txt`), enforces SHA-256 hashes on every package, verifies temporary file regeneration diff via `pip-compile`, validates `.trivyignore` exception format and expiration dates, asserts cryptographic secret generation (`scripts/bootstrap_k8s_secrets.py`), and ensures immutable image digest pinning with base-image collision rejection in Kubernetes manifests.
 - **♿ WCAG 2.1 AA Accessibility Testing (`tests/test_browser_accessibility.py`):** Playwright headless browser suite asserting full keyboard navigation, ARIA landmarks, screen reader labels, high-contrast visual tokens, and `prefers-reduced-motion` compliance.
 - **🛡️ Master Hostile Verification Suite (`tests/test_perfect_10_master_coverage.py`):** 22 comprehensive end-to-end test cases exercising CLI subcommands, API v1 routes, SingleFlight cache stampede coalescing, zlib payload compression, DB retry resilience, and polyglot syntax verification.
 - **🌲 Tree-sitter AST Multi-Language Parity:** C-binding native AST verification for TypeScript, TSX, JavaScript, Go, Rust, and Python with line-and-column error precision.
@@ -384,6 +382,8 @@ Cerberus provides verified infrastructure-as-code and security manifests for pro
 - 🐳 **Multi-Stage Container Image (`Dockerfile`):** Unprivileged runtime user (`cerberus`, UID `1000`), immutable non-editable wheels, pinned base image (`python:3.11-slim@sha256:d8c525f0ad0289a4ffad6d14902b79a52de0db126e855fa316d2eb1fcebc95ba`), and native curl-based healthchecks.
 - 🌐 **Isolated Compose Network (`docker-compose.yml`):** Internal container-only network `cerberus_net`, PostgreSQL (`5432`) and Redis (`6379`) ports completely unexposed to host/public networks, strict healthcheck dependency gating.
 - ☸️ **Production Kubernetes Topology (`k8s/`):** Committed [`deployment.yaml`](k8s/deployment.yaml) and [`service.yaml`](k8s/service.yaml) featuring `readOnlyRootFilesystem`, `drop: ["ALL"]` capabilities, resource requests/limits, and truthful `/api/v1/ready` probe integration.
+- 🔒 **Production Deployment Gatekeeper (`scripts/deploy_production.py`):** Validates that production deployments only proceed from signed, digest-pinned release artifacts (`release-dist/cerberus-production-manifests.yaml`). Inspects all containers (`cerberus-api`, retention CronJobs, etc.), rejects unpinned tags, detects base-image digest collisions, and verifies sibling `.sha256` checksums. Operates in validation-only mode by default; cluster modifications require explicit `--apply` and `--confirm` flags and execute pre-flight `kubectl apply --dry-run=server` checks.
+- 📦 **Verified Pre-Publish Release Engineering (`.github/workflows/release.yml`):** Enforces a build-once candidate container workflow. Trivy container vulnerability scanning (blocking on CRITICAL/HIGH), Docker Compose startup/auth/readiness smoke testing, and deployment smoke tests all execute against the local candidate image *before* pushing to GHCR. Upon verification, the exact image is pushed, signed via keyless Cosign OIDC, attested with build provenance, and rendered into immutable, checksummed Kubernetes release manifests published to GitHub Release assets.
 - 🛡️ **Static Analysis Security Testing (`semgrep.yaml`):** Enforced SAST rules catching SQL injection patterns (CWE-89) and hard-coded production secrets (CWE-798).
 
 ---
@@ -392,7 +392,7 @@ Cerberus provides verified infrastructure-as-code and security manifests for pro
 
 - 🏆 **[Master Engineering Audit](reports/MASTER_ENGINEERING_AUDIT.md)** — Comprehensive scorecard, architecture evaluation, and audit across 10 pillars
 - 🛡️ **[Security Audit & Threat Model](reports/SECURITY_AUDIT.md)** — OWASP ASVS v4.0.3 analysis, STRIDE threat model, negative testing, and Red-Team results
-- 🧪 **[Test Results & Quality Assurance Report](reports/TEST_RESULTS.md)** — 604 automated tests execution summary, zero-flakiness analysis, and module breakdown
+- 🧪 **[Test Results & Quality Assurance Report](reports/TEST_RESULTS.md)** — 612 automated tests execution summary, zero-flakiness analysis, and module breakdown
 - 🧠 **[AI/LLM Systems & Evaluation Report](reports/AI_EVALUATION.md)** — Foundation model routing, invariant safety guards, and consensus arbitration
 - ⚡ **[Performance Benchmarks Report](reports/PERFORMANCE_BENCHMARKS.md)** — Profiling, sub-millisecond cache latency, and SingleFlight thundering-herd defense
 - 🚀 **[Production Readiness & SRE Review](reports/PRODUCTION_READINESS.md)** — Launch checklist, deployment topologies, SLOs, and zero-downtime procedures

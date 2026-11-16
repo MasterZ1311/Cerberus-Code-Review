@@ -182,7 +182,7 @@ def test_doc5_helm_chart_and_values():
 
     chart_data = yaml.safe_load(chart_block["content"])
     assert chart_data["apiVersion"] == "v2"
-    assert chart_data["name"] == "codevault"
+    assert chart_data["name"] in ("codevault", "cerberus")
     assert "version" in chart_data
 
     values_data = yaml.safe_load(values_block["content"])
@@ -216,8 +216,11 @@ def test_doc5_python_iam_auth_syntax():
 def test_doc6_prometheus_alerting_rules_yaml_and_promql():
     """Verify Prometheus AlertManager rules YAML syntax and extract PromQL expressions."""
     blocks = extract_code_blocks(DOC6_PATH)
-    yaml_blocks = [b for b in blocks if b["lang"] == "yaml" and "codevault-alerts.yaml" in b["content"][:100]]
-    assert len(yaml_blocks) >= 1, "codevault-alerts.yaml not found in MONITORING_OPERATIONS.md"
+    yaml_blocks = [
+        b for b in blocks
+        if b["lang"] == "yaml" and ("codevault-alerts.yaml" in b["content"][:100] or "cerberus-alerts.yaml" in b["content"][:100])
+    ]
+    assert len(yaml_blocks) >= 1, "cerberus-alerts.yaml not found in MONITORING_OPERATIONS.md"
 
     content = yaml_blocks[0]["content"]
     data = yaml.safe_load(content)
@@ -265,7 +268,10 @@ def test_doc6_alertmanager_config_yaml():
 def test_doc6_grafana_dashboard_json():
     """Verify Grafana dashboard JSON syntax and 20+ panels across domains."""
     blocks = extract_code_blocks(DOC6_PATH)
-    json_blocks = [b for b in blocks if b["lang"] == "json" and "codevault-overview.json" in b["content"][:100]]
+    json_blocks = [
+        b for b in blocks
+        if b["lang"] == "json" and ("codevault-overview.json" in b["content"][:100] or "cerberus-overview.json" in b["content"][:100])
+    ]
     assert len(json_blocks) >= 1, "Grafana dashboard JSON block not found"
 
     content = json_blocks[0]["content"]
@@ -416,7 +422,10 @@ def test_empirical_promql_syntax_error_in_doc6():
     Empirically detect invalid PromQL syntax where range vector [5m] is placed inside label braces.
     """
     blocks = extract_code_blocks(DOC6_PATH)
-    alert_block = [b for b in blocks if "codevault-alerts.yaml" in b["content"][:100]][0]
+    alert_block = [
+        b for b in blocks
+        if ("codevault-alerts.yaml" in b["content"][:100] or "cerberus-alerts.yaml" in b["content"][:100])
+    ][0]
     data = yaml.safe_load(alert_block["content"])
 
     syntax_errors = []

@@ -78,9 +78,9 @@ class WatsonxProvider(BaseLLMProvider):
                     self._iam_token = token
                     self._token_expires_at = time.time() + float(expires_in)
                     return self._iam_token
-            logger.warning(f"Failed to obtain IBM IAM token: HTTP {res.status_code} - {res.text}")
+            logger.warning("Failed to obtain IBM IAM token: HTTP %s - %s", res.status_code, res.text)
         except Exception as e:
-            logger.warning(f"Error fetching IBM IAM token: {e}")
+            logger.warning("Error fetching IBM IAM token: %s", e)
         return None
 
     async def generate_response(self, system_prompt: str, user_prompt: str) -> Optional[str]:
@@ -123,7 +123,7 @@ class WatsonxProvider(BaseLLMProvider):
                 if results and len(results) > 0:
                     return results[0].get("generated_text")
             elif res is not None:
-                logger.warning(f"watsonx API request returned HTTP {res.status_code}: {res.text}")
+                logger.warning("watsonx API request returned HTTP %s: %s", res.status_code, res.text)
         except Exception as e:
-            logger.warning(f"watsonx API request failed: {e}")
+            logger.warning("watsonx API request failed: %s", e)
         return None

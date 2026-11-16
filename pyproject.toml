@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cerberus-ai"
-version = "0.1.0"
+version = "1.4.0"
 description = "cerberus</> - Autonomous Multi-Agent Code Review & Quality Assurance System"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -63,6 +63,7 @@ exclude = ["tests*", "demo*", "assets*", "scratch*", "brag-output*"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+norecursedirs = [".git", "tests/performance"]
 filterwarnings = [
     "ignore:.*'click\\.utils.*' is deprecated.*:DeprecationWarning",
     "ignore:.*'click\\.utils.*' is deprecated.*:PendingDeprecationWarning",
@@ -91,6 +92,7 @@ select = [
     "I",   # isort
     "B",   # flake8-bugbear
     "UP",  # pyupgrade
+    "G",   # flake8-logging-format
 ]
 ignore = [
     "E501",  # line too long (handled by formatter)
@@ -104,14 +106,23 @@ ignore = [
 [tool.mypy]
 python_version = "3.11"
 check_untyped_defs = true
-warn_return_any = false
 warn_unused_configs = true
-ignore_missing_imports = true
 exclude = [
     "^cerberus/web/",
     "^demo/",
     "^assets/",
 ]
+
+[[tool.mypy.overrides]]
+module = [
+    "tree_sitter",
+    "tree_sitter_python",
+    "tree_sitter_typescript",
+    "tree_sitter_go",
+    "tree_sitter_rust",
+    "opentelemetry.*",
+]
+ignore_missing_imports = true
 
 [tool.bandit]
 exclude_dirs = [

@@ -32,8 +32,14 @@ venv.bak/
 
 # SQLite databases & local data
 *.db
+*.db-wal
+*.db-shm
 *.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
 cerberus.db
+cerberus.db-wal
+cerberus.db-shm
 
 # Testing & Coverage
 .pytest_cache/

@@ -109,7 +109,7 @@ class ArchitectureAgent(BaseAgent):
                         heuristic_score=h_score,
                     )
             except Exception as e:
-                logger.warning(f"ArchitectureAgent LLM analysis failed; falling back to heuristic engine: {e}")
+                logger.warning("ArchitectureAgent LLM analysis failed; falling back to heuristic engine: %s", e)
                 final_findings = h_findings
                 final_score = h_score
 

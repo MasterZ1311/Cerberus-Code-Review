@@ -3,13 +3,17 @@
 Lockfile Drift & Hash Integrity Verifier for Cerberus.
 Validates that:
 1. requirements.txt and requirements-lock.txt are completely in sync (no version drift).
-2. Every locked package has at least one valid SHA-256 hash (--require-hashes compatibility).
-3. The lockfile is deterministically reproducible from requirements.txt via pip-compile.
+2. requirements-ci-tools.txt and requirements-ci-tools-lock.txt are completely in sync.
+3. Every locked package in both lockfiles has at least one valid SHA-256 hash (--require-hashes compatibility).
+4. Lockfiles are deterministically reproducible from their source requirements via pip-compile without diff.
 """
 
 import argparse
+import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Dict, List, Set, Tuple
 
@@ -55,7 +59,7 @@ def parse_requirements(file_path: Path) -> Dict[str, str]:
 
 
 def verify_hash_enforcement(lock_file: Path) -> Tuple[bool, List[str]]:
-    """Verify that every package in requirements-lock.txt has at least one sha256 hash."""
+    """Verify that every package in lock_file has at least one sha256 hash."""
     if not lock_file.exists():
         return False, [f"Lockfile {lock_file.name} does not exist."]
 
@@ -99,7 +103,7 @@ def verify_hash_enforcement(lock_file: Path) -> Tuple[bool, List[str]]:
 
 def verify_drift(req_file: Path, lock_file: Path) -> Tuple[bool, List[str]]:
     """Verify that every package in req_file is pinned to the exact version in lock_file."""
-    errors = []
+    errors: List[str] = []
     base_reqs = parse_requirements(req_file)
     lock_reqs = parse_requirements(lock_file)
 
@@ -122,8 +126,25 @@ def verify_drift(req_file: Path, lock_file: Path) -> Tuple[bool, List[str]]:
     return len(errors) == 0, errors
 
 
-def verify_regeneration_diff(req_file: Path, lock_file: Path) -> Tuple[bool, List[str]]:
-    """Verify that regenerating the lockfile with pip-compile produces no drift."""
+def extract_normalized_tokens(content: str) -> List[str]:
+    """
+    Extracts normalized, non-comment lines from a lockfile.
+    Filters out machine-dependent header comments, blank lines, and normalizes spacing.
+    """
+    normalized: List[str] = []
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        normalized.append(line)
+    return normalized
+
+
+def verify_regeneration_diff(req_file: Path, lock_file: Path, allow_unsafe: bool = False) -> Tuple[bool, List[str]]:
+    """
+    Verify that regenerating the lockfile with pip-compile into a temporary file
+    matches the committed lockfile exactly, with zero diff.
+    """
     try:
         check = subprocess.run(["pip-compile", "--version"], capture_output=True, text=True)
         if check.returncode != 0:
@@ -131,19 +152,47 @@ def verify_regeneration_diff(req_file: Path, lock_file: Path) -> Tuple[bool, Lis
     except FileNotFoundError:
         return False, ["pip-compile is not installed in the environment."]
 
-    cmd = [
-        "pip-compile",
-        "--dry-run",
-        "--generate-hashes",
-        "--output-file",
-        str(lock_file),
-        str(req_file),
-    ]
-    res = subprocess.run(cmd, capture_output=True, text=True)
-    if res.returncode != 0:
-        return False, [f"pip-compile failed during regeneration check: {res.stderr}"]
+    tf = tempfile.NamedTemporaryFile(suffix=".txt", delete=False)
+    tf.close()
+    try:
+        if lock_file.exists():
+            shutil.copy(lock_file, tf.name)
 
-    return True, []
+        cmd = [
+            "pip-compile",
+            "--generate-hashes",
+            "--output-file",
+            tf.name,
+            str(req_file),
+        ]
+        if allow_unsafe:
+            cmd.insert(1, "--allow-unsafe")
+
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode != 0:
+            return False, [f"pip-compile failed during regeneration check for {req_file.name}: {res.stderr}"]
+
+        committed_tokens = extract_normalized_tokens(lock_file.read_text(encoding="utf-8"))
+        generated_tokens = extract_normalized_tokens(Path(tf.name).read_text(encoding="utf-8"))
+
+        if committed_tokens != generated_tokens:
+            diff_lines = []
+            for i, (c, g) in enumerate(zip(committed_tokens, generated_tokens, strict=False)):
+                if c != g:
+                    diff_lines.append(f"Line {i}: committed='{c}', regenerated='{g}'")
+                    if len(diff_lines) >= 5:
+                        break
+            if len(committed_tokens) != len(generated_tokens):
+                diff_lines.append(f"Total lines differ: committed={len(committed_tokens)}, generated={len(generated_tokens)}")
+            return False, [
+                f"Lockfile drift detected between committed {lock_file.name} and newly regenerated output:\n"
+                + "\n".join(f"    {d}" for d in diff_lines)
+            ]
+
+        return True, []
+    finally:
+        if os.path.exists(tf.name):
+            os.unlink(tf.name)
 
 
 def main() -> int:
@@ -154,31 +203,37 @@ def main() -> int:
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parent.parent
-    req_file = root / "requirements.txt"
-    lock_file = root / "requirements-lock.txt"
 
-    print(f"Checking lockfile drift between {req_file.name} and {lock_file.name}...")
-    valid_drift, drift_errors = verify_drift(req_file, lock_file)
+    # File pairs to validate
+    pairs = [
+        (root / "requirements.txt", root / "requirements-lock.txt", False),
+        (root / "requirements-ci-tools.txt", root / "requirements-ci-tools-lock.txt", True),
+    ]
 
-    print(f"Checking SHA-256 hash enforcement in {lock_file.name}...")
-    valid_hashes, hash_errors = verify_hash_enforcement(lock_file)
+    all_errors: List[str] = []
 
-    all_errors = drift_errors + hash_errors
+    for req_file, lock_file, allow_unsafe in pairs:
+        print(f"Checking lockfile drift between {req_file.name} and {lock_file.name}...")
+        valid_drift, drift_errors = verify_drift(req_file, lock_file)
+        all_errors.extend(drift_errors)
 
-    if args.check_regen:
-        print("Checking deterministic regeneration with pip-compile...")
-        valid_regen, regen_errors = verify_regeneration_diff(req_file, lock_file)
-        if not valid_regen:
+        print(f"Checking SHA-256 hash enforcement in {lock_file.name}...")
+        valid_hashes, hash_errors = verify_hash_enforcement(lock_file)
+        all_errors.extend(hash_errors)
+
+        if args.check_regen:
+            print(f"Checking deterministic regeneration with pip-compile for {lock_file.name}...")
+            valid_regen, regen_errors = verify_regeneration_diff(req_file, lock_file, allow_unsafe=allow_unsafe)
             all_errors.extend(regen_errors)
 
     if all_errors:
         print("FAILED: Dependency drift or hash integrity violations detected!", file=sys.stderr)
         for err in all_errors:
             print(f"  ERROR: {err}", file=sys.stderr)
-        print("\nRun 'python scripts/generate_lockfile.py' to reconcile.", file=sys.stderr)
+        print("\nRun 'python scripts/generate_lockfile.py --all' to reconcile.", file=sys.stderr)
         return 1
 
-    print("SUCCESS: Lockfile is in full sync with declared requirements and all packages have verified SHA-256 hashes.")
+    print("SUCCESS: All lockfiles are in full sync with declared requirements and all packages have verified SHA-256 hashes.")
     return 0
 
 

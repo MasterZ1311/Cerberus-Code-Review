@@ -7,13 +7,13 @@
 
 ## General Questions
 
-### What is CodeVault AI?
+### What is Cerberus?
 
-CodeVault AI is an intelligent code review system that uses multiple specialized AI agents to analyze your code from different perspectives: security, performance, and code quality. Unlike traditional static analysis tools that apply rigid rules, CodeVault AI uses Large Language Models (LLMs) to understand context and provide intelligent, actionable feedback.
+Cerberus is an intelligent code review system that uses multiple specialized AI agents to analyze your code from different perspectives: security, performance, and code quality. Unlike traditional static analysis tools that apply rigid rules, Cerberus uses Large Language Models (LLMs) to understand context and provide intelligent, actionable feedback.
 
-### How is CodeVault AI different from traditional linters?
+### How is Cerberus different from traditional linters?
 
-| Feature | Traditional Linters | CodeVault AI |
+| Feature | Traditional Linters | Cerberus |
 |---------|-------------------|--------------|
 | **Analysis Type** | Rule-based, pattern matching | AI-powered, contextual understanding |
 | **Explanations** | Error codes, brief messages | Natural language explanations with reasoning |
@@ -22,13 +22,13 @@ CodeVault AI is an intelligent code review system that uses multiple specialized
 | **Scope** | Single aspect (style, syntax) | Multi-aspect (security, performance, quality) |
 | **False Positives** | Can be high | Lower due to contextual understanding |
 
-**Best Practice**: Use both! CodeVault AI complements traditional linters, not replaces them.
+**Best Practice**: Use both! Cerberus complements traditional linters, not replaces them.
 
-### How is CodeVault AI different from GitHub Copilot?
+### How is Cerberus different from GitHub Copilot?
 
-GitHub Copilot helps you *write* code, while CodeVault AI helps you *review* code.
+GitHub Copilot helps you *write* code, while Cerberus helps you *review* code.
 
-| Feature | GitHub Copilot | CodeVault AI |
+| Feature | GitHub Copilot | Cerberus |
 |---------|---------------|--------------|
 | **Primary Purpose** | Code generation/autocomplete | Code review/analysis |
 | **Use Case** | Writing new code | Reviewing existing code |
@@ -37,7 +37,7 @@ GitHub Copilot helps you *write* code, while CodeVault AI helps you *review* cod
 
 They solve different problems and complement each other well.
 
-### Who is CodeVault AI for?
+### Who is Cerberus for?
 
 **Ideal Users:**
 - Solo developers who want expert-level code review
@@ -83,7 +83,7 @@ No! While OpenAI provides the best quality, you have options:
 3. **Ollama** (local): Completely free, runs on your machine
 4. **Azure OpenAI**: For enterprise customers with existing Azure contracts
 
-### Can I run CodeVault AI completely offline?
+### Can I run Cerberus completely offline?
 
 Yes! Use Ollama for local LLM execution:
 
@@ -97,29 +97,29 @@ llm:
 
 Your code never leaves your infrastructure. Quality is slightly lower than GPT-4 but still very useful.
 
-### How do I update CodeVault AI?
+### How do I update Cerberus?
 
 ```bash
 # Pull latest version
 docker-compose pull
 
 # Backup database (important!)
-docker-compose exec db pg_dump -U codevault codevault > backup.sql
+docker-compose exec db pg_dump -U cerberus cerberus > backup.sql
 
 # Restart with new version
 docker-compose up -d
 
 # Run migrations if needed
-docker-compose exec api python -m codevault.cli migrate
+docker-compose exec api python -m cerberus.cli migrate
 ```
 
 ---
 
 ## Cost & Pricing
 
-### How much does CodeVault AI cost?
+### How much does Cerberus cost?
 
-**CodeVault AI Software**: Free and open-source (MIT License)
+**Cerberus Software**: Free and open-source (MIT License)
 
 **LLM Costs** (variable):
 
@@ -137,7 +137,7 @@ docker-compose exec api python -m codevault.cli migrate
 
 ### How can I reduce LLM costs?
 
-1. **Use caching**: CodeVault AI caches results (70%+ hit rate)
+1. **Use caching**: Cerberus caches results (70%+ hit rate)
 2. **Use cheaper models for some agents**:
    ```yaml
    agents:
@@ -154,15 +154,15 @@ docker-compose exec api python -m codevault.cli migrate
 
 ### Is there a hosted/SaaS version?
 
-Not yet, but it's on our roadmap! Currently, CodeVault AI is self-hosted only.
+Not yet, but it's on our roadmap! Currently, Cerberus is self-hosted only.
 
 **Coming Soon:**
-- Hosted version (codevault.ai)
+- Hosted version (cerberus.ai)
 - Team collaboration features
 - Historical trend analysis
 - Priority support
 
-Join our waitlist: https://codevault.ai/waitlist
+Join our waitlist: https://cerberus.ai/waitlist
 
 ---
 
@@ -191,7 +191,7 @@ Both OpenAI and Anthropic have policies against using API data for training. How
 - For sensitive code, use Ollama locally
 - Consider Azure OpenAI for contractual guarantees
 
-### How is my code stored in CodeVault AI?
+### How is my code stored in Cerberus?
 
 By default:
 - **Code content**: Not stored (only hash stored)
@@ -210,7 +210,7 @@ privacy:
 
 ### What about GDPR compliance?
 
-CodeVault AI provides features for GDPR compliance:
+Cerberus provides features for GDPR compliance:
 
 - **Right to access**: Export user data
 - **Right to deletion**: Delete user data
@@ -220,7 +220,7 @@ CodeVault AI provides features for GDPR compliance:
 
 **Important**: Review with your legal counsel. Compliance is a shared responsibility.
 
-### Can CodeVault AI be used for PCI-DSS/SOC 2 compliance?
+### Can Cerberus be used for PCI-DSS/SOC 2 compliance?
 
 Yes, but:
 
@@ -240,11 +240,11 @@ We provide tools and documentation, but ultimate compliance is your responsibili
 **All major languages**, including:
 - Python, JavaScript/TypeScript, Java, Go, C++, C#, Ruby, PHP, Swift, Kotlin, Rust
 
-CodeVault AI is **language-agnostic** because it uses LLMs that understand many languages. No language-specific parsers needed!
+Cerberus is **language-agnostic** because it uses LLMs that understand many languages. No language-specific parsers needed!
 
 **Best Results**: Languages with more training data (Python, JavaScript, Java)
 
-### How accurate is CodeVault AI?
+### How accurate is Cerberus?
 
 **Security Agent**: ~95% accuracy on common vulnerabilities (OWASP Top 10)
 **Performance Agent**: ~90% accuracy on algorithmic complexity
@@ -284,7 +284,7 @@ curl -X POST http://localhost:8000/api/v1/review/batch \
 
 Files are processed in parallel for speed.
 
-### Does CodeVault AI support incremental reviews?
+### Does Cerberus support incremental reviews?
 
 Yes! Git hooks only review **changed files**:
 
@@ -293,7 +293,7 @@ Yes! Git hooks only review **changed files**:
 STAGED_FILES=$(git diff --cached --name-only)
 
 for FILE in $STAGED_FILES; do
-  codevault review --file "$FILE"
+  cerberus review --file "$FILE"
 done
 ```
 
@@ -332,21 +332,21 @@ See [Configuration Reference](05-configuration-reference.md).
 
 **GitHub Actions:**
 ```yaml
-- name: Run CodeVault AI
+- name: Run Cerberus
   run: |
-    codevault-cli review --path . --format sarif > results.sarif
+    cerberus-cli review --path . --format sarif > results.sarif
 ```
 
 **GitLab CI:**
 ```yaml
-codevault:
+cerberus:
   script:
-    - codevault-cli review --path . --format json
+    - cerberus-cli review --path . --format json
 ```
 
 **Jenkins:**
 ```groovy
-sh 'codevault-cli review --path . --blocking'
+sh 'cerberus-cli review --path . --blocking'
 ```
 
 See [Installation Guide - CI/CD Integration](04-installation-setup.md#common-integration-patterns).
@@ -366,25 +366,25 @@ requests.post(webhook_url, json={
 
 See [Developer Guide - Example Projects](08-developer-guide.md#example-projects).
 
-### Does CodeVault AI integrate with SonarQube?
+### Does Cerberus integrate with SonarQube?
 
 Not directly, but you can export to SARIF format which SonarQube can import:
 
 ```bash
-codevault-cli review --format sarif > results.sarif
+cerberus-cli review --format sarif > results.sarif
 sonar-scanner -Dsonar.sarifReportPaths=results.sarif
 ```
 
-### Can I use CodeVault AI with VS Code?
+### Can I use Cerberus with VS Code?
 
 Yes! Community-contributed extensions available:
 
-- **VS Code Extension**: [marketplace.visualstudio.com/codevault](https://marketplace.visualstudio.com/codevault)
+- **VS Code Extension**: [marketplace.visualstudio.com/cerberus](https://marketplace.visualstudio.com/cerberus)
 - **JetBrains Plugin**: Coming soon
 
 Or integrate via API:
 ```typescript
-const result = await codevaultClient.review(activeEditor.document.getText());
+const result = await cerberusClient.review(activeEditor.document.getText());
 ```
 
 ---
@@ -395,7 +395,7 @@ const result = await codevaultClient.review(activeEditor.document.getText());
 
 1. **Check cache hit rate**: Should be >70%
    ```bash
-   curl http://localhost:9090/api/v1/query?query=codevault_cache_hit_rate
+   curl http://localhost:9090/api/v1/query?query=cerberus_cache_hit_rate
    ```
 
 2. **Use faster LLM models**:
@@ -423,7 +423,7 @@ const result = await codevaultClient.review(activeEditor.document.getText());
 - Add retry logic with exponential backoff
 - Enable fallback providers
 
-**From CodeVault AI:**
+**From Cerberus:**
 - Increase rate limits in config:
   ```yaml
   rate_limiting:
@@ -451,7 +451,7 @@ const result = await codevaultClient.review(activeEditor.document.getText());
 
 4. **Verify API key is set**:
    ```bash
-   echo $CODEVAULT_API_KEY
+   echo $CERBERUS_API_KEY
    ```
 
 ### Database connection errors
@@ -461,7 +461,7 @@ const result = await codevaultClient.review(activeEditor.document.getText());
 docker-compose ps db
 
 # Check connection
-docker-compose exec db psql -U codevault -c "SELECT 1"
+docker-compose exec db psql -U cerberus -c "SELECT 1"
 
 # Restart database
 docker-compose restart db
@@ -518,14 +518,14 @@ agents:
 
 ```bash
 # Export from SQLite
-codevault-cli export --format sql > export.sql
+cerberus-cli export --format sql > export.sql
 
 # Update DATABASE_URL in .env
 # DATABASE_URL=postgresql://...
 
 # Import to PostgreSQL
 docker-compose up -d db
-codevault-cli import < export.sql
+cerberus-cli import < export.sql
 ```
 
 ---
@@ -545,17 +545,17 @@ See [Contributing Guidelines](08-developer-guide.md#contributing-guidelines).
 
 ### I found a bug. How do I report it?
 
-1. **Check existing issues**: [GitHub Issues](https://github.com/codevault-ai/codevault/issues)
+1. **Check existing issues**: [GitHub Issues](https://github.com/cerberus-ai/cerberus/issues)
 2. **Create new issue** with:
    - Clear description
    - Steps to reproduce
    - Expected vs actual behavior
-   - CodeVault AI version
+   - Cerberus version
    - Environment details
 
 ### I have a feature request
 
-1. **Check existing requests**: [GitHub Discussions](https://github.com/codevault-ai/codevault/discussions)
+1. **Check existing requests**: [GitHub Discussions](https://github.com/cerberus-ai/cerberus/discussions)
 2. **Create new discussion** describing:
    - Use case
    - Desired behavior
@@ -567,10 +567,10 @@ See [Contributing Guidelines](08-developer-guide.md#contributing-guidelines).
 
 Can't find your answer?
 
-- 📚 **Documentation**: [docs.codevault.ai](https://docs.codevault.ai)
-- 💬 **Discord**: [discord.gg/codevault](https://discord.gg/codevault)
-- 📧 **Email**: support@codevault.ai
-- 🐛 **Issues**: [github.com/codevault-ai/codevault/issues](https://github.com/codevault-ai/codevault/issues)
+- 📚 **Documentation**: [docs.cerberus.ai](https://docs.cerberus.ai)
+- 💬 **Discord**: [discord.gg/cerberus](https://discord.gg/cerberus)
+- 📧 **Email**: support@cerberus.ai
+- 🐛 **Issues**: [github.com/cerberus-ai/cerberus/issues](https://github.com/cerberus-ai/cerberus/issues)
 
 ---
 

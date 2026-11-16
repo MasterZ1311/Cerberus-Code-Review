@@ -1,0 +1,88 @@
+# =========================================================================
+# Cerberus Argo Rollouts: Progressive Canary Deployment Specification
+# Automatically shifts traffic (10% -> 50% -> 100%) with automated metric verification
+# =========================================================================
+
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: cerberus-rollout
+  namespace: cerberus-system
+  labels:
+    app.kubernetes.io/name: cerberus
+    app.kubernetes.io/part-of: cerberus-code-review
+spec:
+  replicas: 3
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: cerberus
+  strategy:
+    canary:
+      canaryService: cerberus-canary
+      stableService: cerberus-stable
+      trafficRouting:
+        nginx:
+          stableIngress: cerberus-ingress
+      steps:
+        # Step 1: Shift 10% traffic to canary and pause 5 minutes for automated metrics
+        - setWeight: 10
+        - pause: { duration: 5m }
+
+        # Step 2: Automated Analysis Template Evaluation
+        - analysis:
+            templates:
+              - templateName: cerberus-success-rate-analysis
+
+        # Step 3: Shift 50% traffic to canary and observe for 10 minutes
+        - setWeight: 50
+        - pause: { duration: 10m }
+
+        # Step 4: Promote to 100% full production traffic
+        - setWeight: 100
+  template:
+    metadata:
+      labels:
+        app: cerberus
+    spec:
+      serviceAccountName: cerberus-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: cerberus
+          image: ghcr.io/cerberus-ai/cerberus@sha256:d8c525f0ad0289a4ffad6d14902b79a52de0db126e855fa316d2eb1fcebc95ba
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /api/v1/ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/v1/live
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20

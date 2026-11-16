@@ -1,0 +1,85 @@
+# =========================================================================
+# Cerberus PrometheusRule: Multi-Window Multi-Burn-Rate SLO Alerts
+# Alerts on rapid error budget exhaustion and latency degradation
+# =========================================================================
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cerberus-slo-alerts
+  namespace: cerberus-system
+  labels:
+    app.kubernetes.io/name: cerberus
+    role: alert-rules
+spec:
+  groups:
+    - name: cerberus-availability-slo
+      rules:
+        # P1 Critical: 14.4x Burn Rate over 1 hour (2% of budget consumed in 1 hour)
+        - alert: CerberusAvailabilityBudgetBurnCritical
+          expr: |
+            (
+              sum(rate(http_requests_total{status=~"5.."}[2m]))
+              /
+              sum(rate(http_requests_total[2m]))
+            ) > (14.4 * 0.001)
+            and
+            (
+              sum(rate(http_requests_total{status=~"5.."}[1h]))
+              /
+              sum(rate(http_requests_total[1h]))
+            ) > (14.4 * 0.001)
+          for: 2m
+          labels:
+            severity: critical
+            tier: api
+          annotations:
+            summary: "Cerberus Availability Error Budget burning rapidly (14.4x rate)"
+            description: "High error rate (5xx) detected. At current rate, entire 30-day error budget will be depleted in < 50 hours."
+            runbook_url: "https://github.com/cerberus-ai/cerberus/blob/main/docs/09-slo-definitions.md"
+
+        # P2 High: 6x Burn Rate over 6 hours (5% of budget consumed in 6 hours)
+        - alert: CerberusAvailabilityBudgetBurnHigh
+          expr: |
+            (
+              sum(rate(http_requests_total{status=~"5.."}[5m]))
+              /
+              sum(rate(http_requests_total[5m]))
+            ) > (6.0 * 0.001)
+            and
+            (
+              sum(rate(http_requests_total{status=~"5.."}[6h]))
+              /
+              sum(rate(http_requests_total[6h]))
+            ) > (6.0 * 0.001)
+          for: 5m
+          labels:
+            severity: warning
+            tier: api
+          annotations:
+            summary: "Cerberus Availability Error Budget burning at 6x rate"
+            description: "Elevated error rate observed over 6-hour window."
+
+    - name: cerberus-latency-slo
+      rules:
+        - alert: CerberusP99LatencyDegraded
+          expr: |
+            histogram_quantile(0.99, sum(rate(cerberus_review_duration_seconds_bucket[5m])) by (le)) > 2.0
+          for: 5m
+          labels:
+            severity: warning
+            tier: orchestrator
+          annotations:
+            summary: "Cerberus P99 Review Latency exceeded 2.0s threshold"
+            description: "99th percentile review execution time is currently above 2.0s."
+
+        - alert: CerberusCircuitBreakerTripped
+          expr: |
+            cerberus_circuit_breaker_state{state="open"} == 1
+          for: 1m
+          labels:
+            severity: warning
+            tier: providers
+          annotations:
+            summary: "LLM Provider Circuit Breaker Tripped to OPEN"
+            description: "Circuit breaker for provider {{ $labels.provider }} is OPEN. Fast-failing calls to heuristic fallback."

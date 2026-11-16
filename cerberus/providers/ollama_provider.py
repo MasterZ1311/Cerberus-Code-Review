@@ -42,7 +42,7 @@ class OllamaProvider(BaseLLMProvider):
             if res.status_code == 200:
                 return res.json().get("response")
             else:
-                logger.warning(f"Ollama generation request returned HTTP {res.status_code}: {res.text}")
+                logger.warning("Ollama generation request returned HTTP %s: %s", res.status_code, res.text)
         except Exception as e:
-            logger.warning(f"Ollama generation failed: {e}")
+            logger.warning("Ollama generation failed: %s", e)
         return None

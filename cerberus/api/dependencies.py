@@ -156,14 +156,39 @@ async def verify_api_key(request: Request, authorization: Optional[str] = Header
     request.state.tenant_id = tenant_id
     request.state.is_platform_admin = is_platform_admin
 
-    # Check Rate Limit (distributed Redis with automatic in-memory fallback)
-    allowed, remaining, retry_after = await rate_limiter.is_allowed_async(token)
-    if not allowed:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={"error": "rate_limit_exceeded", "message": f"Rate limit exceeded. Retry in {retry_after}s."},
-            headers={"Retry-After": str(retry_after)},
-        )
+    # Check Rate Limit (per-key tier-based or global fallback)
+    if getattr(settings, "ENABLE_PER_KEY_RATE_LIMITS", True):
+        from cerberus.core.per_key_rate_limiter import per_key_rate_limiter
+
+        # Determine tier from key record or default to free
+        tier = "free"
+        if key_record and hasattr(key_record, "tier"):
+            tier = key_record.tier
+        elif is_platform_admin:
+            tier = "admin"
+        elif "admin" in scopes_set:
+            tier = "enterprise"
+
+        allowed, remaining, reset_seconds = await per_key_rate_limiter.check_limit(token_hash, tier)
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "error": "rate_limit_exceeded",
+                    "message": f"Rate limit exceeded for tier '{tier}'. Retry in {reset_seconds}s.",
+                },
+                headers={"Retry-After": str(reset_seconds), "X-RateLimit-Remaining": "0"},
+            )
+        request.state.rate_limit_remaining = remaining
+    else:
+        # Fallback to global rate limiter
+        allowed, remaining, retry_after = await rate_limiter.is_allowed_async(token)
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={"error": "rate_limit_exceeded", "message": f"Rate limit exceeded. Retry in {retry_after}s."},
+                headers={"Retry-After": str(retry_after)},
+            )
 
     return token
 

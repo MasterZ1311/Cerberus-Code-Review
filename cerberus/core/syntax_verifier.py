@@ -40,7 +40,7 @@ try:
     }
     _TREE_SITTER_AVAILABLE = True
 except Exception as e:
-    logger.debug(f"Tree-sitter native bindings not available, falling back to regex/delimiters: {e}")
+    logger.debug("Tree-sitter native bindings not available, falling back to regex/delimiters: %s", e)
 
 _PARSER_CACHE: Dict[str, Any] = {}
 
@@ -96,7 +96,7 @@ def _get_tree_sitter_parser(lang: str) -> Optional[Any]:
         _PARSER_CACHE[normalized] = parser
         return parser
     except Exception as e:
-        logger.warning(f"Failed to initialize Tree-sitter parser for '{normalized}': {e}")
+        logger.warning("Failed to initialize Tree-sitter parser for '%s': %s", normalized, e)
         return None
 
 

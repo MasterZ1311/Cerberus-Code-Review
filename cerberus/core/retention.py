@@ -53,7 +53,7 @@ async def run_retention_purge(retention_days: Optional[int] = None) -> Dict[str,
                 )
             )
         except Exception as e:
-            logger.warning(f"Failed to acquire Redis retention lock: {e}; falling back to local lock.")
+            logger.warning("Failed to acquire Redis retention lock: %s; falling back to local lock.", e)
             lock_acquired = False
 
     if not lock_acquired:
@@ -70,7 +70,7 @@ async def run_retention_purge(retention_days: Optional[int] = None) -> Dict[str,
         lock_held_locally = False
 
     start_ts = time.time()
-    logger.info(f"Starting data retention purge for records older than {days} days (cutoff: {cutoff.isoformat()}).")
+    logger.info("Starting data retention purge for records older than %s days (cutoff: %s).", days, cutoff.isoformat())
 
     try:
         async with AsyncSessionLocal() as session:
@@ -109,8 +109,11 @@ async def run_retention_purge(retention_days: Optional[int] = None) -> Dict[str,
         RETENTION_LAST_RUN_TIMESTAMP_SECONDS.set(time.time())
 
         logger.info(
-            f"Retention purge completed in {duration:.2f}s. "
-            f"Purged: {reviews_count} reviews, {findings_count} findings, {feedback_count} feedback."
+            "Retention purge completed in %ss. Purged: %s reviews, %s findings, %s feedback.",
+            duration,
+            reviews_count,
+            findings_count,
+            feedback_count,
         )
 
         return {
@@ -125,7 +128,7 @@ async def run_retention_purge(retention_days: Optional[int] = None) -> Dict[str,
 
     except Exception as e:
         RETENTION_RUNS_TOTAL.labels(status="failure").inc()
-        logger.error(f"Retention purge failed: {e}", exc_info=True)
+        logger.exception("Retention purge failed: %s", e)
         return {
             "status": "failed",
             "error": str(e),
@@ -143,12 +146,12 @@ async def run_retention_purge(retention_days: Optional[int] = None) -> Dict[str,
 
 async def retention_lifecycle_worker(interval_seconds: int = 86400) -> None:
     """Continuous background worker executing retention purge periodically."""
-    logger.info(f"Retention lifecycle background worker started (interval: {interval_seconds}s).")
+    logger.info("Retention lifecycle background worker started (interval: %ss).", interval_seconds)
     while True:
         try:
             await run_retention_purge()
         except Exception as e:
-            logger.warning(f"Unhandled error in retention background worker: {e}")
+            logger.warning("Unhandled error in retention background worker: %s", e)
         await asyncio.sleep(interval_seconds)
 
 

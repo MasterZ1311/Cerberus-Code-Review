@@ -79,7 +79,7 @@ async def warm_connection_pool() -> bool:
         logger.info("Database connection pool warmed successfully.")
         return True
     except Exception as e:
-        logger.warning(f"Connection pool warm-up notice: {e}")
+        logger.warning("Connection pool warm-up notice: %s", e)
         return False
 
 
@@ -117,9 +117,9 @@ async def init_db() -> None:
                     )
                     session.add(dev_record)
                     await session.commit()
-                    logger.info(f"Seeded default development API key '{settings.DEFAULT_DEV_API_KEY}'.")
+                    logger.info("Seeded default development API key '%s'.", settings.DEFAULT_DEV_API_KEY)
     except Exception as e:
-        logger.critical(f"Database initialization failure: {e}")
+        logger.critical("Database initialization failure: %s", e)
         raise
 
 
@@ -132,7 +132,7 @@ async def purge_expired_reviews(retention_days: Optional[int] = None) -> int:
         result = await session.execute(stmt)
         await session.commit()
         count = getattr(result, "rowcount", 0) or 0
-        logger.info(f"Purged {count} expired review records older than {days} days.")
+        logger.info("Purged %s expired review records older than %s days.", count, days)
         return count
 
 
@@ -148,7 +148,7 @@ async def execute_with_db_retry(fn, max_retries: int = 3, delay: float = 0.1):
         except Exception as e:
             if attempt == max_retries - 1:
                 raise
-            logger.warning(f"Database transient error on attempt {attempt + 1}: {e}. Retrying in {delay}s...")
+            logger.warning("Database transient error on attempt %s: %s. Retrying in %ss...", attempt + 1, e, delay)
             await asyncio.sleep(delay)
             delay *= 2.0
 

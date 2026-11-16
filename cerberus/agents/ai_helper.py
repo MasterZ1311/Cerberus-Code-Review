@@ -49,7 +49,7 @@ def parse_llm_json(raw_text: Optional[str]) -> Optional[Dict[str, Any]]:
         if isinstance(data, dict):
             return data
     except Exception as e:
-        logger.debug(f"Failed to parse LLM JSON: {e}. Raw text excerpt: {text[:200]}")
+        logger.debug("Failed to parse LLM JSON: %s. Raw text excerpt: %s", e, text[:200])
 
     return None
 

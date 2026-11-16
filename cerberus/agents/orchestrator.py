@@ -106,7 +106,7 @@ class ReviewOrchestrator:
                 if isinstance(res, CodeReviewRequest):
                     current_request = res
             except Exception as e:
-                logger.warning(f"Error executing pre-review hook: {e}")
+                logger.warning('Error executing pre-review hook: %s', e)
         request = current_request
 
         start_time = time.perf_counter()
@@ -147,7 +147,7 @@ class ReviewOrchestrator:
         if cached_data:
             CACHE_HITS_TOTAL.inc()
             REVIEW_REQUESTS_TOTAL.labels(status="completed", language=request.language or "python").inc()
-            logger.info(f"Cache hit for review: {review_id}")
+            logger.info('Cache hit for review: %s', review_id)
 
             cached_resp = CodeReviewResponse(**cached_data)
             cached_resp.review_id = review_id
@@ -163,7 +163,7 @@ class ReviewOrchestrator:
                     if isinstance(res, CodeReviewResponse):
                         cached_resp = res
                 except Exception as e:
-                    logger.warning(f"Error executing post-review hook on cache hit: {e}")
+                    logger.warning('Error executing post-review hook on cache hit: %s', e)
 
             return cached_resp
 
@@ -194,7 +194,7 @@ class ReviewOrchestrator:
                         a_span.set_attribute("agent.findings_count", len(res.findings))
                         return res
                     except Exception as e:
-                        logger.error(f"Agent '{agent_name}' failed during review: {e}")
+                        logger.error("Agent '%s' failed during review: %s", agent_name, e)
                         a_span.record_exception(e)
                         return AgentResult(
                             name=agent_name,
@@ -315,7 +315,7 @@ class ReviewOrchestrator:
                         if "consensus" in active_agents:
                             agents_payload.append(consensus_res.model_dump())
                 except Exception as e:
-                    logger.warning(f"Collaborative consensus step failed: {e}")
+                    logger.warning('Collaborative consensus step failed: %s', e)
 
             run_fixer = getattr(settings, "AUTO_GENERATE_FIXES", True) or ("code_fixer" in active_agents)
             if run_fixer and ("code_fixer" in self.registry) and all_findings:
@@ -331,7 +331,7 @@ class ReviewOrchestrator:
                     if "code_fixer" in active_agents:
                         agents_payload.append(fixer_res.model_dump())
                 except Exception as e:
-                    logger.warning(f"Collaborative code fixer step failed: {e}")
+                    logger.warning('Collaborative code fixer step failed: %s', e)
 
             # Finalize root OpenTelemetry span
             root_span.set_attribute("review.overall_score", overall_score)
@@ -386,8 +386,8 @@ class ReviewOrchestrator:
                 await cache_manager.set(cache_key, response.model_dump())
             return response
 
-        # Coalesce concurrent cache-miss executions for identical requests via SingleFlight
-        computed_resp = await cache_manager.singleflight.execute(cache_key, _compute_review)
+        # Coalesce concurrent cache-miss executions for identical requests via Distributed / Local SingleFlight
+        computed_resp = await cache_manager.execute_singleflight(cache_key, _compute_review)
 
         total_elapsed_ms = int((time.perf_counter() - start_time) * 1000)
 
@@ -422,7 +422,7 @@ class ReviewOrchestrator:
                 if isinstance(res, CodeReviewResponse):
                     response = res
             except Exception as e:
-                logger.warning(f"Error executing post-review hook: {e}")
+                logger.warning('Error executing post-review hook: %s', e)
 
         return response
 

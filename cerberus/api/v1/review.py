@@ -38,6 +38,7 @@ from cerberus.api.dependencies import (
     verify_api_key,
 )
 from cerberus.config import settings
+from cerberus.core.background import background_tasks
 from cerberus.core.cache import cache_manager
 from cerberus.core.database import AsyncSessionLocal
 from cerberus.core.github_app import build_pr_review_payload, parse_pull_request_event, post_pr_review_to_github
@@ -83,15 +84,15 @@ MAX_WEBHOOK_PAYLOAD_BYTES = 10 * 1024 * 1024  # 10 MB cap
 DELIVERY_IDEMPOTENCY_TTL_SECONDS = 600  # 10 minutes
 
 # Strong reference tracking for background tasks to prevent GC in Python 3.11+
-_background_tasks: set = set()
+_background_tasks = background_tasks._tasks
 
 
-def _create_background_task(coro) -> asyncio.Task:
+def _create_background_task(coro, name: Optional[str] = None) -> asyncio.Task:
     """Creates a background task and retains a strong reference until completion."""
-    task = asyncio.create_task(coro)
-    _background_tasks.add(task)
-    task.add_done_callback(_background_tasks.discard)
-    return task
+    return background_tasks.create_task(coro, name=name)
+
+
+drain_background_tasks = background_tasks.drain_tasks
 
 
 def _store_bounded_item(
@@ -216,7 +217,7 @@ async def _lookup_review_response(review_id: str) -> Optional[CodeReviewResponse
                     _store_review(review_id, res, owner_id=record.owner_id)
                     return res
     except Exception as e:
-        logger.warning(f"DB lookup failed for {review_id}: {e}")
+        logger.warning("DB lookup failed for %s: %s", review_id, e)
 
     return None
 
@@ -248,7 +249,7 @@ async def submit_review(
         # Guarantee fail-closed semantics: ensure no trace remains in memory, ownership, or cache
         reviews_store.pop(response.review_id, None)
         _review_owners.pop(response.review_id, None)
-        _create_background_task(cache_manager.delete_review(response.review_id))
+        await cache_manager.delete_review(response.review_id)
         raise
 
     # Store in bounded in-memory cache ONLY after successful durable core persistence
@@ -478,7 +479,7 @@ async def handle_github_webhook(
                 if not acquired:
                     is_duplicate = True
             except Exception as e:
-                logger.warning(f"Redis webhook replay check error: {e}")
+                logger.warning("Redis webhook replay check error: %s", e)
 
         if not redis_conn or not is_duplicate:
             now = time.time()
@@ -492,7 +493,7 @@ async def handle_github_webhook(
                 _webhook_deliveries[x_github_delivery] = now
 
         if is_duplicate:
-            logger.info(f"Duplicate webhook delivery detected and ignored: {x_github_delivery}")
+            logger.info("Duplicate webhook delivery detected and ignored: %s", x_github_delivery)
             return {
                 "status": "ignored",
                 "reason": "duplicate_event",
@@ -568,8 +569,31 @@ async def handle_github_webhook(
         context=ReviewContext(custom={"is_webhook": True, "event": x_github_event, "action": action}),
     )
     result = await orchestrator.execute_review(review_req)
+
+    # 6. Synchronous core persistence before exposing review state, cache, or external GitHub posts
+    try:
+        await _persist_review_synchronous_core(review_req, result, owner_id="github_webhook")
+    except Exception as e:
+        logger.error(
+            "Failed to synchronously persist webhook review record %s: %s: %s", result.review_id, type(e).__name__, e
+        )
+        # Guarantee fail-closed semantics: ensure no trace in memory, ownership maps, or cache
+        reviews_store.pop(result.review_id, None)
+        _review_owners.pop(result.review_id, None)
+        await cache_manager.delete_review(result.review_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": "persistence_failure",
+                "message": "Failed to persist webhook review record to durable storage.",
+            },
+        ) from None
+
+    # 7. Store in bounded in-memory cache ONLY after successful durable core persistence
     _store_review(result.review_id, result, owner_id="github_webhook")
-    _create_background_task(_persist_review_record(review_req, result, owner_id="github_webhook"))
+
+    # 8. Asynchronously persist noncritical detailed child findings
+    _create_background_task(_persist_detailed_findings(result, owner_id="github_webhook"))
 
     pr_payload = None
     posted = False
@@ -667,7 +691,7 @@ async def approve_review(
                     record.results_json = rec_data
                 await session.commit()
     except Exception as e:
-        logger.warning(f"Could not persist review approval to DB: {e}")
+        logger.warning("Could not persist review approval to DB: %s", e)
 
     return ReviewApproveResponse(
         review_id=review_id,
@@ -804,7 +828,7 @@ async def batch_review(
         for res in sanitized_results:
             reviews_store.pop(res.review_id, None)
             _review_owners.pop(res.review_id, None)
-            _create_background_task(cache_manager.delete_review(res.review_id))
+            await cache_manager.delete_review(res.review_id)
         raise
 
     # Store in memory and launch background child findings persistence ONLY after core persistence succeeds
@@ -877,7 +901,7 @@ async def upload_zip_review(
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve)) from ve
     except Exception as e:
-        logger.exception(f"Error processing ZIP review: {e}")
+        logger.exception("Error processing ZIP review: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to process ZIP review. Ensure archive is valid and uncorrupted.",
@@ -935,7 +959,7 @@ async def review_zip_base64(
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve)) from ve
     except Exception as e:
-        logger.exception(f"Error processing base64 ZIP review: {e}")
+        logger.exception("Error processing base64 ZIP review: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to process base64 ZIP review. Ensure base64 encoding and archive format are valid.",
@@ -1019,7 +1043,7 @@ async def submit_feedback(
             session.add(record)
             await session.commit()
     except Exception as e:
-        logger.warning(f"Could not persist feedback: {e}")
+        logger.warning("Could not persist feedback: %s", e)
 
     return FeedbackResponse(status="success", message="Feedback recorded. Thank you for improving Cerberus.")
 
@@ -1156,6 +1180,10 @@ async def websocket_review_stream(
                 await websocket.receive_text()
         finally:
             pubsub_task.cancel()
+            try:
+                await pubsub_task
+            except (asyncio.CancelledError, Exception):
+                pass
     except (WebSocketDisconnect, Exception):
         pass
     finally:
@@ -1208,13 +1236,20 @@ async def _persist_review_synchronous_core(
         except Exception as e:
             last_error = e
             logger.warning(
-                f"Sync review persist attempt {attempt + 1}/{max_retries + 1} failed for {response.review_id}: {e}"
+                "Sync review persist attempt %s/%s failed for %s: %s",
+                attempt + 1,
+                max_retries + 1,
+                response.review_id,
+                e,
             )
             if attempt < max_retries:
                 await asyncio.sleep(retry_delay * (2**attempt))
 
     logger.error(
-        f"Failed to synchronously persist critical review record {response.review_id} after {max_retries + 1} attempts: {last_error}"
+        "Failed to synchronously persist critical review record %s after %s attempts: %s",
+        response.review_id,
+        max_retries + 1,
+        last_error,
     )
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1267,12 +1302,18 @@ async def _persist_batch_reviews_synchronous_core(
         except Exception as e:
             last_error = e
             logger.warning(
-                f"Sync batch review persist attempt {attempt + 1}/{max_retries + 1} failed for {len(records_to_add)} records: {e}"
+                "Sync batch review persist attempt %s/%s failed for %s records: %s",
+                attempt + 1,
+                max_retries + 1,
+                len(records_to_add),
+                e,
             )
             if attempt < max_retries:
                 await asyncio.sleep(retry_delay * (2**attempt))
 
-    logger.error(f"Failed to synchronously persist batch review records after {max_retries + 1} attempts: {last_error}")
+    logger.error(
+        "Failed to synchronously persist batch review records after %s attempts: %s", max_retries + 1, last_error
+    )
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail={
@@ -1310,7 +1351,7 @@ async def _persist_detailed_findings(
 
             await session.commit()
     except Exception as e:
-        logger.warning(f"Database background write error for findings: {e}")
+        logger.warning("Database background write error for findings: %s", e)
 
 
 async def _persist_review_record(

@@ -1,4 +1,4 @@
-# CodeVault AI - Configuration Reference
+# Cerberus - Configuration Reference
 
 **Version:** 0.1.0  
 **Last Updated:** September 21, 2026
@@ -21,16 +21,16 @@
 
 ## Configuration File Format
 
-CodeVault AI uses YAML configuration files located at:
+Cerberus uses YAML configuration files located at:
 
-- **System-wide**: `/etc/codevault/config.yml`
-- **User-level**: `~/.codevault/config.yml`
-- **Project-level**: `.codevault.yml` (in project root)
+- **System-wide**: `/etc/cerberus/config.yml`
+- **User-level**: `~/.cerberus/config.yml`
+- **Project-level**: `.cerberus.yml` (in project root)
 
 **Configuration Precedence** (highest to lowest):
 1. Environment variables
-2. Project-level config (`.codevault.yml`)
-3. User-level config (`~/.codevault/config.yml`)
+2. Project-level config (`.cerberus.yml`)
+3. User-level config (`~/.cerberus/config.yml`)
 4. System-wide config
 5. Built-in defaults
 
@@ -84,9 +84,9 @@ server:
 
 **Environment Variables:**
 ```bash
-CODEVAULT_HOST=0.0.0.0
-CODEVAULT_PORT=8000
-CODEVAULT_WORKERS=4
+CERBERUS_HOST=0.0.0.0
+CERBERUS_PORT=8000
+CERBERUS_WORKERS=4
 ```
 
 ### Database Configuration
@@ -97,7 +97,7 @@ database:
   url: "${DATABASE_URL}"
   
   # Or for SQLite (development only)
-  # url: "sqlite:///./codevault.db"
+  # url: "sqlite:///./cerberus.db"
   
   # Connection pool settings
   pool_size: 10                 # Max connections in pool
@@ -139,7 +139,7 @@ cache:
   
   # Behavior
   enabled: true                 # Enable/disable caching
-  key_prefix: "codevault:"      # Redis key prefix
+  key_prefix: "cerberus:"      # Redis key prefix
   
   # Eviction
   maxmemory_policy: "allkeys-lru"  # Redis eviction policy
@@ -638,7 +638,7 @@ logging:
     - type: "console"
       level: "INFO"
     - type: "file"
-      path: "/var/log/codevault/app.log"
+      path: "/var/log/cerberus/app.log"
       level: "DEBUG"
       max_size_mb: 100
       backup_count: 5
@@ -678,7 +678,7 @@ logging:
 version: 1
 
 database:
-  url: "sqlite:///./codevault.db"
+  url: "sqlite:///./cerberus.db"
 
 cache:
   url: "redis://localhost:6379/0"
@@ -758,7 +758,7 @@ logging:
   output:
     - type: "console"
     - type: "file"
-      path: "/var/log/codevault/app.log"
+      path: "/var/log/cerberus/app.log"
 ```
 
 ### Advanced Configuration (Enterprise)
@@ -869,7 +869,7 @@ logging:
     - type: "console"
       level: "WARNING"
     - type: "file"
-      path: "/var/log/codevault/app.log"
+      path: "/var/log/cerberus/app.log"
       level: "INFO"
       max_size_mb: 500
       backup_count: 30
@@ -930,4 +930,4 @@ Complete reference of supported environment variables loaded from the environmen
 
 ---
 
-*CodeVault AI Configuration Reference - v0.1.0*
+*Cerberus Configuration Reference - v0.1.0*

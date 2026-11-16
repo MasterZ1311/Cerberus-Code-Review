@@ -17,6 +17,7 @@ from collections import OrderedDict
 from typing import Any, AsyncGenerator, Callable, Coroutine, Dict, List, Optional, Set, TypeVar
 
 from cerberus.config import settings
+from cerberus.core.distributed_flight import DistributedSingleFlight
 from cerberus.core.privacy import redact_source_code_recursively
 
 logger = logging.getLogger("cerberus.cache")
@@ -45,7 +46,7 @@ class SingleFlight:
     async def execute(self, key: str, coro_fn: Callable[[], Coroutine[Any, Any, T]]) -> T:
         if key in self._in_flight:
             self.coalesced_count += 1
-            logger.debug(f"SingleFlight coalescing concurrent request for key: {key}")
+            logger.debug("SingleFlight coalescing concurrent request for key: %s", key)
             # Await identical in-flight task
             fut = self._in_flight[key]
             return await fut
@@ -86,6 +87,7 @@ class CacheManager:
         self._local_subscribers: Dict[str, Set[asyncio.Queue]] = {}
         self._subscribers_lock = asyncio.Lock()
         self.singleflight = SingleFlight()
+        self.distributed_singleflight = DistributedSingleFlight()
         self.stats = {
             "hits": 0,
             "misses": 0,
@@ -108,10 +110,12 @@ class CacheManager:
             # Ping to verify
             await client.ping()
             self.redis_client = client
+            self.distributed_singleflight.set_redis(client)
             logger.info("Connected to Redis cache successfully.")
         except Exception as e:
-            logger.warning(f"Redis unavailable ({e}). Using robust In-Memory LRU Cache.")
+            logger.warning("Redis unavailable (%s). Using robust In-Memory LRU Cache.", e)
             self.redis_client = None
+            self.distributed_singleflight.set_redis(None)
 
     async def close(self) -> None:
         if self.redis_client:
@@ -120,6 +124,19 @@ class CacheManager:
             except Exception:
                 pass
             self.redis_client = None
+            self.distributed_singleflight.set_redis(None)
+
+    async def execute_singleflight(self, key: str, coro_fn: Callable[[], Coroutine[Any, Any, T]]) -> T:
+        """
+        Execute coroutine with distributed SingleFlight stampede protection across pods if Redis
+        is connected, falling back seamlessly to local in-process SingleFlight.
+        """
+        if self.redis_client is not None:
+            try:
+                return await self.distributed_singleflight.execute(key, coro_fn)
+            except Exception as e:
+                logger.debug("Distributed SingleFlight error (%s); falling back to local SingleFlight", e)
+        return await self.singleflight.execute(key, coro_fn)
 
     def compute_cache_key(
         self,
@@ -206,7 +223,7 @@ class CacheManager:
                     self._set_memory(key, decoded, self.ttl)
                     return decoded
             except Exception as e:
-                logger.warning(f"Redis GET failed: {e}")
+                logger.warning("Redis GET failed: %s", e)
 
         self.stats["misses"] += 1
         return None
@@ -244,7 +261,7 @@ class CacheManager:
                 payload_str = self._encode_payload(sanitized_value)
                 await self.redis_client.set(key, payload_str, ex=ttl)
             except Exception as e:
-                logger.warning(f"Redis SET failed: {e}")
+                logger.warning("Redis SET failed: %s", e)
 
     def invalidate(self, key: str) -> bool:
         """Synchronously evict an item from L1 in-memory cache."""
@@ -262,7 +279,7 @@ class CacheManager:
                 if res > 0:
                     removed = True
             except Exception as e:
-                logger.warning(f"Redis DELETE failed for key {key}: {e}")
+                logger.warning("Redis DELETE failed for key %s: %s", key, e)
         return removed
 
     # Async alias for standard cache delete API
@@ -311,7 +328,7 @@ class CacheManager:
                 await self.redis_client.set(f"cvai:stream_token:{token}", json.dumps(token_payload), ex=ttl_seconds)
                 return token
             except Exception as e:
-                logger.warning(f"Redis stream token write failed ({e}); fallback to memory.")
+                logger.warning("Redis stream token write failed (%s); fallback to memory.", e)
 
         self._stream_tokens[token] = token_payload
         return token
@@ -342,7 +359,7 @@ class CacheManager:
                         return data
                     return None
             except Exception as e:
-                logger.warning(f"Redis atomic stream token read failed: {e}")
+                logger.warning("Redis atomic stream token read failed: %s", e)
 
         # 2. Concurrency-safe in-memory consumption protected by asyncio.Lock
         async with self._token_lock:
@@ -370,7 +387,7 @@ class CacheManager:
                 await self.redis_client.publish(channel, payload_str)
                 await self.redis_client.set(f"cvai:review_latest:{review_id}", payload_str, ex=300)
             except Exception as e:
-                logger.warning(f"Redis pub/sub publish failed: {e}")
+                logger.warning("Redis pub/sub publish failed: %s", e)
 
         # Dispatch to local in-memory subscribers
         async with self._subscribers_lock:
@@ -414,7 +431,7 @@ class CacheManager:
 
                 listener_task = asyncio.create_task(_redis_listener())
             except Exception as e:
-                logger.warning(f"Redis pub/sub subscribe notice: {e}")
+                logger.warning("Redis pub/sub subscribe notice: %s", e)
 
         try:
             start_time = time.time()
@@ -430,6 +447,10 @@ class CacheManager:
         finally:
             if listener_task:
                 listener_task.cancel()
+                try:
+                    await listener_task
+                except (asyncio.CancelledError, Exception):
+                    pass
             if pubsub:
                 try:
                     await pubsub.unsubscribe(f"cvai:review_events:{review_id}")

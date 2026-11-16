@@ -29,31 +29,41 @@ logger = logging.getLogger("cerberus.api")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    logger.info(f"Starting Cerberus Multi-Agent API v{__version__} (env={settings.ENVIRONMENT})")
+    logger.info("Starting Cerberus Multi-Agent API v%s (env=%s)", __version__, settings.ENVIRONMENT)
+
+    # Initialize OpenTelemetry distributed tracing
+    from cerberus.core.tracing import configure_tracing
+
+    configure_tracing()
+
     try:
         await init_db()
         logger.info("Durable database backend initialized successfully.")
     except Exception as e:
-        logger.error(f"Critical startup failure during database initialization: {type(e).__name__}: {e}")
+        logger.error("Critical startup failure during database initialization: %s: %s", type(e).__name__, e)
         raise
 
     try:
         await cache_manager.connect()
-        logger.info(f"Cache manager initialized (enabled={cache_manager.enabled}).")
+        logger.info("Cache manager initialized (enabled=%s).", cache_manager.enabled)
     except Exception as e:
-        logger.warning(f"Cache connection warning during startup: {type(e).__name__}: {e}")
+        logger.warning("Cache connection warning during startup: %s: %s", type(e).__name__, e)
 
     try:
         await rate_limiter.connect()
         logger.info("Rate limiter initialized successfully.")
     except Exception as e:
-        logger.warning(f"Rate limiter connection warning during startup: {type(e).__name__}: {e}")
+        logger.warning("Rate limiter connection warning during startup: %s: %s", type(e).__name__, e)
 
     retention_task = None
     if getattr(settings, "ENABLE_RETENTION_WORKER", True) and settings.ENVIRONMENT.lower() not in ("test", "testing"):
+        from cerberus.core.background import background_tasks
         from cerberus.core.retention import retention_lifecycle_worker
 
-        retention_task = asyncio.create_task(retention_lifecycle_worker(interval_seconds=86400))
+        retention_task = background_tasks.create_task(
+            retention_lifecycle_worker(interval_seconds=86400),
+            name="retention_lifecycle_worker",
+        )
         logger.info("Automated retention lifecycle worker started.")
 
     yield
@@ -65,6 +75,14 @@ async def lifespan(app: FastAPI):
             await retention_task
         except (asyncio.CancelledError, Exception):
             pass
+
+    # Drain active background tasks before disposing database, cache, and provider resources
+    from cerberus.core.background import background_tasks
+
+    try:
+        await background_tasks.drain_tasks(timeout=5.0)
+    except Exception as drain_err:
+        logger.warning("Error draining background tasks during shutdown: %s", drain_err)
 
     from cerberus.agents.orchestrator import orchestrator
     from cerberus.core.database import engine
@@ -108,8 +126,15 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=allowed_origins,
         allow_credentials=allow_credentials,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        allow_headers=[
+            "Authorization",
+            "Content-Type",
+            "Accept",
+            "X-GitHub-Event",
+            "X-Hub-Signature-256",
+            "X-Request-ID",
+        ],
     )
 
     # ASGI Request Body Size Enforcement Middleware (Terminates oversized chunked/streaming bodies at receive layer)
@@ -121,7 +146,7 @@ def create_app() -> FastAPI:
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         logging.getLogger("cerberus.api").exception(
-            f"Unhandled exception during {request.method} {request.url.path}: {exc}"
+            "Unhandled exception during %s %s: %s", request.method, request.url.path, exc
         )
         return JSONResponse(
             status_code=500,

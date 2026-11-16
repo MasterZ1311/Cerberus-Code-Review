@@ -29,13 +29,22 @@ source .venv/bin/activate
 .venv\Scripts\Activate.ps1
 ```
 
-### 4. Install Dependencies
+### 4. Install Dependencies & Pre-commit Hooks
 ```bash
-pip install -r requirements.txt
-pip install pytest pytest-asyncio pytest-cov httpx
+pip install -e ".[dev]"
+pre-commit install
 ```
 
-### 5. Setup Environment Variables
+### 5. Common Development Commands (via Makefile)
+```bash
+make help          # Show available commands
+make check         # Run lint, typecheck, and security checks
+make test-fast     # Run fast test suite
+make test          # Run full test suite with coverage
+make format        # Format code via ruff
+```
+
+### 6. Setup Environment Variables
 ```bash
 cp .env.example .env
 ```
@@ -79,8 +88,9 @@ If you add new heuristics or agent rules, please write corresponding tests under
 ## 📐 Coding Standards
 
 1. **Pythonic & Typed**: Code should adhere to PEP 8 standards with type hints (`typing` / Python 3.10+ union types `X | Y`).
-2. **Docstrings**: Provide clear docstrings explaining agent heuristics, parameters, and return structures.
-3. **Commit Messages**: Write meaningful, conventional commit messages:
+2. **Logging Format**: Always use lazy `%s` formatting for logging (e.g. `logger.info("Starting %s", name)`). Never use f-strings in logger calls (Ruff rule `G` is strictly enforced).
+3. **Docstrings**: Provide clear docstrings explaining agent heuristics, parameters, and return structures.
+4. **Commit Messages**: Write meaningful, conventional commit messages:
    - `feat(agents): add Terraform IaC rule to Security Agent`
    - `fix(cli): correct exit code on lint failure`
    - `docs(readme): add docker compose quickstart badge`

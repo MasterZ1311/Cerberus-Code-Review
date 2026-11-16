@@ -1,5 +1,5 @@
-# CodeVault AI - Example Configuration File
-# Place this file at: ~/.codevault/config.yml or .codevault.yml (project root)
+# Cerberus - Example Configuration File
+# Place this file at: ~/.cerberus/config.yml or .cerberus.yml (project root)
 
 version: 1
 
@@ -18,8 +18,8 @@ server:
 # ============================================
 database:
   # Connection string
-  url: "postgresql://codevault:password@localhost:5432/codevault"
-  # For development: "sqlite:///./codevault.db"
+  url: "postgresql://cerberus:${DB_PASSWORD}@localhost:5432/cerberus_db"
+  # For development: "sqlite:///./cerberus.db"
   
   # Connection pool
   pool_size: 10
@@ -271,7 +271,7 @@ logging:
     - type: "console"
       level: "INFO"
     - type: "file"
-      path: "/var/log/codevault/app.log"
+      path: "/var/log/cerberus/app.log"
       level: "DEBUG"
       max_size_mb: 100
       backup_count: 5

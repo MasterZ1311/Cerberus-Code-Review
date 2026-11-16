@@ -59,7 +59,7 @@ class GroqProvider(BaseLLMProvider):
                 if choices and len(choices) > 0:
                     return choices[0].get("message", {}).get("content")
             elif res is not None:
-                logger.warning(f"Groq API request returned HTTP {res.status_code}: {res.text}")
+                logger.warning("Groq API request returned HTTP %s: %s", res.status_code, res.text)
         except Exception as e:
-            logger.warning(f"Groq generation failed: {e}")
+            logger.warning("Groq generation failed: %s", e)
         return None

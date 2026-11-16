@@ -30,7 +30,7 @@
 
 ## 1. Executive Overview & Agent Ecosystem Taxonomy
 
-The **CodeVault AI** platform implements an enterprise multi-agent architecture powered by IBM watsonx Granite foundation models and LangGraph state graphs. The platform features 20 specialized agents designed to deliver comprehensive, end-to-end source code analysis across security, performance, architecture, compliance, team operations, and developer experience.
+The **Cerberus** platform implements an enterprise multi-agent architecture powered by IBM watsonx Granite foundation models and LangGraph state graphs. The platform features 20 specialized agents designed to deliver comprehensive, end-to-end source code analysis across security, performance, architecture, compliance, team operations, and developer experience.
 
 Every agent is structured as an autonomous, self-contained worker adhering to strict contracts:
 - **Typed I/O Boundaries**: Explicit TypedDict schemas for `InputState`, `ExecutionState`, and `OutputState`.
@@ -135,7 +135,7 @@ To optimize execution latency, resource allocation, and review throughput, the 2
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/bug_predictor/schemas.py
+# File: src/cerberus/agents/bug_predictor/schemas.py
 from typing import Any, Dict, List, Optional, TypedDict
 
 class BugPredictorInput(TypedDict):
@@ -159,7 +159,7 @@ class BugPredictorOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/bug_predictor/tools.py
+# File: src/cerberus/agents/bug_predictor/tools.py
 from typing import Any, Dict, List
 import re
 
@@ -244,7 +244,7 @@ class CVEPatternMatcherTool:
 ```python
 # File: tests/agents/test_bug_predictor.py
 import pytest
-from src.codevault.agents.bug_predictor.tools import ASTChurnAnalyzerTool
+from src.cerberus.agents.bug_predictor.tools import ASTChurnAnalyzerTool
 
 @pytest.mark.asyncio
 async def test_ast_churn_analyzer_detects_dense_branches():
@@ -305,7 +305,7 @@ async def test_ast_churn_analyzer_detects_dense_branches():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/supply_chain/schemas.py
+# File: src/cerberus/agents/supply_chain/schemas.py
 from typing import Any, Dict, List, Optional, TypedDict
 
 class SupplyChainInput(TypedDict):
@@ -327,7 +327,7 @@ class SupplyChainOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/supply_chain/tools.py
+# File: src/cerberus/agents/supply_chain/tools.py
 from typing import Any, Dict, List
 import re
 
@@ -414,7 +414,7 @@ class OSVVulnerabilityLookupTool:
 ```python
 # File: tests/agents/test_supply_chain.py
 import pytest
-from src.codevault.agents.supply_chain.tools import SBOMGeneratorTool, OSVVulnerabilityLookupTool
+from src.cerberus.agents.supply_chain.tools import SBOMGeneratorTool, OSVVulnerabilityLookupTool
 
 @pytest.mark.asyncio
 async def test_supply_chain_cve_detection():
@@ -471,7 +471,7 @@ async def test_supply_chain_cve_detection():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/perf_regression/schemas.py
+# File: src/cerberus/agents/perf_regression/schemas.py
 from typing import Any, Dict, List, Optional, TypedDict
 
 class PerfRegressionInput(TypedDict):
@@ -494,7 +494,7 @@ class PerfRegressionOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/perf_regression/tools.py
+# File: src/cerberus/agents/perf_regression/tools.py
 from typing import Any, Dict, List
 import re
 
@@ -577,7 +577,7 @@ class QueryPatternAnalyzerTool:
 ```python
 # File: tests/agents/test_perf_regression.py
 import pytest
-from src.codevault.agents.perf_regression.tools import ComplexityAnalyzerTool, QueryPatternAnalyzerTool
+from src.cerberus.agents.perf_regression.tools import ComplexityAnalyzerTool, QueryPatternAnalyzerTool
 
 @pytest.mark.asyncio
 async def test_performance_n_plus_one_detection():
@@ -633,7 +633,7 @@ async def test_performance_n_plus_one_detection():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/architecture/schemas.py
+# File: src/cerberus/agents/architecture/schemas.py
 from typing import Any, Dict, List, TypedDict
 
 class ArchitectureInput(TypedDict):
@@ -657,7 +657,7 @@ class ArchitectureOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/architecture/tools.py
+# File: src/cerberus/agents/architecture/tools.py
 from typing import Any, Dict, List
 import re
 
@@ -721,13 +721,13 @@ class DependencyGraphTool:
 ```python
 # File: tests/agents/test_architecture.py
 import pytest
-from src.codevault.agents.architecture.tools import DependencyGraphTool
+from src.cerberus.agents.architecture.tools import DependencyGraphTool
 
 @pytest.mark.asyncio
 async def test_dependency_graph_detects_circular_imports():
     tool = DependencyGraphTool()
-    code = "from src.codevault.orchestration.master_orchestrator import App\n"
-    res = await tool.execute("src/codevault/orchestration/master_orchestrator.py", code)
+    code = "from src.cerberus.orchestration.master_orchestrator import App\n"
+    res = await tool.execute("src/cerberus/orchestration/master_orchestrator.py", code)
     assert res["has_circular"] is True
 ```
 
@@ -776,7 +776,7 @@ async def test_dependency_graph_detects_circular_imports():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/technical_debt/schemas.py
+# File: src/cerberus/agents/technical_debt/schemas.py
 from typing import Any, Dict, List, TypedDict
 
 class TechnicalDebtInput(TypedDict):
@@ -799,7 +799,7 @@ class TechnicalDebtOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/technical_debt/tools.py
+# File: src/cerberus/agents/technical_debt/tools.py
 from typing import Any, Dict
 
 class SQALEDebtCalculatorTool:
@@ -863,7 +863,7 @@ class SQALEDebtCalculatorTool:
 ```python
 # File: tests/agents/test_technical_debt.py
 import pytest
-from src.codevault.agents.technical_debt.tools import SQALEDebtCalculatorTool
+from src.cerberus.agents.technical_debt.tools import SQALEDebtCalculatorTool
 
 @pytest.mark.asyncio
 async def test_sqale_debt_calculation():
@@ -920,7 +920,7 @@ async def test_sqale_debt_calculation():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/code_fixer/schemas.py
+# File: src/cerberus/agents/code_fixer/schemas.py
 from typing import Any, Dict, Optional, TypedDict
 
 class CodeFixerInput(TypedDict):
@@ -943,7 +943,7 @@ class CodeFixerOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/code_fixer/tools.py
+# File: src/cerberus/agents/code_fixer/tools.py
 import ast
 import difflib
 from typing import Any, Dict, Tuple
@@ -1006,7 +1006,7 @@ class UniDiffGeneratorTool:
 ```python
 # File: tests/agents/test_code_fixer.py
 import pytest
-from src.codevault.agents.code_fixer.tools import ASTSyntaxValidatorTool, UniDiffGeneratorTool
+from src.cerberus.agents.code_fixer.tools import ASTSyntaxValidatorTool, UniDiffGeneratorTool
 
 @pytest.mark.asyncio
 async def test_code_fixer_validates_syntax_and_diff():
@@ -1063,7 +1063,7 @@ async def test_code_fixer_validates_syntax_and_diff():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/custom_rules/schemas.py
+# File: src/cerberus/agents/custom_rules/schemas.py
 from typing import Any, Dict, List, TypedDict
 
 class CustomRuleEngineInput(TypedDict):
@@ -1084,7 +1084,7 @@ class CustomRuleEngineOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/custom_rules/tools.py
+# File: src/cerberus/agents/custom_rules/tools.py
 from typing import Any, Dict, List
 import re
 import yaml
@@ -1156,7 +1156,7 @@ class YAMLRuleCompilerTool:
 ```python
 # File: tests/agents/test_custom_rules.py
 import pytest
-from src.codevault.agents.custom_rules.tools import YAMLRuleCompilerTool
+from src.cerberus.agents.custom_rules.tools import YAMLRuleCompilerTool
 
 @pytest.mark.asyncio
 async def test_custom_rule_compiler():
@@ -1213,7 +1213,7 @@ async def test_custom_rule_compiler():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/multi_language/schemas.py
+# File: src/cerberus/agents/multi_language/schemas.py
 from typing import Any, Dict, List, TypedDict
 
 class MultiLanguageInput(TypedDict):
@@ -1233,7 +1233,7 @@ class MultiLanguageOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/multi_language/tools.py
+# File: src/cerberus/agents/multi_language/tools.py
 from typing import Any, Dict, List
 
 class IdiomCatalogCheckerTool:
@@ -1303,7 +1303,7 @@ class IdiomCatalogCheckerTool:
 ```python
 # File: tests/agents/test_multi_language.py
 import pytest
-from src.codevault.agents.multi_language.tools import IdiomCatalogCheckerTool
+from src.cerberus.agents.multi_language.tools import IdiomCatalogCheckerTool
 
 @pytest.mark.asyncio
 async def test_multi_language_go_rust_checks():
@@ -1359,7 +1359,7 @@ async def test_multi_language_go_rust_checks():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/historical_trends/schemas.py
+# File: src/cerberus/agents/historical_trends/schemas.py
 from typing import Any, Dict, List, TypedDict
 
 class HistoricalTrendInput(TypedDict):
@@ -1382,7 +1382,7 @@ class HistoricalTrendOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/historical_trends/tools.py
+# File: src/cerberus/agents/historical_trends/tools.py
 from typing import Any, Dict, List
 
 class TimeSeriesRegressionTool:
@@ -1437,7 +1437,7 @@ class TimeSeriesRegressionTool:
 ```python
 # File: tests/agents/test_historical_trends.py
 import pytest
-from src.codevault.agents.historical_trends.tools import TimeSeriesRegressionTool
+from src.cerberus.agents.historical_trends.tools import TimeSeriesRegressionTool
 
 @pytest.mark.asyncio
 async def test_time_series_regression_detects_degradation():
@@ -1493,7 +1493,7 @@ async def test_time_series_regression_detects_degradation():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/ml_auditor/schemas.py
+# File: src/cerberus/agents/ml_auditor/schemas.py
 from typing import Any, Dict, List, TypedDict
 
 class MLCodeAuditorInput(TypedDict):
@@ -1514,7 +1514,7 @@ class MLCodeAuditorOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/ml_auditor/tools.py
+# File: src/cerberus/agents/ml_auditor/tools.py
 from typing import Any, Dict, List
 
 class DataLeakageDetectorTool:
@@ -1577,7 +1577,7 @@ class DataLeakageDetectorTool:
 ```python
 # File: tests/agents/test_ml_auditor.py
 import pytest
-from src.codevault.agents.ml_auditor.tools import DataLeakageDetectorTool
+from src.cerberus.agents.ml_auditor.tools import DataLeakageDetectorTool
 
 @pytest.mark.asyncio
 async def test_ml_data_leakage_detection():
@@ -1631,7 +1631,7 @@ async def test_ml_data_leakage_detection():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/compliance/schemas.py
+# File: src/cerberus/agents/compliance/schemas.py
 from typing import Any, Dict, List, TypedDict
 
 class ComplianceInput(TypedDict):
@@ -1651,7 +1651,7 @@ class ComplianceOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/compliance/tools.py
+# File: src/cerberus/agents/compliance/tools.py
 from typing import Any, Dict, List
 import re
 
@@ -1719,7 +1719,7 @@ class PHIPICheckerTool:
 ```python
 # File: tests/agents/test_compliance.py
 import pytest
-from src.codevault.agents.compliance.tools import PHIPICheckerTool
+from src.cerberus.agents.compliance.tools import PHIPICheckerTool
 
 @pytest.mark.asyncio
 async def test_compliance_pan_detection():
@@ -1773,7 +1773,7 @@ async def test_compliance_pan_detection():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/ide_integration/schemas.py
+# File: src/cerberus/agents/ide_integration/schemas.py
 from typing import Any, Dict, List, TypedDict
 
 class IDELspInput(TypedDict):
@@ -1793,7 +1793,7 @@ class IDELspOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/ide_integration/tools.py
+# File: src/cerberus/agents/ide_integration/tools.py
 from typing import Any, Dict, List
 
 class LSPDiagnosticConverterTool:
@@ -1811,7 +1811,7 @@ class LSPDiagnosticConverterTool:
                     "end": {"line": line, "character": 80},
                 },
                 "severity": 1 if f.get("severity") in ["critical", "high"] else 2,
-                "source": "CodeVault AI",
+                "source": "Cerberus",
                 "message": f.get("message", "Issue detected."),
             })
         return diagnostics
@@ -1850,7 +1850,7 @@ class LSPDiagnosticConverterTool:
 ```python
 # File: tests/agents/test_ide_integration.py
 import pytest
-from src.codevault.agents.ide_integration.tools import LSPDiagnosticConverterTool
+from src.cerberus.agents.ide_integration.tools import LSPDiagnosticConverterTool
 
 @pytest.mark.asyncio
 async def test_lsp_diagnostic_conversion():
@@ -1904,7 +1904,7 @@ async def test_lsp_diagnostic_conversion():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/cost_analysis/schemas.py
+# File: src/cerberus/agents/cost_analysis/schemas.py
 from typing import Any, Dict, List, Optional, TypedDict
 
 class CostAnalysisInput(TypedDict):
@@ -1926,7 +1926,7 @@ class CostAnalysisOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/cost_analysis/tools.py
+# File: src/cerberus/agents/cost_analysis/tools.py
 from typing import Any, Dict
 
 class CloudPricingCalculatorTool:
@@ -1979,7 +1979,7 @@ class CloudPricingCalculatorTool:
 ```python
 # File: tests/agents/test_cost_analysis.py
 import pytest
-from src.codevault.agents.cost_analysis.tools import CloudPricingCalculatorTool
+from src.cerberus.agents.cost_analysis.tools import CloudPricingCalculatorTool
 
 @pytest.mark.asyncio
 async def test_cloud_pricing_calculator():
@@ -2033,7 +2033,7 @@ async def test_cloud_pricing_calculator():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/accessibility/schemas.py
+# File: src/cerberus/agents/accessibility/schemas.py
 from typing import Any, Dict, List, TypedDict
 
 class AccessibilityInput(TypedDict):
@@ -2053,7 +2053,7 @@ class AccessibilityOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/accessibility/tools.py
+# File: src/cerberus/agents/accessibility/tools.py
 from typing import Any, Dict, List
 import re
 
@@ -2119,7 +2119,7 @@ class JSXAriaValidatorTool:
 ```python
 # File: tests/agents/test_accessibility.py
 import pytest
-from src.codevault.agents.accessibility.tools import JSXAriaValidatorTool
+from src.cerberus.agents.accessibility.tools import JSXAriaValidatorTool
 
 @pytest.mark.asyncio
 async def test_accessibility_img_alt_check():
@@ -2175,7 +2175,7 @@ async def test_accessibility_img_alt_check():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/anomaly_detection/schemas.py
+# File: src/cerberus/agents/anomaly_detection/schemas.py
 from typing import Dict, List, TypedDict
 
 class AnomalyDetectionInput(TypedDict):
@@ -2197,7 +2197,7 @@ class AnomalyDetectionOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/anomaly_detection/tools.py
+# File: src/cerberus/agents/anomaly_detection/tools.py
 from typing import Any, Dict
 
 class ZScoreCalculatorTool:
@@ -2246,7 +2246,7 @@ class ZScoreCalculatorTool:
 ```python
 # File: tests/agents/test_anomaly_detection.py
 import pytest
-from src.codevault.agents.anomaly_detection.tools import ZScoreCalculatorTool
+from src.cerberus.agents.anomaly_detection.tools import ZScoreCalculatorTool
 
 @pytest.mark.asyncio
 async def test_z_score_anomaly_detection():
@@ -2298,7 +2298,7 @@ async def test_z_score_anomaly_detection():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/fine_tuning/schemas.py
+# File: src/cerberus/agents/fine_tuning/schemas.py
 from typing import Any, Dict, List, TypedDict
 
 class FineTuningInput(TypedDict):
@@ -2321,7 +2321,7 @@ class FineTuningOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/fine_tuning/tools.py
+# File: src/cerberus/agents/fine_tuning/tools.py
 from typing import Any, Dict
 import re
 
@@ -2374,7 +2374,7 @@ class PIIScrubberTool:
 ```python
 # File: tests/agents/test_fine_tuning.py
 import pytest
-from src.codevault.agents.fine_tuning.tools import PIIScrubberTool
+from src.cerberus.agents.fine_tuning.tools import PIIScrubberTool
 
 @pytest.mark.asyncio
 async def test_pii_scrubber():
@@ -2428,7 +2428,7 @@ async def test_pii_scrubber():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/expertise_router/schemas.py
+# File: src/cerberus/agents/expertise_router/schemas.py
 from typing import Any, Dict, List, TypedDict
 
 class ExpertiseRouterInput(TypedDict):
@@ -2448,7 +2448,7 @@ class ExpertiseRouterOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/expertise_router/tools.py
+# File: src/cerberus/agents/expertise_router/tools.py
 from typing import Any, Dict, List
 
 class GitBlameIndexerTool:
@@ -2496,7 +2496,7 @@ class GitBlameIndexerTool:
 ```python
 # File: tests/agents/test_expertise_router.py
 import pytest
-from src.codevault.agents.expertise_router.tools import GitBlameIndexerTool
+from src.cerberus.agents.expertise_router.tools import GitBlameIndexerTool
 
 @pytest.mark.asyncio
 async def test_git_blame_indexer():
@@ -2549,7 +2549,7 @@ async def test_git_blame_indexer():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/knowledge_base/schemas.py
+# File: src/cerberus/agents/knowledge_base/schemas.py
 from typing import Dict, List, TypedDict
 
 class KnowledgeBaseInput(TypedDict):
@@ -2571,7 +2571,7 @@ class KnowledgeBaseOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/knowledge_base/tools.py
+# File: src/cerberus/agents/knowledge_base/tools.py
 from typing import Any, Dict
 
 class ADRMarkdownGeneratorTool:
@@ -2616,7 +2616,7 @@ class ADRMarkdownGeneratorTool:
 ```python
 # File: tests/agents/test_knowledge_base.py
 import pytest
-from src.codevault.agents.knowledge_base.tools import ADRMarkdownGeneratorTool
+from src.cerberus.agents.knowledge_base.tools import ADRMarkdownGeneratorTool
 
 @pytest.mark.asyncio
 async def test_adr_markdown_generation():
@@ -2669,7 +2669,7 @@ async def test_adr_markdown_generation():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/burndown_predictor/schemas.py
+# File: src/cerberus/agents/burndown_predictor/schemas.py
 from typing import TypedDict
 
 class BurndownPredictorInput(TypedDict):
@@ -2692,7 +2692,7 @@ class BurndownPredictorOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/burndown_predictor/tools.py
+# File: src/cerberus/agents/burndown_predictor/tools.py
 from typing import Any, Dict
 
 class IterationRegressorTool:
@@ -2741,7 +2741,7 @@ class IterationRegressorTool:
 ```python
 # File: tests/agents/test_burndown_predictor.py
 import pytest
-from src.codevault.agents.burndown_predictor.tools import IterationRegressorTool
+from src.cerberus.agents.burndown_predictor.tools import IterationRegressorTool
 
 @pytest.mark.asyncio
 async def test_iteration_regressor():
@@ -2794,7 +2794,7 @@ async def test_iteration_regressor():
 
 #### 3. TypedDict I/O Schemas
 ```python
-# File: src/codevault/agents/collaborative_review/schemas.py
+# File: src/cerberus/agents/collaborative_review/schemas.py
 from typing import Any, Dict, List, TypedDict
 
 class CollaborativeReviewInput(TypedDict):
@@ -2817,7 +2817,7 @@ class CollaborativeReviewOutput(TypedDict):
 
 #### 4. Tool Definitions with Parameters and Return Types
 ```python
-# File: src/codevault/agents/collaborative_review/tools.py
+# File: src/cerberus/agents/collaborative_review/tools.py
 from typing import Any, Dict, List
 
 class ConsensusTallyTool:
@@ -2887,7 +2887,7 @@ class ConsensusTallyTool:
 ```python
 # File: tests/agents/test_collaborative_review.py
 import pytest
-from src.codevault.agents.collaborative_review.tools import ConsensusTallyTool
+from src.cerberus.agents.collaborative_review.tools import ConsensusTallyTool
 
 @pytest.mark.asyncio
 async def test_consensus_tally_blocks_on_critical_issue():
@@ -2907,7 +2907,7 @@ async def test_consensus_tally_blocks_on_critical_issue():
 ## 4. Summary & Next Steps
 
 ### Architecture Verification Sign-Off
-All 20 specialized agents for the CodeVault AI platform are specified with:
+All 20 specialized agents for the Cerberus platform are specified with:
 - Architectural role, tier, latency SLA, and memory ceiling
 - ASCII state machine diagrams
 - Pydantic/TypedDict I/O contracts

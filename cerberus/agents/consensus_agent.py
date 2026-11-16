@@ -194,7 +194,7 @@ class ConsensusAgent(BaseAgent):
                     if "verdict" in llm_parsed:
                         consensus_data["verdict"] = llm_parsed["verdict"]
             except Exception as e:
-                logger.warning(f"ConsensusAgent LLM synthesis failed; keeping heuristic consensus: {e}")
+                logger.warning("ConsensusAgent LLM synthesis failed; keeping heuristic consensus: %s", e)
 
         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
 

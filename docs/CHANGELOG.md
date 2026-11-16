@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to CodeVault AI will be documented in this file.
+All notable changes to Cerberus will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🎉 Initial Release
 
-First public release of CodeVault AI!
+First public release of Cerberus!
 
 ### Added
 
@@ -88,7 +88,7 @@ First public release of CodeVault AI!
 #### Environment Variables
 - 30+ configuration environment variables
 - Support for `.env` files
-- Project-level `.codevault.yml` config
+- Project-level `.cerberus.yml` config
 - User-level configuration support
 
 ### Performance
@@ -177,7 +177,7 @@ This is the first official release. If you were using pre-release versions:
 
 1. **Backup your database**:
    ```bash
-   docker-compose exec db pg_dump -U codevault codevault > backup.sql
+   docker-compose exec db pg_dump -U cerberus cerberus > backup.sql
    ```
 
 2. **Pull latest images**:
@@ -192,7 +192,7 @@ This is the first official release. If you were using pre-release versions:
 4. **Run migrations**:
    ```bash
    docker-compose up -d
-   docker-compose exec api python -m codevault.cli migrate
+   docker-compose exec api python -m cerberus.cli migrate
    ```
 
 5. **Verify installation**:
@@ -228,20 +228,20 @@ This is the first official release. If you were using pre-release versions:
 
 ## Contributing
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for how to contribute to CodeVault AI.
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for how to contribute to Cerberus.
 
-Report bugs and request features on [GitHub Issues](https://github.com/codevault-ai/codevault/issues).
+Report bugs and request features on [GitHub Issues](https://github.com/cerberus-ai/cerberus/issues).
 
 ---
 
 ## Links
 
-- **Homepage**: https://codevault.ai
-- **Documentation**: https://docs.codevault.ai
-- **GitHub**: https://github.com/codevault-ai/codevault
-- **Discord**: https://discord.gg/codevault
-- **Twitter**: https://twitter.com/codevault
+- **Homepage**: https://cerberus.ai
+- **Documentation**: https://docs.cerberus.ai
+- **GitHub**: https://github.com/cerberus-ai/cerberus
+- **Discord**: https://discord.gg/cerberus
+- **Twitter**: https://twitter.com/cerberus
 
 ---
 
-**[0.1.0]**: https://github.com/codevault-ai/codevault/releases/tag/v0.1.0
+**[0.1.0]**: https://github.com/cerberus-ai/cerberus/releases/tag/v0.1.0

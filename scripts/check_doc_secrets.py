@@ -39,6 +39,10 @@ SUSPICIOUS_PATTERNS = [
         r"orchestrate\.ibm\.com",
         "Obsolete internal enterprise domain (orchestrate.ibm.com)",
     ),
+    (
+        r"\bcodevault\b",
+        "Obsolete legacy 'CodeVault' branding found in documentation",
+    ),
 ]
 
 # Whitelisted test fixtures or explicit development references

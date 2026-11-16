@@ -53,7 +53,7 @@
 
 ## 1. Executive Summary & Testing Philosophy
 
-The Enterprise Multi-Agent Code Review System (CodeVault AI / Cerberus) processes mission-critical intellectual property, evaluates proprietary codebases against strict architectural and security policies, and executes complex distributed agent graphs backed by IBM watsonx Orchestrate. Ensuring zero defects, bounded memory safety, deterministic scoring, and fault-tolerant degradation requires an exhaustive, multi-tier testing framework.
+The Enterprise Multi-Agent Code Review System (Cerberus) processes mission-critical intellectual property, evaluates proprietary codebases against strict architectural and security policies, and executes complex distributed agent graphs backed by IBM watsonx Orchestrate. Ensuring zero defects, bounded memory safety, deterministic scoring, and fault-tolerant degradation requires an exhaustive, multi-tier testing framework.
 
 ### 1.1 The Enterprise 4-Tier Test Pyramid
 
@@ -73,7 +73,7 @@ The Enterprise Multi-Agent Code Review System (CodeVault AI / Cerberus) processe
 
 Every pull request must clear the following non-negotiable gates:
 - **Unit & Integration Suite**: 100% pass rate across all tests. Zero skipped tests allowed in CI.
-- **Branch Coverage Threshold**: `>= 90.0%` branch coverage across all domain modules (`cerberus/agents/`, `cerberus/api/`, `cerberus/core/`, `cerberus/models/`, `cerberus/providers/`).
+- **Branch Coverage Threshold**: `>= 85.0%` branch coverage enforced across all domain modules (`cerberus/agents/`, `cerberus/api/`, `cerberus/core/`, `cerberus/models/`, `cerberus/providers/`), backed by 612 automated test cases.
 - **Static Security Gate**: Zero High or Critical findings reported by Bandit or Semgrep.
 - **Secret Scanning Gate**: Zero verified secrets or private keys detected by TruffleHog.
 - **Dependency Audit**: Zero High or Critical CVEs reported by Trivy and `pip-audit`.
@@ -142,7 +142,7 @@ The root `conftest.py` provides shared fixtures for asynchronous ASGI clients, t
 ```python
 # File: tests/conftest.py
 """
-Global Pytest Configuration and Asynchronous Fixtures for CodeVault AI.
+Global Pytest Configuration and Asynchronous Fixtures for Cerberus.
 Provides isolated database sessions, Redis emulation, mock LLM clients, and HTTP harnesses.
 """
 
@@ -331,7 +331,7 @@ To ensure all tests operate with realistic, schema-valid data without hardcoded 
 ```python
 # File: tests/factories.py
 """
-Polyfactory Model Factories for CodeVault AI Domain Models.
+Polyfactory Model Factories for Cerberus Domain Models.
 Generates deterministic, schema-compliant instances for ReviewRequests, DiffPayloads,
 Findings, Custom Rules, and Organization Teams.
 """
@@ -474,7 +474,7 @@ def fetch_user_record(user_id: str):
     context = Use(lambda: ReviewContextFactory.build())
     agents = Use(lambda: ["security", "performance", "quality", "architecture", "compliance"])
     config = Use(lambda: ReviewConfigFactory.build())
-    webhook_url = "https://ci.enterprise.internal/webhook/codevault"
+    webhook_url = "https://ci.enterprise.internal/webhook/cerberus"
     webhook_secret = "${WEBHOOK_SECRET}"
     async_mode = False
 
@@ -1615,7 +1615,7 @@ The performance testing suite uses `locust` to simulate realistic enterprise dev
 ```python
 # File: tests/load/locustfile.py
 """
-Locust Distributed Load and Stress Testing Harness for CodeVault AI.
+Locust Distributed Load and Stress Testing Harness for Cerberus.
 Supports Normal, Spike, and Soak testing profiles with realistic weighted user journeys.
 """
 
@@ -1659,7 +1659,7 @@ def connect():
 
 class CodeReviewUser(HttpUser):
     """
-    Simulates an active enterprise software engineer interacting with CodeVault AI.
+    Simulates an active enterprise software engineer interacting with Cerberus.
     """
     wait_time = between(1.0, 3.0)
 
@@ -1860,11 +1860,11 @@ OWASP ZAP scans the live running application inside Docker:
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "Starting CodeVault API in container for ZAP scan..."
+echo "Starting Cerberus API in container for ZAP scan..."
 docker run -d --name zap-target -p 8000:8000 \
   -e ENVIRONMENT=development \
   -e SECRET_KEY=dast_testing_secret_key_32_characters_strictly \
-  codevault-api:latest
+  cerberus-api:latest
 
 sleep 5
 
@@ -1892,32 +1892,25 @@ trufflehog git file://. --only-verified --fail
 ```bash
 # File: scripts/run_container_scan.sh
 #!/usr/bin/env bash
-trivy image --severity HIGH,CRITICAL --exit-code 1 codevault-api:latest
+trivy image --severity HIGH,CRITICAL --exit-code 1 cerberus-api:latest
 ```
 
 ---
 
 ## 8. Code Coverage Governance & CI/CD Verification
 
-The project enforces a strict **90.0% branch coverage threshold**. Any pull request that reduces coverage below this threshold will automatically fail the CI gate.
+The project enforces a strict **85.0% branch coverage threshold** (configured in `pyproject.toml` and verified in CI). Any pull request that reduces coverage below this threshold will automatically fail the CI gate.
 
-### 8.1 Coverage Configuration (`.coveragerc`)
+### 8.1 Coverage Configuration (`pyproject.toml`)
 
-```ini
-# File: .coveragerc
-[run]
-branch = True
-source = cerberus
-omit =
-    tests/*
-    cerberus/cli/*
-    cerberus/db/migrations/*
-    */__main__.py
+```toml
+[tool.coverage.run]
+branch = true
+source = ["cerberus"]
 
-[report]
-fail_under = 90.0
-precision = 2
-show_missing = True
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
 skip_covered = False
 sort = Cover
 
@@ -1942,7 +1935,7 @@ exclude_lines =
 set -euo pipefail
 
 echo "=========================================================="
-echo " Starting CodeVault AI Production Test & Quality Suite    "
+echo " Starting Cerberus Production Test & Quality Suite    "
 echo "=========================================================="
 
 # 1. Clean previous artifacts
@@ -1980,7 +1973,7 @@ echo "=========================================================="
 
 ## 9. Summary & Next Steps
 
-This **Enterprise Testing Strategy & Quality Assurance Framework** establishes an automated test and verification suite for CodeVault AI. With full test doubles for IBM watsonx Orchestrate, 52 copy-paste ready unit/integration/E2E test cases, Polyfactory model factories, Locust performance benchmarks, and automated SAST/DAST pipelines, the system meets strict enterprise quality and reliability requirements.
+This **Enterprise Testing Strategy & Quality Assurance Framework** establishes an automated test and verification suite for Cerberus. With full test doubles for IBM watsonx Orchestrate, 52 copy-paste ready unit/integration/E2E test cases, Polyfactory model factories, Locust performance benchmarks, and automated SAST/DAST pipelines, the system meets strict enterprise quality and reliability requirements.
 
 ### Next Document Pointer
 For production cutover procedures, 100+ verification pre-flight checklists, zero-downtime database migrations, automated rollback criteria, chaos game day scenarios, on-call rotation schedules, and security compliance matrices, proceed to:

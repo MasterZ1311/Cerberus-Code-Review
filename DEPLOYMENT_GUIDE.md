@@ -1,6 +1,6 @@
 # Enterprise Deployment & Infrastructure Guide
 
-**Platform:** CodeVault AI / Cerberus Enterprise Multi-Agent Code Review System  
+**Platform:** Cerberus Enterprise Multi-Agent Code Review System
 **System Architecture:** IBM watsonx Orchestrate + LangGraph + FastAPI + PostgreSQL + Redis  
 **Security Baseline:** CIS Benchmark Level 2, Distroless Non-Root Runtime, Zero-Trust Network Topology  
 **Target Environments:** Local Development, Staging, Multi-Region Active-Passive Production  
@@ -58,7 +58,7 @@
 
 ## 1. Architectural Overview & Infrastructure Topology
 
-CodeVault AI operates as a resilient, high-throughput, microservices-oriented multi-agent code analysis platform. The infrastructure architecture decouples stateless API and LangGraph orchestrator workers from persistent state (PostgreSQL 15+ and Redis 7+), integrating upstream with IBM watsonx Orchestrate foundation model endpoints.
+Cerberus operates as a resilient, high-throughput, microservices-oriented multi-agent code analysis platform. The infrastructure architecture decouples stateless API and LangGraph orchestrator workers from persistent state (PostgreSQL 15+ and Redis 7+), integrating upstream with IBM watsonx Orchestrate foundation model endpoints.
 
 ```text
 # File: docs/diagrams/infrastructure_topology.txt
@@ -78,7 +78,7 @@ CodeVault AI operates as a resilient, high-throughput, microservices-oriented mu
       │  └──────────┬────────────┘  │                       │  └──────────┬────────────┘  │
       │             │               │                       │             │               │
       │  ┌──────────▼────────────┐  │                       │  ┌──────────▼────────────┐  │
-      │  │ CodeVault API Pods    │  │                       │  │ CodeVault API Pods    │  │
+      │  │ Cerberus API Pods    │  │                       │  │ Cerberus API Pods    │  │
       │  │ (LangGraph Multi-Agent│  │                       │  │ (Standby Replicas: 2) │  │
       │  │  HPA: 3-20 Replicas)  │  │                       │  └──────────┬────────────┘  │
       │  └─────┬───────────┬─────┘  │                       │             │               │
@@ -175,7 +175,7 @@ RUN bandit -r cerberus/ -lll -ii
 # ==============================================================================
 FROM python:3.11-slim-bookworm AS runtime
 
-LABEL org.opencontainers.image.title="CodeVault AI / Cerberus Multi-Agent Engine" \
+LABEL org.opencontainers.image.title="Cerberus Multi-Agent Engine" \
       org.opencontainers.image.description="Enterprise Multi-Agent Code Review Platform" \
       org.opencontainers.image.version="1.0.0" \
       org.opencontainers.image.vendor="IBM Ecosystem Partner" \
@@ -191,8 +191,8 @@ ENV PATH="/opt/venv/bin:$PATH" \
 WORKDIR /app
 
 # Create dedicated non-root service account (UID/GID 10001)
-RUN groupadd -g 10001 codevault && \
-    useradd -u 10001 -g codevault -s /sbin/nologin -M -d /app codevault
+RUN groupadd -g 10001 cerberus && \
+    useradd -u 10001 -g cerberus -s /sbin/nologin -M -d /app cerberus
 
 # Install runtime shared libraries required by asyncpg/psycopg2
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -246,13 +246,13 @@ Cerberus strictly separates production container configuration from local develo
 version: '3.8'
 
 networks:
-  codevault-app-net:
+  cerberus-app-net:
     driver: bridge
     ipam:
       driver: default
       config:
         - subnet: 172.28.0.0/16
-  codevault-obs-net:
+  cerberus-obs-net:
     driver: bridge
     ipam:
       driver: default
@@ -260,13 +260,13 @@ networks:
         - subnet: 172.29.0.0/16
 
 volumes:
-  codevault-pgdata:
+  cerberus-pgdata:
     driver: local
-  codevault-redisdata:
+  cerberus-redisdata:
     driver: local
-  codevault-promdata:
+  cerberus-promdata:
     driver: local
-  codevault-grafanadata:
+  cerberus-grafanadata:
     driver: local
 
 services:
@@ -277,7 +277,7 @@ services:
     build:
       context: .
       target: runtime
-    container_name: codevault-api
+    container_name: cerberus-api
     restart: unless-stopped
     ports:
       - "8000:8000"
@@ -285,7 +285,7 @@ services:
       - HOST=0.0.0.0
       - PORT=8000
       - ENVIRONMENT=development
-      - DATABASE_URL=postgresql+asyncpg://codevault:dev_db_secret_pass_123@db:5432/codevault_db
+      - DATABASE_URL=postgresql+asyncpg://cerberus:dev_db_secret_pass_123@db:5432/cerberus_db
       - REDIS_URL=redis://:dev_redis_secret_pass_123@redis:6379/0
       - CACHE_ENABLED=true
       - CACHE_TTL_SECONDS=604800
@@ -303,7 +303,7 @@ services:
       - ENABLED_AGENTS=security,performance,quality,architecture,compliance
       - PROMETHEUS_ENABLED=true
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
-      - OTEL_SERVICE_NAME=codevault-api
+      - OTEL_SERVICE_NAME=cerberus-api
     deploy:
       resources:
         limits:
@@ -328,20 +328,20 @@ services:
       retries: 5
       start_period: 15s
     networks:
-      - codevault-app-net
-      - codevault-obs-net
+      - cerberus-app-net
+      - cerberus-obs-net
 
   # ============================================================================
   # PostgreSQL 15 Database with Optimized Async Buffers
   # ============================================================================
   db:
     image: postgres:15-alpine
-    container_name: codevault-postgres
+    container_name: cerberus-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: codevault
+      POSTGRES_USER: cerberus
       POSTGRES_PASSWORD: dev_db_secret_pass_123
-      POSTGRES_DB: codevault_db
+      POSTGRES_DB: cerberus_db
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     command: >
       postgres
@@ -358,7 +358,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - codevault-pgdata:/var/lib/postgresql/data
+      - cerberus-pgdata:/var/lib/postgresql/data
     deploy:
       resources:
         limits:
@@ -368,20 +368,20 @@ services:
           cpus: '0.50'
           memory: 512M
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U codevault -d codevault_db"]
+      test: ["CMD-SHELL", "pg_isready -U cerberus -d cerberus_db"]
       interval: 5s
       timeout: 3s
       retries: 5
       start_period: 10s
     networks:
-      - codevault-app-net
+      - cerberus-app-net
 
   # ============================================================================
   # Redis 7 In-Memory Cache with Strict LRU Memory Ceiling
   # ============================================================================
   redis:
     image: redis:7-alpine
-    container_name: codevault-redis
+    container_name: cerberus-redis
     restart: unless-stopped
     command: >
       redis-server
@@ -395,7 +395,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - codevault-redisdata:/data
+      - cerberus-redisdata:/data
     deploy:
       resources:
         limits:
@@ -411,14 +411,14 @@ services:
       retries: 5
       start_period: 5s
     networks:
-      - codevault-app-net
+      - cerberus-app-net
 
   # ============================================================================
   # Mock IBM watsonx Orchestrate REST Service
   # ============================================================================
   mock-watsonx:
     image: python:3.11-slim
-    container_name: codevault-mock-watsonx
+    container_name: cerberus-mock-watsonx
     restart: unless-stopped
     command: >
       python -c "
@@ -471,14 +471,14 @@ services:
           cpus: '0.50'
           memory: 256M
     networks:
-      - codevault-app-net
+      - cerberus-app-net
 
   # ============================================================================
   # Observability: Prometheus 2.45 Metrics Scraper
   # ============================================================================
   prometheus:
     image: prom/prometheus:v2.45.0
-    container_name: codevault-prometheus
+    container_name: cerberus-prometheus
     restart: unless-stopped
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -489,22 +489,22 @@ services:
       - "9090:9090"
     volumes:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - codevault-promdata:/prometheus
+      - cerberus-promdata:/prometheus
     deploy:
       resources:
         limits:
           cpus: '1.00'
           memory: 1024M
     networks:
-      - codevault-app-net
-      - codevault-obs-net
+      - cerberus-app-net
+      - cerberus-obs-net
 
   # ============================================================================
   # Observability: Grafana 10 Dashboard
   # ============================================================================
   grafana:
     image: grafana/grafana:10.0.3
-    container_name: codevault-grafana
+    container_name: cerberus-grafana
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -514,7 +514,7 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_AUTH_ANONYMOUS_ENABLED=false
     volumes:
-      - codevault-grafanadata:/var/lib/grafana
+      - cerberus-grafanadata:/var/lib/grafana
       - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
     deploy:
       resources:
@@ -524,14 +524,14 @@ services:
     depends_on:
       - prometheus
     networks:
-      - codevault-obs-net
+      - cerberus-obs-net
 
   # ============================================================================
   # Observability: Jaeger All-In-One APM Tracing Backend
   # ============================================================================
   jaeger:
     image: jaegertracing/all-in-one:1.47
-    container_name: codevault-jaeger
+    container_name: cerberus-jaeger
     restart: unless-stopped
     environment:
       - COLLECTOR_OTLP_ENABLED=true
@@ -545,7 +545,7 @@ services:
           cpus: '1.00'
           memory: 1024M
     networks:
-      - codevault-obs-net
+      - cerberus-obs-net
 ```
 
 ---
@@ -572,12 +572,22 @@ The `k8s/` directory contains complete, deployable Kubernetes manifests managed 
 
 ### Validation & Deployment Commands
 
+Production deployments enforce strict cryptographic image digest pinning. Tag-only overlays or template overlays (such as `k8s/overlays/production`) are intentionally treated as unpinned development templates and are rejected by production gates.
+
 ```bash
-# Validate manifests via dry-run
+# 1. Validate Kubernetes manifests locally (dry-run client validation)
 kustomize build k8s/ | kubectl apply --dry-run=client -f -
 
-# Deploy complete production overlay
-kubectl apply -k k8s/
+# 2. Verify image pinning rules & base-image collision rejection
+python scripts/validate_k8s_image_pinning.py
+
+# 3. Production Deployment Gatekeeper:
+# Attempting to deploy an unpinned tag template is blocked:
+python scripts/deploy_production.py --manifests k8s/overlays/production  # Fails closed (Exit 1)
+
+# Deploy exclusively from verified, signed, digest-pinned release assets:
+python scripts/deploy_production.py --manifests release-dist/cerberus-production-manifests.yaml --dry-run
+python scripts/deploy_production.py --manifests release-dist/cerberus-production-manifests.yaml --namespace cerberus
 ```
 
 ### 4.1 k8s/deployment.yaml
@@ -587,11 +597,11 @@ kubectl apply -k k8s/
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: codevault-api
-  namespace: codevault
+  name: cerberus-api
+  namespace: cerberus
   labels:
-    app.kubernetes.io/name: codevault-api
-    app.kubernetes.io/part-of: codevault-system
+    app.kubernetes.io/name: cerberus-api
+    app.kubernetes.io/part-of: cerberus-system
     app.kubernetes.io/version: "1.0.0"
     app.kubernetes.io/component: backend
 spec:
@@ -604,19 +614,19 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
-      app.kubernetes.io/name: codevault-api
+      app.kubernetes.io/name: cerberus-api
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: codevault-api
-        app.kubernetes.io/part-of: codevault-system
+        app.kubernetes.io/name: cerberus-api
+        app.kubernetes.io/part-of: cerberus-system
         app.kubernetes.io/version: "1.0.0"
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8000"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: codevault-api-sa
+      serviceAccountName: cerberus-api-sa
       terminationGracePeriodSeconds: 60
       affinity:
         podAntiAffinity:
@@ -628,7 +638,7 @@ spec:
                     - key: app.kubernetes.io/name
                       operator: In
                       values:
-                        - codevault-api
+                        - cerberus-api
                 topologyKey: "kubernetes.io/hostname"
             - weight: 50
               podAffinityTerm:
@@ -637,7 +647,7 @@ spec:
                     - key: app.kubernetes.io/name
                       operator: In
                       values:
-                        - codevault-api
+                        - cerberus-api
                 topologyKey: "topology.kubernetes.io/zone"
       securityContext:
         runAsNonRoot: true
@@ -647,8 +657,8 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: codevault-api
-          image: ghcr.io/ibm/codevault-api:1.0.0
+        - name: cerberus-api
+          image: ghcr.io/ibm/cerberus-api:1.0.0
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
@@ -664,9 +674,9 @@ spec:
               protocol: TCP
           envFrom:
             - configMapRef:
-                name: codevault-config
+                name: cerberus-config
             - secretRef:
-                name: codevault-secrets
+                name: cerberus-secrets
           resources:
             requests:
               cpu: "1000m"
@@ -719,11 +729,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: codevault-api-service
-  namespace: codevault
+  name: cerberus-api-service
+  namespace: cerberus
   labels:
-    app.kubernetes.io/name: codevault-api
-    app.kubernetes.io/part-of: codevault-system
+    app.kubernetes.io/name: cerberus-api
+    app.kubernetes.io/part-of: cerberus-system
 spec:
   type: ClusterIP
   ports:
@@ -732,7 +742,7 @@ spec:
       targetPort: http
       protocol: TCP
   selector:
-    app.kubernetes.io/name: codevault-api
+    app.kubernetes.io/name: cerberus-api
 ```
 
 ### 4.3 k8s/ingress.yaml
@@ -742,10 +752,10 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: codevault-ingress
-  namespace: codevault
+  name: cerberus-ingress
+  namespace: cerberus
   labels:
-    app.kubernetes.io/name: codevault-api
+    app.kubernetes.io/name: cerberus-api
   annotations:
     kubernetes.io/ingress.class: "nginx"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
@@ -773,7 +783,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: codevault-api-service
+                name: cerberus-api-service
                 port:
                   number: 8000
 ```
@@ -785,13 +795,13 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: codevault-api-hpa
-  namespace: codevault
+  name: cerberus-api-hpa
+  namespace: cerberus
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: codevault-api
+    name: cerberus-api
   minReplicas: 2
   maxReplicas: 10
   metrics:
@@ -834,13 +844,13 @@ spec:
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: codevault-api-pdb
-  namespace: codevault
+  name: cerberus-api-pdb
+  namespace: cerberus
 spec:
   minAvailable: 2
   selector:
     matchLabels:
-      app.kubernetes.io/name: codevault-api
+      app.kubernetes.io/name: cerberus-api
 ```
 
 ### 4.6 k8s/configmap.yaml
@@ -850,8 +860,8 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: codevault-config
-  namespace: codevault
+  name: cerberus-config
+  namespace: cerberus
 data:
   HOST: "0.0.0.0"
   PORT: "8000"
@@ -912,12 +922,12 @@ stringData:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: codevault-api-netpolicy
-  namespace: codevault
+  name: cerberus-api-netpolicy
+  namespace: cerberus
 spec:
   podSelector:
     matchLabels:
-      app.kubernetes.io/name: codevault-api
+      app.kubernetes.io/name: cerberus-api
   policyTypes:
     - Ingress
     - Egress
@@ -989,14 +999,14 @@ spec:
 
 ## 5. Enterprise Production Helm Chart
 
-The standard Helm chart structure (`deploy/helm/codevault/`) enables uniform, declarative releases across Dev, Staging, and Production clusters with environment parameterization.
+The standard Helm chart structure (`deploy/helm/cerberus/`) enables uniform, declarative releases across Dev, Staging, and Production clusters with environment parameterization.
 
 ### 5.1 Chart.yaml
 
 ```yaml
-# File: deploy/helm/codevault/Chart.yaml
+# File: deploy/helm/cerberus/Chart.yaml
 apiVersion: v2
-name: codevault
+name: cerberus
 description: Enterprise Multi-Agent Code Review Platform Powered by IBM watsonx Orchestrate
 type: application
 version: 1.0.0
@@ -1007,16 +1017,16 @@ keywords:
   - watsonx
   - langgraph
   - security
-home: https://github.com/ibm/codevault
+home: https://github.com/ibm/cerberus
 maintainers:
-  - name: CodeVault Platform Engineering
-    email: platform-eng@codevault.ibm.com
+  - name: Cerberus Platform Engineering
+    email: platform-eng@cerberus.ibm.com
 ```
 
 ### 5.2 values.yaml
 
 ```yaml
-# File: deploy/helm/codevault/values.yaml
+# File: deploy/helm/cerberus/values.yaml
 global:
   environment: production
   imageRegistry: ghcr.io/ibm
@@ -1024,7 +1034,7 @@ global:
 replicaCount: 3
 
 image:
-  repository: codevault-api
+  repository: cerberus-api
   tag: "1.0.0"
   pullPolicy: IfNotPresent
 
@@ -1033,7 +1043,7 @@ imagePullSecrets:
 
 serviceAccount:
   create: true
-  name: codevault-api-sa
+  name: cerberus-api-sa
   annotations: {}
 
 podAnnotations:
@@ -1076,7 +1086,7 @@ ingress:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: codevault-tls-cert
+    - secretName: cerberus-tls-cert
       hosts:
         - cerberus.example.com
 
@@ -1126,12 +1136,12 @@ secrets:
 ### 5.3 templates/_helpers.tpl
 
 ```yaml
-{{/* File: deploy/helm/codevault/templates/_helpers.tpl */}}
-{{- define "codevault.name" -}}
+{{/* File: deploy/helm/cerberus/templates/_helpers.tpl */}}
+{{- define "cerberus.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
-{{- define "codevault.fullname" -}}
+{{- define "cerberus.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -1144,18 +1154,18 @@ secrets:
 {{- end }}
 {{- end }}
 
-{{- define "codevault.labels" -}}
+{{- define "cerberus.labels" -}}
 helm.sh/chart: {{ printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
-{{ include "codevault.selectorLabels" . }}
+{{ include "cerberus.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-app.kubernetes.io/part-of: codevault-system
+app.kubernetes.io/part-of: cerberus-system
 {{- end }}
 
-{{- define "codevault.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "codevault.name" . }}
+{{- define "cerberus.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "cerberus.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 ```
@@ -1163,26 +1173,26 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 ### 5.4 templates/deployment.yaml
 
 ```yaml
-# File: deploy/helm/codevault/templates/deployment.yaml
+# File: deploy/helm/cerberus/templates/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "codevault.fullname" . }}
+  name: {{ include "cerberus.fullname" . }}
   labels:
-    {{- include "codevault.labels" . | nindent 4 }}
+    {{- include "cerberus.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "codevault.selectorLabels" . | nindent 6 }}
+      {{- include "cerberus.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
         {{- toYaml .Values.podAnnotations | nindent 8 }}
       labels:
-        {{- include "codevault.selectorLabels" . | nindent 8 }}
+        {{- include "cerberus.selectorLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
       securityContext:
@@ -1199,9 +1209,9 @@ spec:
               protocol: TCP
           envFrom:
             - configMapRef:
-                name: {{ include "codevault.fullname" . }}-config
+                name: {{ include "cerberus.fullname" . }}-config
             - secretRef:
-                name: {{ include "codevault.fullname" . }}-secrets
+                name: {{ include "cerberus.fullname" . }}-secrets
           livenessProbe:
             httpGet:
               path: /api/v1/health
@@ -1234,13 +1244,13 @@ spec:
 ### 5.5 templates/service.yaml
 
 ```yaml
-# File: deploy/helm/codevault/templates/service.yaml
+# File: deploy/helm/cerberus/templates/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "codevault.fullname" . }}
+  name: {{ include "cerberus.fullname" . }}
   labels:
-    {{- include "codevault.labels" . | nindent 4 }}
+    {{- include "cerberus.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -1249,20 +1259,20 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "codevault.selectorLabels" . | nindent 4 }}
+    {{- include "cerberus.selectorLabels" . | nindent 4 }}
 ```
 
 ### 5.6 templates/ingress.yaml
 
 ```yaml
-# File: deploy/helm/codevault/templates/ingress.yaml
+# File: deploy/helm/cerberus/templates/ingress.yaml
 {{- if .Values.ingress.enabled -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "codevault.fullname" . }}
+  name: {{ include "cerberus.fullname" . }}
   labels:
-    {{- include "codevault.labels" . | nindent 4 }}
+    {{- include "cerberus.labels" . | nindent 4 }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -1291,7 +1301,7 @@ spec:
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ include "codevault.fullname" $ }}
+                name: {{ include "cerberus.fullname" $ }}
                 port:
                   number: {{ $.Values.service.port }}
           {{- end }}
@@ -1302,19 +1312,19 @@ spec:
 ### 5.7 templates/hpa.yaml
 
 ```yaml
-# File: deploy/helm/codevault/templates/hpa.yaml
+# File: deploy/helm/cerberus/templates/hpa.yaml
 {{- if .Values.autoscaling.enabled }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "codevault.fullname" . }}
+  name: {{ include "cerberus.fullname" . }}
   labels:
-    {{- include "codevault.labels" . | nindent 4 }}
+    {{- include "cerberus.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "codevault.fullname" . }}
+    name: {{ include "cerberus.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:
@@ -1336,32 +1346,32 @@ spec:
 ### 5.8 templates/pdb.yaml
 
 ```yaml
-# File: deploy/helm/codevault/templates/pdb.yaml
+# File: deploy/helm/cerberus/templates/pdb.yaml
 {{- if .Values.pdb.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "codevault.fullname" . }}
+  name: {{ include "cerberus.fullname" . }}
   labels:
-    {{- include "codevault.labels" . | nindent 4 }}
+    {{- include "cerberus.labels" . | nindent 4 }}
 spec:
   minAvailable: {{ .Values.pdb.minAvailable }}
   selector:
     matchLabels:
-      {{- include "codevault.selectorLabels" . | nindent 6 }}
+      {{- include "cerberus.selectorLabels" . | nindent 6 }}
 {{- end }}
 ```
 
 ### 5.9 templates/configmap.yaml
 
 ```yaml
-# File: deploy/helm/codevault/templates/configmap.yaml
+# File: deploy/helm/cerberus/templates/configmap.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "codevault.fullname" . }}-config
+  name: {{ include "cerberus.fullname" . }}-config
   labels:
-    {{- include "codevault.labels" . | nindent 4 }}
+    {{- include "cerberus.labels" . | nindent 4 }}
 data:
   HOST: "0.0.0.0"
   PORT: "{{ .Values.service.port }}"
@@ -1385,13 +1395,13 @@ data:
 ### 5.10 templates/secret.yaml
 
 ```yaml
-# File: deploy/helm/codevault/templates/secret.yaml
+# File: deploy/helm/cerberus/templates/secret.yaml
 apiVersion: v1
 kind: Secret
 metadata:
-  name: {{ include "codevault.fullname" . }}-secrets
+  name: {{ include "cerberus.fullname" . }}-secrets
   labels:
-    {{- include "codevault.labels" . | nindent 4 }}
+    {{- include "cerberus.labels" . | nindent 4 }}
 type: Opaque
 stringData:
   DATABASE_URL: {{ .Values.secrets.databaseUrl | quote }}
@@ -1405,15 +1415,15 @@ stringData:
 
 ## 6. IBM watsonx Orchestrate Enterprise Deployment Setup
 
-CodeVault AI integrates natively into IBM watsonx Orchestrate as an Enterprise Skill, enabling conversational assistants and automated workflow agents to invoke specialized code review pipelines directly.
+Cerberus integrates natively into IBM watsonx Orchestrate as an Enterprise Skill, enabling conversational assistants and automated workflow agents to invoke specialized code review pipelines directly.
 
 ### 6.1 OpenAPI 3.1 Skill Specification for watsonx Orchestrate
 
 ```yaml
-# File: config/watsonx/codevault-skill-openapi.yaml
+# File: config/watsonx/cerberus-skill-openapi.yaml
 openapi: 3.1.0
 info:
-  title: CodeVault AI Multi-Agent Code Review Skill
+  title: Cerberus Multi-Agent Code Review Skill
   description: Enterprise code review skill powered by LangGraph and IBM watsonx foundation models.
   version: 1.0.0
   contact:
@@ -1421,7 +1431,7 @@ info:
     email: watsonx-skills@ibm.com
 servers:
   - url: https://cerberus.example.com/api/v1
-    description: Production CodeVault Enterprise Gateway
+    description: Production Cerberus Enterprise Gateway
 paths:
   /review:
     post:
@@ -1521,7 +1531,7 @@ components:
 ```json
 // File: config/watsonx/assistant-tool-registration.json
 {
-  "name": "codevault_code_reviewer",
+  "name": "cerberus_code_reviewer",
   "description": "Performs deep automated static, dynamic, and LLM-assisted multi-agent code reviews for security vulnerabilities, memory leaks, performance regressions, and architectural compliance.",
   "parameters": {
     "type": "object",
@@ -1668,7 +1678,7 @@ class WatsonxOrchestrateClient:
 
 ## 7. HashiCorp Vault Secrets Management Integration
 
-Production secrets are never stored in plain text. CodeVault AI supports both the Kubernetes External Secrets Operator (ESO) and the native HashiCorp Vault Agent Sidecar Injector.
+Production secrets are never stored in plain text. Cerberus supports both the Kubernetes External Secrets Operator (ESO) and the native HashiCorp Vault Agent Sidecar Injector.
 
 ### 7.1 External Secrets Operator (ESO) Integration
 
@@ -1680,7 +1690,7 @@ apiVersion: external-secrets.io/v1beta1
 kind: SecretStore
 metadata:
   name: vault-backend
-  namespace: codevault
+  namespace: cerberus
 spec:
   provider:
     vault:
@@ -1694,44 +1704,44 @@ spec:
       auth:
         kubernetes:
           mountPath: "kubernetes"
-          role: "codevault-api-role"
+          role: "cerberus-api-role"
           serviceAccountRef:
-            name: codevault-api-sa
+            name: cerberus-api-sa
 ---
 # File: k8s/vault/external-secret.yaml
 apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
-  name: codevault-vault-secrets
-  namespace: codevault
+  name: cerberus-vault-secrets
+  namespace: cerberus
 spec:
   refreshInterval: "5m"
   secretStoreRef:
     name: vault-backend
     kind: SecretStore
   target:
-    name: codevault-secrets
+    name: cerberus-secrets
     creationPolicy: Owner
   data:
     - secretKey: DATABASE_URL
       remoteRef:
-        key: production/codevault
+        key: production/cerberus
         property: database_url
     - secretKey: REDIS_URL
       remoteRef:
-        key: production/codevault
+        key: production/cerberus
         property: redis_url
     - secretKey: SECRET_KEY
       remoteRef:
-        key: production/codevault
+        key: production/cerberus
         property: secret_key
     - secretKey: WATSONX_API_KEY
       remoteRef:
-        key: production/codevault
+        key: production/cerberus
         property: watsonx_api_key
     - secretKey: WATSONX_PROJECT_ID
       remoteRef:
-        key: production/codevault
+        key: production/cerberus
         property: watsonx_project_id
 ```
 
@@ -1746,11 +1756,11 @@ spec:
     metadata:
       annotations:
         vault.hashicorp.com/agent-inject: "true"
-        vault.hashicorp.com/role: "codevault-api-role"
+        vault.hashicorp.com/role: "cerberus-api-role"
         vault.hashicorp.com/agent-inject-status: "update"
-        vault.hashicorp.com/agent-inject-secret-config.env: "secret/data/production/codevault"
+        vault.hashicorp.com/agent-inject-secret-config.env: "secret/data/production/cerberus"
         vault.hashicorp.com/agent-inject-template-config.env: |
-          {{- with secret "secret/data/production/codevault" -}}
+          {{- with secret "secret/data/production/cerberus" -}}
           export DATABASE_URL="{{ .Data.data.database_url }}"
           export REDIS_URL="{{ .Data.data.redis_url }}"
           export SECRET_KEY="{{ .Data.data.secret_key }}"
@@ -1762,13 +1772,13 @@ spec:
 ### 7.3 Vault Access Policy and Kubernetes Auth Engine Setup
 
 ```hcl
-# File: config/vault/codevault-policy.hcl
-# Read-only policy for CodeVault production application workloads
-path "secret/data/production/codevault" {
+# File: config/vault/cerberus-policy.hcl
+# Read-only policy for Cerberus production application workloads
+path "secret/data/production/cerberus" {
   capabilities = ["read"]
 }
 
-path "secret/metadata/production/codevault" {
+path "secret/metadata/production/cerberus" {
   capabilities = ["read", "list"]
 }
 ```
@@ -1781,7 +1791,7 @@ set -euo pipefail
 echo "==> Configuring HashiCorp Vault Kubernetes Authentication Engine..."
 
 # 1. Write the least-privilege policy
-vault policy write codevault-policy config/vault/codevault-policy.hcl
+vault policy write cerberus-policy config/vault/cerberus-policy.hcl
 
 # 2. Enable Kubernetes auth engine if not already active
 vault auth enable kubernetes || true
@@ -1790,11 +1800,11 @@ vault auth enable kubernetes || true
 vault write auth/kubernetes/config \
     kubernetes_host="https://kubernetes.default.svc:443"
 
-# 4. Bind role to service account in codevault namespace
-vault write auth/kubernetes/role/codevault-api-role \
-    bound_service_account_names=codevault-api-sa \
-    bound_service_account_namespaces=codevault \
-    policies=codevault-policy \
+# 4. Bind role to service account in cerberus namespace
+vault write auth/kubernetes/role/cerberus-api-role \
+    bound_service_account_names=cerberus-api-sa \
+    bound_service_account_namespaces=cerberus \
+    policies=cerberus-policy \
     ttl=1h
 
 echo "==> Vault configuration successfully applied."
@@ -1969,10 +1979,10 @@ jobs:
 
       - name: Deploy via Helm
         run: |
-          helm upgrade --install codevault-staging deploy/helm/codevault \
-            --namespace codevault-staging \
+          helm upgrade --install cerberus-staging deploy/helm/cerberus \
+            --namespace cerberus-staging \
             --create-namespace \
-            --values deploy/helm/codevault/values.yaml \
+            --values deploy/helm/cerberus/values.yaml \
             --set image.tag=${{ needs.build-and-scan.outputs.image_tag }} \
             --set global.environment=staging \
             --wait --timeout 5m0s
@@ -2003,9 +2013,9 @@ jobs:
 
       - name: Canary Deploy US-East (10% Traffic)
         run: |
-          helm upgrade --install codevault-prod deploy/helm/codevault \
-            --namespace codevault \
-            --values deploy/helm/codevault/values.yaml \
+          helm upgrade --install cerberus-prod deploy/helm/cerberus \
+            --namespace cerberus \
+            --values deploy/helm/cerberus/values.yaml \
             --set image.tag=${{ needs.build-and-scan.outputs.image_tag }} \
             --set global.environment=production \
             --wait --timeout 5m0s
@@ -2037,7 +2047,7 @@ AWS Route53 directs user traffic using a Failover Routing Policy with continuous
 ```json
 // File: config/dns/route53-failover-policy.json
 {
-  "Comment": "CodeVault Global Active-Passive Failover Routing Configuration",
+  "Comment": "Cerberus Global Active-Passive Failover Routing Configuration",
   "Changes": [
     {
       "Action": "UPSERT",
@@ -2080,7 +2090,7 @@ The database high-availability architecture utilizes Patroni backed by etcd for 
 
 ```yaml
 # File: config/database/patroni-config.yaml
-scope: codevault-postgres
+scope: cerberus-postgres
 namespace: /service
 name: pg-node-us-west-standby
 
@@ -2108,7 +2118,7 @@ bootstrap:
         max_replication_slots: 10
         hot_standby: "on"
         archive_mode: "on"
-        archive_command: "pgbackrest --stanza=codevault archive-push %p"
+        archive_command: "pgbackrest --stanza=cerberus archive-push %p"
 
 postgresql:
   listen: 0.0.0.0:5432
@@ -2136,7 +2146,7 @@ Continuous write-ahead logging (WAL) streams to an S3 object storage bucket ever
 [global]
 repo1-type=s3
 repo1-s3-endpoint=s3.us-east-1.amazonaws.com
-repo1-s3-bucket=codevault-database-backups-prod
+repo1-s3-bucket=cerberus-database-backups-prod
 repo1-s3-region=us-east-1
 repo1-s3-key=ENV[AWS_ACCESS_KEY_ID]
 repo1-s3-key-secret=ENV[AWS_SECRET_ACCESS_KEY]
@@ -2151,7 +2161,7 @@ compress-level=6
 log-level-console=info
 log-level-file=detail
 
-[codevault]
+[cerberus]
 pg1-path=/var/lib/postgresql/data
 pg1-user=postgres
 ```
@@ -2168,7 +2178,7 @@ echo "==> Executing PostgreSQL Point-In-Time-Recovery to: ${TARGET_TIMESTAMP}"
 systemctl stop patroni || systemctl stop postgresql
 
 # 2. Perform point-in-time recovery using pgBackRest
-pgbackrest --stanza=codevault \
+pgbackrest --stanza=cerberus \
     --delta \
     --type=time \
     "--target=${TARGET_TIMESTAMP}" \
@@ -2192,7 +2202,7 @@ When a regional disaster is declared in `us-east-1`:
 set -euo pipefail
 
 echo "================================================================="
-echo "CODEVAULT AI: EMERGENCY REGIONAL FAILOVER (US-EAST -> US-WEST)"
+echo "CERBERUS: EMERGENCY REGIONAL FAILOVER (US-EAST -> US-WEST)"
 echo "================================================================="
 
 # Step 1: Promote Standby PostgreSQL Replica to Primary in us-west-2
@@ -2201,11 +2211,11 @@ kubectl --context=prod-west exec -n postgres pg-cluster-0 -- patronictl -c /etc/
 
 # Step 2: Validate Database Write Availability
 echo "==> Step 2: Validating database read/write readiness..."
-kubectl --context=prod-west exec -n postgres pg-cluster-0 -- psql -U codevault_app -d codevault_prod -c "SELECT pg_is_in_recovery();"
+kubectl --context=prod-west exec -n postgres pg-cluster-0 -- psql -U cerberus_app -d cerberus_prod -c "SELECT pg_is_in_recovery();"
 
 # Step 3: Scale Up Standby Kubernetes API Pods
-echo "==> Step 3: Scaling CodeVault API Deployment to 15 replicas in us-west-2..."
-kubectl --context=prod-west scale deployment/codevault-api -n codevault --replicas=15
+echo "==> Step 3: Scaling Cerberus API Deployment to 15 replicas in us-west-2..."
+kubectl --context=prod-west scale deployment/cerberus-api -n cerberus --replicas=15
 
 # Step 4: Shift Global Traffic via Route53 Update
 echo "==> Step 4: Shifting DNS traffic to us-west-2 endpoint..."
@@ -2239,7 +2249,7 @@ Following primary region restoration, execute failback with zero split-brain:
 
 ## 10. Summary & Pointer to Next Document
 
-This guide established a complete, enterprise-grade deployment and disaster recovery baseline for CodeVault AI across local container stacks, production Kubernetes clusters, IBM watsonx Orchestrate skill catalogs, and HashiCorp Vault secrets backends.
+This guide established a complete, enterprise-grade deployment and disaster recovery baseline for Cerberus across local container stacks, production Kubernetes clusters, IBM watsonx Orchestrate skill catalogs, and HashiCorp Vault secrets backends.
 
 To configure production monitoring, real-time observability, alerting rules, distributed tracing, and operational incident response runbooks, proceed to the next document:
 

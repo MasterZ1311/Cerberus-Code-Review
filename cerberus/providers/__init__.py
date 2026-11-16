@@ -103,7 +103,7 @@ def get_llm_provider(
         elif ptype == "watsonx":
             _provider_registry[ptype] = WatsonxProvider()
         else:
-            logger.warning(f"Unrecognized LLM provider '{ptype}'; falling back to heuristic engine.")
+            logger.warning("Unrecognized LLM provider '%s'; falling back to heuristic engine.", ptype)
             return None
 
     return _provider_registry[ptype]
@@ -115,7 +115,7 @@ async def close_all_providers() -> None:
         try:
             await p.close()
         except Exception as e:
-            logger.warning(f"Error closing provider session: {e}")
+            logger.warning("Error closing provider session: %s", e)
     _provider_registry.clear()
 
 

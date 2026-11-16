@@ -167,7 +167,7 @@ async def post_pr_review_to_github(
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(url, json=payload_dict, headers=headers)
             if resp.status_code in (200, 201):
-                logger.info(f"Successfully posted PR review to {url} (HTTP {resp.status_code})")
+                logger.info("Successfully posted PR review to %s (HTTP %s)", url, resp.status_code)
                 return True, None
             else:
                 err_msg = f"GitHub API error ({resp.status_code}): {resp.text}"
@@ -250,7 +250,7 @@ async def post_check_run_to_github(
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(url, json=check_run_payload, headers=headers)
             if resp.status_code in (200, 201):
-                logger.info(f"Successfully posted GitHub Check Run to {url} (HTTP {resp.status_code})")
+                logger.info("Successfully posted GitHub Check Run to %s (HTTP %s)", url, resp.status_code)
                 return True, None
             else:
                 err_msg = f"GitHub Checks API error ({resp.status_code}): {resp.text}"

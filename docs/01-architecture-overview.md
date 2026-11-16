@@ -1,4 +1,4 @@
-# CodeVault AI - System Architecture & Overview
+# Cerberus - System Architecture & Overview
 
 **Version:** 0.1.0  
 **Last Updated:** September 21, 2026  
@@ -9,7 +9,7 @@
 ## Table of Contents
 
 - [Executive Summary](#executive-summary)
-- [What is CodeVault AI?](#what-is-codevault-ai)
+- [What is Cerberus?](#what-is-cerberus-ai)
 - [Key Features](#key-features)
 - [System Architecture](#system-architecture)
 - [Core Components](#core-components)
@@ -24,9 +24,9 @@
 
 ## Executive Summary
 
-**CodeVault AI** is an intelligent, multi-agent code review system designed specifically for solo developers and small teams who want enterprise-grade code analysis without the complexity of enterprise tools. 
+**Cerberus** is an intelligent, multi-agent code review system designed specifically for solo developers and small teams who want enterprise-grade code analysis without the complexity of enterprise tools.
 
-Unlike traditional static analysis tools that apply rigid rules, CodeVault AI uses multiple specialized AI agents that understand context, provide intelligent suggestions, and explain their reasoning—just like having expert reviewers on your team.
+Unlike traditional static analysis tools that apply rigid rules, Cerberus uses multiple specialized AI agents that understand context, provide intelligent suggestions, and explain their reasoning—just like having expert reviewers on your team.
 
 **Key Benefits:**
 - **Automated Expert Review**: Get security, performance, and quality insights automatically
@@ -39,7 +39,7 @@ Unlike traditional static analysis tools that apply rigid rules, CodeVault AI us
 
 ## What is cerberus</>?
 
-cerberus</> (project codename: CodeVault AI) is an autonomous **enterprise multi-agent code review orchestration platform** that analyzes source code across 5 specialized perspectives simultaneously:
+cerberus</> (project codename: Cerberus) is an autonomous **enterprise multi-agent code review orchestration platform** that analyzes source code across 5 specialized perspectives simultaneously:
 
 1. **Security Agent** — Detects injection flaws (CWE-89, CWE-78), hardcoded secrets (CWE-798), weak cryptography, and computes CVSS 3.1 severity scores.
 2. **Performance Agent** — Identifies quadratic O(n²) loops, database N+1 queries, string concatenation memory churn, and calculates latency savings.
@@ -451,12 +451,12 @@ class LLMProvider(ABC):
 #### Prometheus Metrics
 
 **Key Metrics Collected:**
-- `codevault_review_total` - Total reviews processed
-- `codevault_review_duration_seconds` - Review latency
-- `codevault_agent_execution_seconds` - Per-agent execution time
-- `codevault_llm_tokens_total` - Token usage by provider
-- `codevault_cache_hit_rate` - Cache effectiveness
-- `codevault_errors_total` - Error rate by type
+- `cerberus_review_total` - Total reviews processed
+- `cerberus_review_duration_seconds` - Review latency
+- `cerberus_agent_execution_seconds` - Per-agent execution time
+- `cerberus_llm_tokens_total` - Token usage by provider
+- `cerberus_cache_hit_rate` - Cache effectiveness
+- `cerberus_errors_total` - Error rate by type
 
 #### Structured Logging
 
@@ -491,7 +491,7 @@ Developer commits code
         ↓
 Git pre-commit hook triggered
         ↓
-Hook invokes CodeVault CLI
+Hook invokes Cerberus CLI
         ↓
 CLI sends HTTP POST to /api/v1/review
         ↓
@@ -668,18 +668,18 @@ def compute_cache_key(self, code: str, language: str = "python", agents: Optiona
 │  │     Docker Compose           │    │
 │  │                              │    │
 │  │  ┌─────────────────────┐    │    │
-│  │  │  codevault-api      │    │    │
+│  │  │  cerberus-api      │    │    │
 │  │  │  (FastAPI)          │    │    │
 │  │  │  Port: 8000         │    │    │
 │  │  └──────────┬──────────┘    │    │
 │  │             │                │    │
 │  │  ┌──────────┴──────────┐    │    │
-│  │  │  codevault-redis    │    │    │
+│  │  │  cerberus-redis    │    │    │
 │  │  │  Port: 6379         │    │    │
 │  │  └─────────────────────┘    │    │
 │  │             │                │    │
 │  │  ┌──────────┴──────────┐    │    │
-│  │  │  codevault-db       │    │    │
+│  │  │  cerberus-db       │    │    │
 │  │  │  (PostgreSQL)       │    │    │
 │  │  │  Port: 5432         │    │    │
 │  │  └─────────────────────┘    │    │
@@ -724,7 +724,7 @@ def compute_cache_key(self, code: str, language: str = "python", agents: Optiona
 │  │         ECS Fargate Cluster                │   │
 │  │                                            │   │
 │  │  ┌──────────────────────────────────┐    │   │
-│  │  │  CodeVault API (3 tasks)         │    │   │
+│  │  │  Cerberus API (3 tasks)         │    │   │
 │  │  │  - Auto-scaling 1-10 tasks       │    │   │
 │  │  │  - CPU/Memory limits             │    │   │
 │  │  └──────────────┬───────────────────┘    │   │
@@ -771,7 +771,7 @@ def compute_cache_key(self, code: str, language: str = "python", agents: Optiona
 │  └───────────────────┬────────────────────────┘   │
 │                      │                             │
 │  ┌───────────────────┴────────────────────────┐   │
-│  │     Namespace: codevault                   │   │
+│  │     Namespace: cerberus                   │   │
 │  │                                            │   │
 │  │  ┌──────────────────────────────────┐    │   │
 │  │  │  Deployment: api (3 replicas)    │    │   │
@@ -781,7 +781,7 @@ def compute_cache_key(self, code: str, language: str = "python", agents: Optiona
 │  │  └──────────────┬───────────────────┘    │   │
 │  │                 │                         │   │
 │  │  ┌──────────────┴───────────────────┐    │   │
-│  │  │  Service: codevault-api          │    │   │
+│  │  │  Service: cerberus-api          │    │   │
 │  │  │  Type: ClusterIP                 │    │   │
 │  │  └──────────────────────────────────┘    │   │
 │  │                 │                         │   │
@@ -975,7 +975,7 @@ def compute_cache_key(self, code: str, language: str = "python", agents: Optiona
 ### File Structure Overview
 
 ```
-codevault-ai/
+cerberus-ai/
 ├── api/                    # FastAPI application
 │   ├── routes/            # API endpoints
 │   ├── middleware/        # Auth, rate limiting, etc.
@@ -1007,10 +1007,10 @@ codevault-ai/
 
 ## Next Steps
 
-Now that you understand the high-level architecture of CodeVault AI, here's where to go next:
+Now that you understand the high-level architecture of Cerberus, here's where to go next:
 
 ### For Developers Getting Started
-👉 **[Installation & Setup Guide](04-installation-setup.md)** - Get CodeVault AI running in 5 minutes
+👉 **[Installation & Setup Guide](04-installation-setup.md)** - Get Cerberus running in 5 minutes
 
 ### For Understanding the API
 👉 **[API Reference](02-api-reference.md)** - Complete REST API documentation with examples
@@ -1034,7 +1034,7 @@ Now that you understand the high-level architecture of CodeVault AI, here's wher
 
 **Version**: 0.1.0  
 **Last Updated**: September 21, 2026  
-**Maintained By**: CodeVault AI Team  
+**Maintained By**: Cerberus Team
 **License**: MIT  
 
 **Related Documents**:
@@ -1042,8 +1042,8 @@ Now that you understand the high-level architecture of CodeVault AI, here's wher
 - [Installation Guide](04-installation-setup.md)
 - [FAQ](FAQ.md)
 
-**Feedback**: Found an error or have suggestions? [Open an issue](https://github.com/codevault-ai/codevault/issues) or contribute to the docs!
+**Feedback**: Found an error or have suggestions? [Open an issue](https://github.com/cerberus-ai/cerberus/issues) or contribute to the docs!
 
 ---
 
-*CodeVault AI - Intelligent Code Review for Modern Developers*
+*Cerberus - Intelligent Code Review for Modern Developers*

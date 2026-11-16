@@ -129,6 +129,23 @@ class Settings(BaseSettings):
     MAX_CONCURRENT_BATCH_REVIEWS: int = 5
     MAX_BATCH_SIZE: int = 100
 
+    # OpenTelemetry Distributed Tracing
+    ENABLE_TRACING: bool = False
+    OTLP_ENDPOINT: str = "http://localhost:4317"
+
+    # Rate Limiting (Per-Key)
+    ENABLE_PER_KEY_RATE_LIMITS: bool = True
+    RATE_LIMIT_FREE_TIER: int = 100  # requests per hour
+    RATE_LIMIT_PRO_TIER: int = 1000
+    RATE_LIMIT_ENTERPRISE_TIER: int = 10000
+
+    # OAuth2 / OIDC Authentication
+    ENABLE_OAUTH: bool = False
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    GITHUB_OAUTH_CLIENT_ID: Optional[str] = None
+    GITHUB_OAUTH_CLIENT_SECRET: Optional[str] = None
+
     @property
     def cors_origins_list(self) -> List[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

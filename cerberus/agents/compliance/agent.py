@@ -229,7 +229,7 @@ class ComprehensiveComplianceAgent(BaseAgent):
                         heuristic_score=report.overall_compliance_score,
                     )
             except Exception as e:
-                logger.warning(f"ComplianceAgent LLM analysis failed; falling back to heuristic engine: {e}")
+                logger.warning("ComplianceAgent LLM analysis failed; falling back to heuristic engine: %s", e)
 
         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
 

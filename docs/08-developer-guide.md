@@ -1,4 +1,4 @@
-# CodeVault AI - Developer & Contributing Guide
+# Cerberus - Developer & Contributing Guide
 
 **Version:** 0.1.0  
 **Last Updated:** September 21, 2026
@@ -24,7 +24,7 @@
 ### Repository Structure
 
 ```
-codevault-ai/
+cerberus-ai/
 ├── api/                        # FastAPI application
 │   ├── routes/                # API endpoint handlers
 │   │   ├── review.py         # Review endpoints
@@ -113,8 +113,8 @@ codevault-ai/
 **1. Clone Repository:**
 
 ```bash
-git clone https://github.com/codevault-ai/codevault.git
-cd codevault
+git clone https://github.com/cerberus-ai/cerberus.git
+cd cerberus
 ```
 
 **2. Create Virtual Environment:**
@@ -891,7 +891,7 @@ Closes #123
 
 ```python
 # Register webhook handler
-@app.post("/webhooks/codevault")
+@app.post("/webhooks/cerberus")
 async def handle_webhook(event: WebhookEvent):
     if event.event_type == "review.completed":
         # Process completed review
@@ -942,19 +942,19 @@ async def on_review_complete(review_result):
 
 ### 2. VS Code Extension
 
-IDE integration for CodeVault AI.
+IDE integration for Cerberus.
 
 ```typescript
 // examples/vscode-extension/extension.ts
 export function activate(context: vscode.ExtensionContext) {
     let disposable = vscode.commands.registerCommand(
-        'codevault.reviewFile',
+        'cerberus.reviewFile',
         async () => {
             const editor = vscode.window.activeTextEditor;
             if (!editor) return;
             
             const code = editor.document.getText();
-            const result = await codevaultClient.review(code);
+            const result = await cerberusClient.review(code);
             
             showResults(result);
         }
@@ -968,7 +968,7 @@ GitHub Actions integration.
 
 ```yaml
 # examples/github-action/action.yml
-name: 'CodeVault AI Review'
+name: 'Cerberus Review'
 runs:
   using: 'node16'
   main: 'index.js'
@@ -988,4 +988,4 @@ inputs:
 
 ---
 
-*CodeVault AI Developer Guide - v0.1.0*
+*Cerberus Developer Guide - v0.1.0*

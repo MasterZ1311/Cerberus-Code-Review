@@ -254,19 +254,19 @@ def extract_code_from_zip(
 
             # Security check: Symlink rejection
             if is_symlink_entry(info):
-                logger.warning(f"Rejected symbolic link entry in zip archive: {arcname}")
+                logger.warning("Rejected symbolic link entry in zip archive: %s", arcname)
                 skipped_files.append(f"{arcname} (rejected symlink)")
                 continue
 
             # Security check: Zip Slip traversal & nesting depth
             if not is_safe_zip_path(arcname):
-                logger.warning(f"Rejected potentially malicious zip entry (Zip Slip): {arcname}")
+                logger.warning("Rejected potentially malicious zip entry (Zip Slip): %s", arcname)
                 skipped_files.append(f"Skipped {arcname}: unsafe path")
                 continue
 
             # Security check: Duplicate entry rejection
             if arcname in seen_entries:
-                logger.warning(f"Skipping duplicate zip entry: {arcname}")
+                logger.warning("Skipping duplicate zip entry: %s", arcname)
                 skipped_files.append(f"{arcname} (duplicate entry)")
                 continue
             seen_entries.add(arcname)
@@ -284,7 +284,7 @@ def extract_code_from_zip(
 
             # Security check: Header declared single file size cap
             if info.file_size > MAX_SINGLE_FILE_BYTES:
-                logger.warning(f"Skipping oversized file {arcname} ({info.file_size} bytes)")
+                logger.warning("Skipping oversized file %s (%s bytes)", arcname, info.file_size)
                 skipped_files.append(f"{arcname} (exceeds single file size limit)")
                 continue
 
@@ -301,7 +301,9 @@ def extract_code_from_zip(
                         accumulated_bytes += len(chunk)
                         if current_file_bytes > MAX_SINGLE_FILE_BYTES:
                             logger.warning(
-                                f"File {arcname} exceeded single file limit during extraction ({current_file_bytes} bytes)"
+                                "File %s exceeded single file limit during extraction (%s bytes)",
+                                arcname,
+                                current_file_bytes,
                             )
                             break
                         if accumulated_bytes > max_total_bytes:
@@ -342,11 +344,11 @@ def extract_code_from_zip(
                 lang_dist[lang] = lang_dist.get(lang, 0) + 1
 
                 if len(extracted_files) >= max_files:
-                    logger.info(f"Reached maximum code file cap ({max_files}). Remaining files skipped.")
+                    logger.info("Reached maximum code file cap (%s). Remaining files skipped.", max_files)
                     break
 
             except Exception as e:
-                logger.warning(f"Error reading zip file entry {arcname}: {e}")
+                logger.warning("Error reading zip file entry %s: %s", arcname, e)
                 skipped_files.append(f"{arcname} (read error: {e})")
 
     return ZipExtractionResult(

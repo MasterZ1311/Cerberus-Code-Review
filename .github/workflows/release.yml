@@ -13,15 +13,14 @@ on:
         default: false
 
 permissions:
-  contents: write
-  packages: write
-  id-token: write
+  contents: read
 
 jobs:
-  release-publish:
-    name: Build, Sign & Release Cerberus Container Image
+  quality-gates:
+    name: Mandatory Quality Gates & Verification
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish == true)
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -32,10 +31,118 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - name: Install Release Tooling
+      - name: Install CI & Runtime Tooling with Strict Hash Enforcement
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-ci-tools.txt
+          pip install --require-hashes -r requirements-ci-tools-lock.txt
+          pip install --require-hashes -r requirements-lock.txt
+          pip install --no-deps -e .
+
+      - name: Verify Environment Dependency Tree
+        run: |
+          pip check
+
+      - name: Lint and Format Verification
+        run: |
+          ruff check cerberus/
+          ruff format --check cerberus/
+
+      - name: Static Type Verification
+        run: |
+          mypy cerberus/
+
+      - name: Static Application Security Testing (SAST)
+        run: |
+          bandit -r cerberus/ -c pyproject.toml
+
+      - name: Install Semgrep in Isolated Environment
+        run: |
+          pipx install semgrep==1.185.0
+
+      - name: Semgrep Policy Security Scan
+        run: |
+          semgrep scan --config semgrep.yaml --error cerberus/
+
+      - name: Supply Chain Lockfile Drift & Hash Enforcement
+        run: |
+          python scripts/check_lockfile_drift.py --check-regen
+
+      - name: Security Exceptions Policy Verification
+        run: |
+          python scripts/verify_security_exceptions.py --file .trivyignore
+
+      - name: Documentation Secret & Domain Hygiene
+        run: |
+          python scripts/check_doc_secrets.py
+
+      - name: Dependency Vulnerability Audit (Runtime & CI Tools)
+        run: |
+          pip-audit -r requirements-lock.txt
+          pip-audit -r requirements-ci-tools-lock.txt
+
+      - name: Full Test Suite & Branch Coverage Gate (>=85%)
+        env:
+          ENVIRONMENT: testing
+          LLM_PROVIDER: heuristic
+          PYTHONPATH: .
+        run: |
+          pytest tests/ -v --cov=cerberus --cov-branch --cov-report=term-missing --cov-fail-under=85
+
+      - name: Set up kubectl & Kustomize
+        uses: azure/setup-kubectl@3e0c5de189cb6a6bc373ec7303570743e339e070 # v4.0.0
+
+      - name: Validate Kustomize Build
+        run: |
+          kubectl kustomize k8s/
+
+      - name: Validate Kubernetes Manifests (Dry-Run Apply)
+        run: |
+          kubectl apply --dry-run=client -k k8s/
+
+      - name: Install kubeconform
+        run: |
+          curl -sL https://github.com/yannh/kubeconform/releases/download/v0.6.7/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Validate Manifests with kubeconform
+        run: |
+          kubectl kustomize k8s/ | kubeconform -strict -summary -kubernetes-version 1.30.0 -
+
+      - name: Validate Secret Bootstrapper
+        run: |
+          python scripts/bootstrap_k8s_secrets.py --output /tmp/cerberus-secrets.yaml
+          test -s /tmp/cerberus-secrets.yaml
+
+      - name: Validate Kubernetes Image Pinning
+        run: |
+          python scripts/validate_k8s_image_pinning.py
+
+  release-publish:
+    name: Build, Verify, Sign & Release Container Image
+    runs-on: ubuntu-latest
+    needs: [quality-gates]
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publish == true)
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@0b93645e9fea7318edeed2796c01d3ab981bc87a # v5.3.0
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Release Tooling with Hash Enforcement
+        run: |
+          python -m pip install --upgrade pip
+          pip install --require-hashes -r requirements-ci-tools-lock.txt
+          pip install --require-hashes -r requirements-lock.txt
+          pip install --no-deps -e .
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
@@ -60,15 +167,63 @@ jobs:
           echo "tag_version=${IMAGE_NAME}:${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag_latest=${IMAGE_NAME}:latest" >> "$GITHUB_OUTPUT"
 
-      - name: Build and Push Cerberus Application Image
-        id: build_push
+      # Pre-Publish Step 1: Build candidate image once locally (NOT pushed to registry yet)
+      - name: Build Application Image Locally (Candidate)
         uses: docker/build-push-action@4f58ea79222b3b150c895db3437bb9ee1834d5b4 # v6.9.0
         with:
           context: .
-          push: true
+          load: true
+          push: false
           tags: |
+            cerberus-ai:candidate
             ${{ steps.meta.outputs.tag_version }}
             ${{ steps.meta.outputs.tag_latest }}
+
+      # Pre-Publish Step 2: Trivy container vulnerability scan (blocks on HIGH/CRITICAL)
+      - name: Scan Candidate Container Image (Trivy)
+        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # v0.29.0
+        with:
+          image-ref: 'cerberus-ai:candidate'
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+          trivyignores: '.trivyignore'
+
+      # Pre-Publish Step 3: Docker Compose startup/auth/readiness smoke test using candidate image
+      - name: Real Docker Compose Startup Smoke Test
+        env:
+          SECRET_KEY: cerberus_dev_secret_key_change_in_production_32chars
+          DB_PASSWORD: cerberus_dev_password_do_not_use_in_prod
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+          echo "Waiting for services to become healthy..."
+          timeout 90 bash -c 'until curl -sf http://localhost:8000/api/v1/ready; do sleep 2; done' || (docker compose -f docker-compose.yml -f docker-compose.dev.yml logs --tail=200 && exit 1)
+          echo "Service is ready! Verifying authentication..."
+          HTTP_ANON=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/review -X POST -H "Content-Type: application/json" -d '{"code":"x=1"}')
+          [ "$HTTP_ANON" -eq 401 ]
+          HTTP_AUTH=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/v1/review -X POST -H "Content-Type: application/json" -H "Authorization: Bearer cvai_dev_key_123" -d '{"code":"x=1","filename":"test.py","language":"python"}')
+          [ "$HTTP_AUTH" -eq 200 ]
+          echo "Clean shutdown of Compose services..."
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v
+
+      # Pre-Publish Step 4: Deployment smoke suite execution
+      - name: Execute Deployment Smoke Test Suite
+        run: |
+          python scripts/test_deployment_smoke.py
+
+      # Verification Passed: Push exact verified candidate image to GHCR
+      - name: Push Verified Container Image to Registry
+        id: push_image
+        run: |
+          docker push "${{ steps.meta.outputs.tag_version }}"
+          docker push "${{ steps.meta.outputs.tag_latest }}"
+          PUSHED_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "${{ steps.meta.outputs.tag_version }}" | awk -F'@' '{print $2}')
+          if [ -z "$PUSHED_DIGEST" ]; then
+            echo "ERROR: Failed to capture repository digest after push" >&2
+            exit 1
+          fi
+          echo "digest=${PUSHED_DIGEST}" >> "$GITHUB_OUTPUT"
+          echo "Successfully pushed verified image with digest: ${PUSHED_DIGEST}"
 
       - name: Install Cosign for Keyless OIDC Signing
         uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
@@ -77,12 +232,12 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: "1"
         run: |
-          cosign sign --yes "${{ steps.meta.outputs.image_name }}@${{ steps.build_push.outputs.digest }}"
+          cosign sign --yes "${{ steps.meta.outputs.image_name }}@${{ steps.push_image.outputs.digest }}"
 
       - name: Verify Cosign Signature
         run: |
           cosign verify \
-            "${{ steps.meta.outputs.image_name }}@${{ steps.build_push.outputs.digest }}" \
+            "${{ steps.meta.outputs.image_name }}@${{ steps.push_image.outputs.digest }}" \
             --certificate-identity-regexp="https://github.com/${{ github.repository_owner }}/.*" \
             --certificate-oidc-issuer="https://token.actions.githubusercontent.com"
 
@@ -90,7 +245,7 @@ jobs:
         uses: actions/attest-build-provenance@c074443f1a5fb4a4829735d6778f65e648f58356 # v2.1.0
         with:
           subject-name: ${{ steps.meta.outputs.image_name }}
-          subject-digest: ${{ steps.build_push.outputs.digest }}
+          subject-digest: ${{ steps.push_image.outputs.digest }}
           push-to-registry: true
 
       - name: Update Production Overlay Image Digest
@@ -98,23 +253,50 @@ jobs:
           python scripts/update_k8s_image_digest.py \
             --kustomization k8s/overlays/production/kustomization.yaml \
             --image cerberus-ai \
-            --digest "${{ steps.build_push.outputs.digest }}"
+            --digest "${{ steps.push_image.outputs.digest }}"
 
-      - name: Validate Kubernetes Image Pinning
+      - name: Validate Kubernetes Production Image Pinning
         run: |
-          python scripts/validate_k8s_image_pinning.py --file k8s/overlays/production/kustomization.yaml
+          python scripts/validate_k8s_image_pinning.py \
+            --file k8s/overlays/production/kustomization.yaml \
+            --production
 
-      - name: Render Production Kubernetes Manifests
+      - name: Set up kubectl for Kustomize Rendering
         uses: azure/setup-kubectl@3e0c5de189cb6a6bc373ec7303570743e339e070 # v4.0.0
 
-      - name: Build & Package Release Manifest Artifact
+      - name: Render Production Kubernetes Manifests & Checksum
         run: |
           mkdir -p release-dist
           kubectl kustomize k8s/overlays/production/ > release-dist/cerberus-production-manifests.yaml
+          sha256sum release-dist/cerberus-production-manifests.yaml > release-dist/cerberus-production-manifests.yaml.sha256
 
-      - name: Upload Release Kubernetes Artifact
+      - name: Validate Rendered Production Release Artifact with Gatekeeper
+        run: |
+          python scripts/deploy_production.py --target release-dist/cerberus-production-manifests.yaml
+
+      - name: Upload Release Manifests as Workflow Artifact
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         with:
           name: cerberus-production-k8s-manifests
-          path: release-dist/cerberus-production-manifests.yaml
+          path: |
+            release-dist/cerberus-production-manifests.yaml
+            release-dist/cerberus-production-manifests.yaml.sha256
           retention-days: 90
+
+      - name: Publish Rendered Manifests to GitHub Release Asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.meta.outputs.version }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              release-dist/cerberus-production-manifests.yaml \
+              release-dist/cerberus-production-manifests.yaml.sha256 \
+              --clobber
+          else
+            gh release create "$TAG" \
+              release-dist/cerberus-production-manifests.yaml \
+              release-dist/cerberus-production-manifests.yaml.sha256 \
+              --title "Release $TAG" \
+              --notes "Production-grade release $TAG with keyless Cosign signature and digest-pinned Kubernetes deployment manifests."
+          fi

@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  cerberus-dev:
+    image: mcr.microsoft.com/devcontainers/python:3.11-bookworm
+    volumes:
+      - ..:/workspace:cached
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=sqlite+aiosqlite:////workspace/cerberus.db
+      - REDIS_URL=redis://redis:6379/0
+      - LLM_PROVIDER=heuristic
+    ports:
+      - "8000:8000"
+    command: sleep infinity
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7.2-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"

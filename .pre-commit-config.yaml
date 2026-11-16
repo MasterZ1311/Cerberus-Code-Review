@@ -1,0 +1,43 @@
+# =========================================================================
+# Cerberus Pre-Commit Hook Configuration
+# Enforces formatting, linting, type-safety, and security scanning on commit
+# =========================================================================
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        exclude: ^k8s/
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: check-ast
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - pydantic>=2.6.0
+          - types-PyYAML>=6.0.12
+          - types-requests>=2.31.0
+        args: [--config-file=pyproject.toml]
+        exclude: ^(cerberus/web/|tests/|demo/|assets/)
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.8
+    hooks:
+      - id: bandit
+        args: [-c, pyproject.toml, -r, cerberus/]

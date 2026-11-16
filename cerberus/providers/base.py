@@ -55,8 +55,9 @@ class CircuitBreaker:
         if self.failure_count >= self.failure_threshold:
             self.state = CircuitState.OPEN
             logger.warning(
-                f"Circuit breaker tripped to OPEN state after {self.failure_count} consecutive failures. "
-                f"Fast-failing cloud calls for {self.recovery_timeout}s to fallback to Heuristic Engine."
+                "Circuit breaker tripped to OPEN state after %s consecutive failures. Fast-failing cloud calls for %ss to fallback to Heuristic Engine.",
+                self.failure_count,
+                self.recovery_timeout,
             )
 
 
@@ -104,7 +105,10 @@ class BaseLLMProvider(ABC):
                         return res
                     elif res.status_code in (429, 502, 503, 504) and attempt < max_retries:
                         logger.warning(
-                            f"Provider returned HTTP {res.status_code} on attempt {attempt + 1}. Retrying in {delay}s..."
+                            "Provider returned HTTP %s on attempt %s. Retrying in %ss...",
+                            res.status_code,
+                            attempt + 1,
+                            delay,
                         )
                         await asyncio.sleep(delay)
                         delay *= 2.0
@@ -116,16 +120,18 @@ class BaseLLMProvider(ABC):
                 return res
             except (httpx.TimeoutException, httpx.NetworkError) as exc:
                 if attempt < max_retries:
-                    logger.warning(f"Transient network error ({exc}) on attempt {attempt + 1}. Retrying in {delay}s...")
+                    logger.warning(
+                        "Transient network error (%s) on attempt %s. Retrying in %ss...", exc, attempt + 1, delay
+                    )
                     await asyncio.sleep(delay)
                     delay *= 2.0
                 else:
                     self.circuit_breaker.record_failure()
-                    logger.warning(f"Remote LLM request failed after {max_retries + 1} attempts: {exc}")
+                    logger.warning("Remote LLM request failed after %s attempts: %s", max_retries + 1, exc)
                     return None
             except Exception as e:
                 self.circuit_breaker.record_failure()
-                logger.warning(f"Unexpected provider error: {e}")
+                logger.warning("Unexpected provider error: %s", e)
                 return None
         return None
 

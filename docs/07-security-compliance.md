@@ -1,4 +1,4 @@
-# CodeVault AI - Security & Compliance Guide
+# Cerberus - Security & Compliance Guide
 
 **Version:** 0.1.0  
 **Last Updated:** September 21, 2026
@@ -50,7 +50,7 @@ scopes = [
 ]
 
 # Creating scoped keys
-codevault-cli create-api-key \
+cerberus-cli create-api-key \
   --name "ci-cd-key" \
   --scopes "review:read,review:write"
 ```
@@ -63,11 +63,11 @@ codevault-cli create-api-key \
 # nginx.conf
 server {
     listen 443 ssl http2;
-    server_name api.codevault.example.com;
+    server_name api.cerberus.example.com;
     
     # SSL certificates
-    ssl_certificate /etc/ssl/certs/codevault.crt;
-    ssl_certificate_key /etc/ssl/private/codevault.key;
+    ssl_certificate /etc/ssl/certs/cerberus.crt;
+    ssl_certificate_key /etc/ssl/private/cerberus.key;
     
     # Strong SSL configuration
     ssl_protocols TLSv1.2 TLSv1.3;
@@ -81,7 +81,7 @@ server {
     add_header X-XSS-Protection "1; mode=block" always;
     
     location / {
-        proxy_pass http://codevault-api:8000;
+        proxy_pass http://cerberus-api:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -142,7 +142,7 @@ client.auth.approle.login(
 
 # Read secrets
 openai_key = client.secrets.kv.v2.read_secret_version(
-    path='codevault/openai'
+    path='cerberus/openai'
 )['data']['data']['api_key']
 ```
 
@@ -152,7 +152,7 @@ openai_key = client.secrets.kv.v2.read_secret_version(
 import boto3
 
 secrets = boto3.client('secretsmanager', region_name='us-east-1')
-response = secrets.get_secret_value(SecretId='codevault/openai-key')
+response = secrets.get_secret_value(SecretId='cerberus/openai-key')
 openai_key = response['SecretString']
 ```
 
@@ -238,13 +238,13 @@ security:
 
 ```bash
 # Right to access
-codevault-cli user export --user-id user_123 --format json
+cerberus-cli user export --user-id user_123 --format json
 
 # Right to deletion
-codevault-cli user delete --user-id user_123 --confirm
+cerberus-cli user delete --user-id user_123 --confirm
 
 # Right to portability
-codevault-cli user export --user-id user_123 --format csv
+cerberus-cli user export --user-id user_123 --format csv
 ```
 
 **Consent Management:**
@@ -336,10 +336,10 @@ def encrypt_code(code: str, key: bytes) -> str:
 FROM python:3.11-slim
 
 # Create non-root user
-RUN useradd -m -u 1000 codevault && \
-    chown -R codevault:codevault /app
+RUN useradd -m -u 1000 cerberus && \
+    chown -R cerberus:cerberus /app
 
-USER codevault
+USER cerberus
 
 # Rest of Dockerfile...
 ```
@@ -385,7 +385,7 @@ services:
 apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
-  name: codevault-psp
+  name: cerberus-psp
 spec:
   privileged: false
   allowPrivilegeEscalation: false
@@ -413,11 +413,11 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: codevault-api-policy
+  name: cerberus-api-policy
 spec:
   podSelector:
     matchLabels:
-      app: codevault-api
+      app: cerberus-api
   policyTypes:
     - Ingress
     - Egress
@@ -488,7 +488,7 @@ pip-audit
 
 # Update Docker base images
 docker pull python:3.11-slim
-docker build -t codevault/api:latest .
+docker build -t cerberus/api:latest .
 ```
 
 ---
@@ -503,7 +503,7 @@ docker build -t codevault/api:latest .
 audit:
   enabled: true
   log_all_api_calls: true
-  log_file: "/var/log/codevault/audit.log"
+  log_file: "/var/log/cerberus/audit.log"
   
   # What to log
   events:
@@ -524,7 +524,7 @@ audit:
   "user_id": "user_123",
   "api_key_id": "key_abc",
   "ip_address": "192.168.1.100",
-  "user_agent": "codevault-cli/0.1.0",
+  "user_agent": "cerberus-cli/0.1.0",
   "resource": "review",
   "resource_id": "rev_xyz789",
   "action": "create",
@@ -559,8 +559,8 @@ CREATE TABLE audit_log (
 );
 
 -- Only INSERT allowed
-GRANT INSERT ON audit_log TO codevault_app;
-REVOKE UPDATE, DELETE ON audit_log FROM codevault_app;
+GRANT INSERT ON audit_log TO cerberus_app;
+REVOKE UPDATE, DELETE ON audit_log FROM cerberus_app;
 ```
 
 ### SOC 2 / ISO 27001 Considerations
@@ -603,16 +603,16 @@ OUTPUT_DIR="/compliance/evidence/$DATE"
 mkdir -p "$OUTPUT_DIR"
 
 # Access logs
-cp /var/log/codevault/audit.log "$OUTPUT_DIR/"
+cp /var/log/cerberus/audit.log "$OUTPUT_DIR/"
 
 # Configuration snapshot
-cp -r /etc/codevault/ "$OUTPUT_DIR/config/"
+cp -r /etc/cerberus/ "$OUTPUT_DIR/config/"
 
 # User access report
-codevault-cli users list --format csv > "$OUTPUT_DIR/users.csv"
+cerberus-cli users list --format csv > "$OUTPUT_DIR/users.csv"
 
 # API key audit
-codevault-cli api-keys audit --format csv > "$OUTPUT_DIR/api-keys.csv"
+cerberus-cli api-keys audit --format csv > "$OUTPUT_DIR/api-keys.csv"
 
 # Security scan results
 trivy fs --format json . > "$OUTPUT_DIR/vulnerability-scan.json"
@@ -640,16 +640,16 @@ tar -czf "/compliance/evidence-$DATE.tar.gz" "$OUTPUT_DIR"
 # Immediate actions for security breach:
 
 # 1. Revoke compromised API keys
-codevault-cli api-key revoke --key-id key_compromised
+cerberus-cli api-key revoke --key-id key_compromised
 
 # 2. Block suspicious IPs
 ufw deny from 1.2.3.4
 
 # 3. Enable stricter rate limiting
-codevault-cli config set rate_limit_per_hour 10
+cerberus-cli config set rate_limit_per_hour 10
 
 # 4. Rotate secrets if needed
-codevault-cli secrets rotate --all --force
+cerberus-cli secrets rotate --all --force
 ```
 
 **Phase 3: Eradication**
@@ -689,7 +689,7 @@ docker-compose restart
 **Notification Template:**
 
 ```
-Subject: Security Incident Notification - CodeVault AI
+Subject: Security Incident Notification - Cerberus
 
 Dear [User/Customer],
 
@@ -711,7 +711,7 @@ Actions Required by You:
 
 We apologize for this incident and are committed to preventing future occurrences.
 
-For questions: security@codevault.ai
+For questions: security@cerberus.ai
 ```
 
 ### Recovery Procedures
@@ -723,10 +723,10 @@ For questions: security@codevault.ai
 docker-compose stop api
 
 # Restore from backup
-docker-compose exec db psql -U codevault < /backups/codevault-latest.sql
+docker-compose exec db psql -U cerberus < /backups/cerberus-latest.sql
 
 # Verify integrity
-docker-compose exec db psql -U codevault -c "SELECT COUNT(*) FROM reviews;"
+docker-compose exec db psql -U cerberus -c "SELECT COUNT(*) FROM reviews;"
 
 # Restart services
 docker-compose start api
@@ -739,7 +739,7 @@ docker-compose start api
 git checkout main -- config/
 
 # Verify configuration
-codevault-cli config validate
+cerberus-cli config validate
 
 # Restart services
 docker-compose restart
@@ -814,4 +814,4 @@ docker-compose restart
 
 ---
 
-*CodeVault AI Security & Compliance Guide - v0.1.0*
+*Cerberus Security & Compliance Guide - v0.1.0*

@@ -1,4 +1,4 @@
-# CodeVault AI - Monitoring & Operations Guide
+# Cerberus - Monitoring & Operations Guide
 
 **Version:** 0.1.0  
 **Last Updated:** September 21, 2026
@@ -30,9 +30,9 @@ global:
   evaluation_interval: 15s
 
 scrape_configs:
-  - job_name: 'codevault-api'
+  - job_name: 'cerberus-api'
     static_configs:
-      - targets: ['codevault-api:8000']
+      - targets: ['cerberus-api:8000']
     metrics_path: '/metrics'
     
   - job_name: 'postgres'
@@ -213,13 +213,13 @@ clients:
   - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-  - job_name: codevault
+  - job_name: cerberus
     static_configs:
       - targets:
           - localhost
         labels:
-          job: codevault
-          __path__: /var/log/codevault/*.log
+          job: cerberus
+          __path__: /var/log/cerberus/*.log
 ```
 
 ---
@@ -252,7 +252,7 @@ curl http://localhost:8000/api/v1/health
 **check_database.sh:**
 ```bash
 #!/bin/bash
-docker-compose exec db pg_isready -U codevault
+docker-compose exec db pg_isready -U cerberus
 if [ $? -eq 0 ]; then
   echo "✅ Database is healthy"
 else
@@ -296,7 +296,7 @@ WEBHOOK_URL="https://your-monitoring-service.com/webhook"
 
 # Check all components
 API_HEALTH=$(curl -s http://localhost:8000/api/v1/health | jq -r '.status')
-DB_HEALTH=$(docker-compose exec -T db pg_isready -U codevault > /dev/null 2>&1 && echo "healthy" || echo "unhealthy")
+DB_HEALTH=$(docker-compose exec -T db pg_isready -U cerberus > /dev/null 2>&1 && echo "healthy" || echo "unhealthy")
 REDIS_HEALTH=$(docker-compose exec -T redis redis-cli ping > /dev/null 2>&1 && echo "healthy" || echo "unhealthy")
 
 if [ "$API_HEALTH" != "healthy" ] || [ "$DB_HEALTH" != "healthy" ] || [ "$REDIS_HEALTH" != "healthy" ]; then
@@ -304,7 +304,7 @@ if [ "$API_HEALTH" != "healthy" ] || [ "$DB_HEALTH" != "healthy" ] || [ "$REDIS_
   curl -X POST "$WEBHOOK_URL" \
     -H "Content-Type: application/json" \
     -d "{
-      \"alert\": \"CodeVault AI unhealthy\",
+      \"alert\": \"Cerberus unhealthy\",
       \"api\": \"$API_HEALTH\",
       \"database\": \"$DB_HEALTH\",
       \"redis\": \"$REDIS_HEALTH\"
@@ -331,14 +331,14 @@ curl -s "http://localhost:9090/api/v1/query?query=rate(cerberus_review_duration_
 curl -s http://localhost:8000/api/v1/health?detailed=true | jq '.components.llm_providers'
 
 # Check database performance
-docker-compose exec db psql -U codevault -c "SELECT * FROM pg_stat_activity;"
+docker-compose exec db psql -U cerberus -c "SELECT * FROM pg_stat_activity;"
 ```
 
 **Resolution:**
 1. Check LLM provider status and response times
 2. Increase cache TTL to improve hit rate
 3. Consider switching to faster LLM model (gpt-3.5-turbo)
-4. Scale up workers: `CODEVAULT_WORKERS=8`
+4. Scale up workers: `CERBERUS_WORKERS=8`
 5. Add database indexes if slow queries detected
 
 ### 2. LLM Connection Failures
@@ -376,10 +376,10 @@ print('API Key set:', bool(os.getenv('OPENAI_API_KEY')))
 **Diagnosis:**
 ```bash
 # Check active connections
-docker-compose exec db psql -U codevault -c "
-SELECT count(*) as connections, state 
-FROM pg_stat_activity 
-WHERE datname='codevault' 
+docker-compose exec db psql -U cerberus -c "
+SELECT count(*) as connections, state
+FROM pg_stat_activity
+WHERE datname='cerberus'
 GROUP BY state;
 "
 ```
@@ -456,7 +456,7 @@ curl http://localhost:8000/api/v1/health
 
 **Resolution:**
 1. Ensure hook is executable: `chmod +x .git/hooks/pre-commit`
-2. Verify `CODEVAULT_API_KEY` environment variable set
+2. Verify `CERBERUS_API_KEY` environment variable set
 3. Check API URL in hook matches running instance
 4. Test with `--no-verify` to isolate issue
 
@@ -469,7 +469,7 @@ curl http://localhost:8000/api/v1/health
 **Diagnosis:**
 ```bash
 # Check container memory usage
-docker stats codevault-api
+docker stats cerberus-api
 
 # Check system memory
 free -h
@@ -561,7 +561,7 @@ VACUUM ANALYZE;
 **2. Cache Cleanup:**
 ```bash
 # Clear stale cache entries
-docker-compose exec redis redis-cli --scan --pattern "codevault:review:*" | \
+docker-compose exec redis redis-cli --scan --pattern "cerberus:review:*" | \
   xargs -L 1 docker-compose exec -T redis redis-cli TTL | \
   awk '$1 == -1 {print $0}' | \
   xargs -L 1 docker-compose exec -T redis redis-cli DEL
@@ -570,7 +570,7 @@ docker-compose exec redis redis-cli --scan --pattern "codevault:review:*" | \
 **3. Log Rotation:**
 ```bash
 # Rotate logs
-docker-compose exec api python -m codevault.cli rotate-logs --keep 30
+docker-compose exec api python -m cerberus.cli rotate-logs --keep 30
 ```
 
 ### Monthly Tasks
@@ -580,13 +580,13 @@ docker-compose exec api python -m codevault.cli rotate-logs --keep 30
 #!/bin/bash
 # monthly-backup.sh
 
-BACKUP_DIR="/backups/codevault"
+BACKUP_DIR="/backups/cerberus"
 DATE=$(date +%Y%m%d)
 
 mkdir -p "$BACKUP_DIR"
 
 # Backup database
-docker-compose exec -T db pg_dump -U codevault codevault | gzip > "$BACKUP_DIR/codevault-$DATE.sql.gz"
+docker-compose exec -T db pg_dump -U cerberus cerberus | gzip > "$BACKUP_DIR/cerberus-$DATE.sql.gz"
 
 # Backup configuration
 cp -r config "$BACKUP_DIR/config-$DATE"
@@ -738,7 +738,7 @@ receivers:
   - name: 'slack'
     slack_configs:
       - api_url: 'https://hooks.slack.com/services/YOUR/WEBHOOK/URL'
-        channel: '#codevault-alerts'
+        channel: '#cerberus-alerts'
 ```
 
 **Email:**
@@ -767,4 +767,4 @@ receivers:
 
 ---
 
-*CodeVault AI Monitoring & Operations Guide - v0.1.0*
+*Cerberus Monitoring & Operations Guide - v0.1.0*

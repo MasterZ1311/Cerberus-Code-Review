@@ -4,11 +4,13 @@ kind: Kustomization
 resources:
   - ../../
 
-# Production release overlay
-# Upon an explicitly authorized release/publish workflow, the captured application digest
-# is dynamically pinned here:
-#   python scripts/update_k8s_image_digest.py --kustomization k8s/overlays/production/kustomization.yaml --digest <sha256>
+# Production Release Overlay Template
+# NOTE: This source overlay is a template for the CI/CD release pipeline. Direct production deployment
+# from this unpinned file is strictly forbidden and rejected by deployment tooling.
+# The release workflow automatically injects the verified application image digest via:
+#   python scripts/update_k8s_image_digest.py --kustomization k8s/overlays/production/kustomization.yaml --image cerberus-ai --digest sha256:...
+# and outputs the final immutable release artifact: release-dist/cerberus-production-manifests.yaml
 images:
   - name: cerberus-ai
     newName: ghcr.io/cerberus-ai/cerberus-ai
-    newTag: "0.1.0"
+    newTag: "template-unpinned-requires-release-digest"

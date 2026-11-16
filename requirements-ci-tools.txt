@@ -4,6 +4,5 @@ pip-tools==7.7.0
 ruff==0.17.5
 mypy==2.4.1
 bandit==1.9.4
-semgrep==1.185.0
 pip-audit==2.10.1
 cyclonedx-bom==8.0.1
