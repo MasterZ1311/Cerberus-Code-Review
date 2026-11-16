@@ -175,8 +175,14 @@ def verify_regeneration_diff(req_file: Path, lock_file: Path, allow_unsafe: bool
         committed_reqs = parse_requirements(lock_file)
         generated_reqs = parse_requirements(Path(tf.name))
 
+        # Platform-conditional dependencies (e.g. colorama on Windows, uvloop on Unix)
+        # may differ between generation platform and verification runner platform.
+        platform_conditional_pkgs = {"colorama", "uvloop"}
+
         diff_pkgs: List[str] = []
         for pkg, ver in generated_reqs.items():
+            if pkg in platform_conditional_pkgs and pkg not in committed_reqs:
+                continue
             if pkg not in committed_reqs:
                 diff_pkgs.append(f"Newly resolved package '{pkg}=={ver}' is not in committed {lock_file.name}")
             elif committed_reqs[pkg] != ver:
@@ -184,6 +190,8 @@ def verify_regeneration_diff(req_file: Path, lock_file: Path, allow_unsafe: bool
                     f"Version mismatch for '{pkg}': committed '{committed_reqs[pkg]}' vs newly resolved '{ver}'"
                 )
         for pkg, ver in committed_reqs.items():
+            if pkg in platform_conditional_pkgs and pkg not in generated_reqs:
+                continue
             if pkg not in generated_reqs:
                 diff_pkgs.append(f"Committed package '{pkg}=={ver}' was not resolved by pip-compile")
 
