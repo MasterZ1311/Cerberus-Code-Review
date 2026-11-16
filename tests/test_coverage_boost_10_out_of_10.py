@@ -44,6 +44,7 @@ from cerberus.providers.heuristic_engine import HeuristicEngine
 # 1. Polyglot Static Analysis Tests: Kotlin & Swift
 # =========================================================================
 
+
 def test_kotlin_security_analysis_vulnerabilities():
     """Verify Kotlin security analyzer flags SQLi, weak random, SSL bypass, secrets, and world-readable prefs."""
     vuln_code = """
@@ -140,6 +141,7 @@ def test_swift_security_analysis_clean_code():
 # 2. JWT Authentication Deep Coverage Tests
 # =========================================================================
 
+
 def test_jwt_manager_scopes_as_collections():
     """Test generating tokens with list, set, and string scopes."""
     mgr = JWTManager(secret_key="test_secret_key_123456789012345678901234")
@@ -205,6 +207,7 @@ def test_jwt_manager_future_nbf():
 # =========================================================================
 # 3. Plugin Architecture Full Lifecycle & Error Recovery
 # =========================================================================
+
 
 class FaultyPlugin(BasePlugin):
     name = "faulty_plugin"
@@ -305,6 +308,7 @@ async def test_plugin_lifecycle_and_error_handling():
 # 4. Multi-Tenant Quotas: December Reset & Invalid Tiers
 # =========================================================================
 
+
 @pytest.mark.asyncio
 async def test_quota_manager_december_rollover_and_invalid_tier():
     """Verify quota calculation handles invalid tier fallback and December year-rollover."""
@@ -324,6 +328,7 @@ async def test_quota_manager_december_rollover_and_invalid_tier():
 # =========================================================================
 # 5. REST API Quota & Plugin Endpoints
 # =========================================================================
+
 
 @pytest.mark.asyncio
 async def test_api_tenant_upgrade_invalid_tier_returns_400():

@@ -178,9 +178,7 @@ class ReviewOrchestrator:
             # 3. Execute Primary Agents in Parallel
             if request.context:
                 agent_context = (
-                    request.context.model_dump()
-                    if hasattr(request.context, "model_dump")
-                    else dict(request.context)
+                    request.context.model_dump() if hasattr(request.context, "model_dump") else dict(request.context)
                 )
             else:
                 agent_context = {}

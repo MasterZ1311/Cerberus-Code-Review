@@ -1577,9 +1577,9 @@ class HeuristicEngine:
                 continue
 
             # SQL Injection via string interpolation in SQLite/CoreData/GRDB
-            if re.search(r'(execute|query|rawQuery|prepareStatement)\s*\(\s*(sql:\s*)?["\'].*\\\(.*["\']', line) or re.search(
-                r'["\'].*(SELECT|INSERT|UPDATE|DELETE)\s+.*\\\(.*["\']', line, re.IGNORECASE
-            ):
+            if re.search(
+                r'(execute|query|rawQuery|prepareStatement)\s*\(\s*(sql:\s*)?["\'].*\\\(.*["\']', line
+            ) or re.search(r'["\'].*(SELECT|INSERT|UPDATE|DELETE)\s+.*\\\(.*["\']', line, re.IGNORECASE):
                 findings.append(
                     Finding(
                         id=f"SWIFT-SQLI-{idx}",
