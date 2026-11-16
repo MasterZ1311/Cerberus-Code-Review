@@ -121,6 +121,8 @@ module = [
     "tree_sitter_go",
     "tree_sitter_rust",
     "opentelemetry.*",
+    "yaml",
+    "yaml.*",
 ]
 ignore_missing_imports = true
 

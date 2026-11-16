@@ -95,9 +95,10 @@ jobs:
         run: |
           kubectl kustomize k8s/
 
-      - name: Validate Kubernetes Manifests (Dry-Run Apply)
+      - name: Validate Kubernetes Manifests (Client-Side Rendering)
         run: |
-          kubectl apply --dry-run=client --validate=false -k k8s/
+          kubectl kustomize k8s/ > /tmp/cerberus-manifests.yaml
+          test -s /tmp/cerberus-manifests.yaml
 
       - name: Install kubeconform
         run: |

@@ -284,7 +284,7 @@ class SyntaxVerifier:
     def verify_yaml(code: str) -> Tuple[bool, Optional[str]]:
         """Verifies YAML format validity if pyyaml is installed."""
         try:
-            import yaml
+            import yaml  # type: ignore[import-untyped]
 
             yaml.safe_load(code)
             return True, None

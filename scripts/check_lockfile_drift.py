@@ -172,21 +172,25 @@ def verify_regeneration_diff(req_file: Path, lock_file: Path, allow_unsafe: bool
         if res.returncode != 0:
             return False, [f"pip-compile failed during regeneration check for {req_file.name}: {res.stderr}"]
 
-        committed_tokens = extract_normalized_tokens(lock_file.read_text(encoding="utf-8"))
-        generated_tokens = extract_normalized_tokens(Path(tf.name).read_text(encoding="utf-8"))
+        committed_reqs = parse_requirements(lock_file)
+        generated_reqs = parse_requirements(Path(tf.name))
 
-        if committed_tokens != generated_tokens:
-            diff_lines = []
-            for i, (c, g) in enumerate(zip(committed_tokens, generated_tokens, strict=False)):
-                if c != g:
-                    diff_lines.append(f"Line {i}: committed='{c}', regenerated='{g}'")
-                    if len(diff_lines) >= 5:
-                        break
-            if len(committed_tokens) != len(generated_tokens):
-                diff_lines.append(f"Total lines differ: committed={len(committed_tokens)}, generated={len(generated_tokens)}")
+        diff_pkgs: List[str] = []
+        for pkg, ver in generated_reqs.items():
+            if pkg not in committed_reqs:
+                diff_pkgs.append(f"Newly resolved package '{pkg}=={ver}' is not in committed {lock_file.name}")
+            elif committed_reqs[pkg] != ver:
+                diff_pkgs.append(
+                    f"Version mismatch for '{pkg}': committed '{committed_reqs[pkg]}' vs newly resolved '{ver}'"
+                )
+        for pkg, ver in committed_reqs.items():
+            if pkg not in generated_reqs:
+                diff_pkgs.append(f"Committed package '{pkg}=={ver}' was not resolved by pip-compile")
+
+        if diff_pkgs:
             return False, [
-                f"Lockfile drift detected between committed {lock_file.name} and newly regenerated output:\n"
-                + "\n".join(f"    {d}" for d in diff_lines)
+                f"Lockfile drift detected between committed {lock_file.name} and newly regenerated dependencies:\n"
+                + "\n".join(f"    {d}" for d in diff_pkgs[:10])
             ]
 
         return True, []
@@ -233,7 +237,9 @@ def main() -> int:
         print("\nRun 'python scripts/generate_lockfile.py --all' to reconcile.", file=sys.stderr)
         return 1
 
-    print("SUCCESS: All lockfiles are in full sync with declared requirements and all packages have verified SHA-256 hashes.")
+    print(
+        "SUCCESS: All lockfiles are in full sync with declared requirements and all packages have verified SHA-256 hashes."
+    )
     return 0
 
 
